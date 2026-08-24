@@ -12,7 +12,7 @@ export const STYLES = `
   font-family:'Karla',system-ui,sans-serif; min-height:100vh;
   padding:28px 18px 120px; -webkit-font-smoothing:antialiased;
 }
-.su-wrap{max-width:660px;margin:0 auto;}
+.su-wrap{max-width:800px;margin:0 auto;}
 .su-eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;
   text-transform:uppercase;color:var(--gold-dim);margin:0 0 6px;}
 .su-h1{font-family:'Fraunces',serif;font-weight:800;font-size:30px;line-height:1.1;
@@ -106,7 +106,7 @@ export const STYLES = `
 
 .su-nav{position:fixed;left:0;right:0;bottom:0;background:rgba(11,22,34,.96);
   border-top:1px solid var(--line);padding:13px 18px;backdrop-filter:blur(8px);}
-.su-nav-in{max-width:660px;margin:0 auto;display:flex;gap:10px;align-items:center;}
+.su-nav-in{max-width:800px;margin:0 auto;display:flex;gap:10px;align-items:center;}
 .su-btn{font-family:'Karla',sans-serif;font-weight:700;font-size:14px;padding:11px 22px;
   border-radius:2px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--bone-dim);}
 .su-btn:hover:not(:disabled){border-color:var(--gold-dim);color:var(--bone);}
