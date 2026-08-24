@@ -1,0 +1,181 @@
+{
+  "$comment": "Sina Una subclasses, book pp. 176-196 (PDF part 4 pp.41-45, part 5 pp.1-17). Chassis: D&D 5e 2014. Class chassis (hit die, saves, skills) is SRD 5.1, CC-BY-4.0.",
+  "chassis": "5e-2014",
+  "subclasses": [
+    {
+      "id": "path-of-the-black-river", "class": "barbarian", "name": "Path of the Black River",
+      "groupLabel": "Primal Path", "unlockLevel": 3, "page": 176,
+      "blurb": "You are not the river's attendant or its traveller, but its servant. Those who overstay their welcome among the living must fall to its power.",
+      "features": [
+        { "level": 3, "name": "Isolation of the Soul" },
+        { "level": 6, "name": "Treading Rampage" },
+        { "level": 10, "name": "Living Tide" },
+        { "level": 14, "name": "Burial Shroud" }
+      ]
+    },
+    {
+      "id": "college-of-siday", "class": "bard", "name": "College of Siday",
+      "groupLabel": "Bard College", "unlockLevel": 3, "page": 177,
+      "blurb": "Keepers of the epic poem, the noblest literary form of the islands. They dance to the heartbeat of history as new heroes rise.",
+      "features": [
+        { "level": 3, "name": "Noble Fortitude" },
+        { "level": 3, "name": "Folkloric Epics" },
+        { "level": 6, "name": "Bolstering Verse" },
+        { "level": 14, "name": "The Footsteps of Heroes" }
+      ]
+    },
+    {
+      "id": "volcano-domain", "class": "cleric", "name": "Volcano Domain",
+      "groupLabel": "Divine Domain", "unlockLevel": 1, "page": 178,
+      "blurb": "To see only the volcano's destruction is to be ruled by fear; to see only its growth is naive. Clerics of the volcano are ruled by neither.",
+      "features": [
+        { "level": 1, "name": "Domain Cleric spells" },
+        { "level": 1, "name": "Volcanic Calling" },
+        { "level": 2, "name": "Channel Divinity" },
+        { "level": 6, "name": "Revitalize and Renew" },
+        { "level": 8, "name": "Divine Strike" },
+        { "level": 17, "name": "Igneous Scion" }
+      ]
+    },
+    {
+      "id": "circle-of-tides", "class": "druid", "name": "Circle of Tides",
+      "groupLabel": "Druid Circle", "unlockLevel": 2, "page": 180,
+      "blurb": "Nature is not something to be tamed. The sea does not care who it harms — the only way to survive it is to adapt and grow.",
+      "features": [
+        { "level": 2, "name": "Quiet Undercurrent" },
+        { "level": 2, "name": "Adaptation" },
+        { "level": 6, "name": "Ebb and Flow" },
+        { "level": 10, "name": "Shifting Sands" },
+        { "level": 14, "name": "Increased Adaptation" }
+      ],
+      "errata": "The feature table is headed \"College of Tides Features\" in the book, though the subclass is named Circle of Tides."
+    },
+    {
+      "id": "kawal", "class": "fighter", "name": "Kawal",
+      "groupLabel": "Martial Archetype", "unlockLevel": 3, "page": 181,
+      "blurb": "When destruction threatens your home you are first to rise. A battle is not just a fight — it is a thundering race to ward away all harm.",
+      "features": [
+        { "level": 3, "name": "Steadfast Protector" },
+        { "level": 3, "name": "Guardian Roar" },
+        { "level": 7, "name": "Counter Destruction" },
+        { "level": 10, "name": "Resolute Loyalty" },
+        { "level": 15, "name": "Warrior's Legacy" },
+        { "level": 18, "name": "Peerless Defense" }
+      ]
+    },
+    {
+      "id": "way-of-kaluluwa", "class": "monk", "name": "Way of Kaluluwa",
+      "groupLabel": "Monastic Tradition", "unlockLevel": 3, "page": 183,
+      "blurb": "Where many train to hone body and soul into one, you learn to split them willingly — and have both fight alongside each other.",
+      "features": [
+        { "level": 3, "name": "Schism of Self" },
+        { "level": 3, "name": "Temperament of the Soul" },
+        { "level": 6, "name": "Diversion of Magic" },
+        { "level": 11, "name": "Refinement of Aspects" },
+        { "level": 17, "name": "Untethered Forms" }
+      ]
+    },
+    {
+      "id": "oath-of-blood", "class": "paladin", "name": "Oath of Blood",
+      "groupLabel": "Sacred Oath", "unlockLevel": 3, "page": 185,
+      "blurb": "A sacrifice of self in order to aid another. You become a part of the one you swear to, and they become a part of you.",
+      "features": [
+        { "level": 3, "name": "Oath Spells" },
+        { "level": 3, "name": "Channel Divinity" },
+        { "level": 7, "name": "Sanguine Light (10 ft.)" },
+        { "level": 15, "name": "Resilient Guardian" },
+        { "level": 18, "name": "Sanguine Light (30 ft.)" },
+        { "level": 20, "name": "Avatar of Sacrifice" }
+      ],
+      "oathSpells": [
+        { "level": 3, "spells": ["sanctuary", "bless"] },
+        { "level": 5, "spells": ["revivify", "warding bond"] },
+        { "level": 9, "spells": ["protection from energy", "remove curse"] },
+        { "level": 13, "spells": ["death ward", "stoneskin"] },
+        { "level": 17, "spells": ["dispel evil and good", "wall of force"] }
+      ],
+      "tenets": ["Death First", "Sacrifice", "Not One Drop", "Selfless"]
+    },
+    {
+      "id": "mangangayaw", "class": "ranger", "name": "Mangangayaw",
+      "groupLabel": "Ranger Archetype", "unlockLevel": 3, "page": 186,
+      "blurb": "You will always be faster to embrace the fight, and always ready to cut them all down.",
+      "features": [
+        { "level": 3, "name": "Innate Speech" },
+        { "level": 3, "name": "Striker's March" },
+        { "level": 7, "name": "Lowering Strikes" },
+        { "level": 11, "name": "Undertow" },
+        { "level": 15, "name": "Eternal March" }
+      ]
+    },
+    {
+      "id": "graverobber", "class": "rogue", "name": "Graverobber",
+      "groupLabel": "Roguish Archetype", "unlockLevel": 3, "page": 188,
+      "blurb": "You stole something you shouldn't have. Instead of running from the curse that beset you, you took its malignant nature and turned it into a gift.",
+      "spellcastingAbility": "cha",
+      "features": [
+        { "level": 3, "name": "Cursed Magic" },
+        { "level": 3, "name": "Anathema" },
+        { "level": 9, "name": "Eldritch Secrets" },
+        { "level": 13, "name": "Afflict Ruin" },
+        { "level": 17, "name": "Shroud of Desecration" }
+      ],
+      "choices": [
+        {
+          "id": "curse-manifestation", "name": "Curse manifestation", "atLevel": 3,
+          "note": "Sets your Anathema damage type. Rechoosable each time you gain a level in this class.",
+          "options": [
+            { "id": "pestilence", "name": "Pestilence", "damageType": "poison" },
+            { "id": "avarice", "name": "Avarice", "damageType": "psychic" },
+            { "id": "destruction", "name": "Destruction", "damageType": "force" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "diwata-bloodline", "class": "sorcerer", "name": "Diwata Bloodline",
+      "groupLabel": "Sorcerous Origin", "unlockLevel": 1, "page": 190,
+      "blurb": "You herald from a nature spirit of great power — the sun, the moon, a volcano, an ocean. You are the union of spirit and mortal.",
+      "features": [
+        { "level": 1, "name": "Spirit's Cunning", "grants": { "skillProficiencies": ["Nature"], "languages": ["Sylvan"] } },
+        { "level": 1, "name": "Sorcerous Nature" },
+        { "level": 6, "name": "Icon of the Spirit" },
+        { "level": 14, "name": "Icon's Territory" },
+        { "level": 18, "name": "Nature's Unending Reach" }
+      ],
+      "errata": "The level 18 feature is listed as \"Nature's Unending Reach\" in the table but headed \"One with Nature\" in the body text."
+    },
+    {
+      "id": "mooneater-patron", "class": "warlock", "name": "Mooneater Patron",
+      "groupLabel": "Otherworldly Patron", "unlockLevel": 1, "page": 192,
+      "blurb": "The Celestial Eaters loom over the islands like gnawing shadows, gnashing their maws as they wait to incite the end of the world.",
+      "features": [
+        { "level": 1, "name": "Expanded Spell List" },
+        { "level": 1, "name": "Celestial Yearning" },
+        { "level": 1, "name": "Agent of Destruction" },
+        { "level": 6, "name": "Devour Essence" },
+        { "level": 10, "name": "Eclipsing Fear" },
+        { "level": 14, "name": "Cataclysmic Hunger" }
+      ],
+      "expandedSpells": [
+        { "level": 1, "spells": ["inflict wounds", "thunderwave"] },
+        { "level": 2, "spells": ["enlarge/reduce", "pass without trace"] },
+        { "level": 3, "spells": ["call lightning", "water walk"] },
+        { "level": 4, "spells": ["dominate beast", "phantasmal killer"] },
+        { "level": 5, "spells": ["planar binding", "telekinesis"] }
+      ]
+    },
+    {
+      "id": "mentala", "class": "wizard", "name": "Mentala",
+      "groupLabel": "Arcane Tradition", "unlockLevel": 2, "page": 196,
+      "blurb": "The art of scribing spells onto bamboo scrolls. Versatile and strong, weathering what storms may come with trusty scrolls in hand.",
+      "features": [
+        { "level": 2, "name": "Durability" },
+        { "level": 2, "name": "Shared Scrolls" },
+        { "level": 6, "name": "Scribe's Malediction" },
+        { "level": 10, "name": "Bendable Magic" },
+        { "level": 14, "name": "Primordial Conduit" }
+      ]
+    }
+  ]
+}
