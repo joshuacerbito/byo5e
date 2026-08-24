@@ -201,8 +201,19 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
   table.atk th{text-align:left;font-size:7pt;letter-spacing:.08em;text-transform:uppercase;
     color:#555;border-bottom:1px solid #999;padding:3px 5px}
   table.atk td{padding:3px 5px;border-bottom:1px solid #ddd}
-  @page{size:A4 portrait;margin:14mm}
-  @media print{body{padding:0;max-width:none}.bar{display:none}}
+  /* 6mm, not the 14mm the design wants, because Chromium only draws the
+     print dialog's date/title/URL headers when the page margin is big enough
+     to hold them — measured threshold is 9mm, so anything at or below 8mm
+     suppresses them with the checkbox still ticked. 6mm keeps headroom
+     against that threshold drifting, and stays clear of the ~5mm most
+     printers can't reach. The missing 8mm moves into the body box below, so
+     the content measure is unchanged. */
+  @page{size:A4 portrait;margin:6mm}
+  /* 6mm page margin + 8mm padding = the same 14mm and 182mm measure the
+     screen column has. Side margins hold on every page; the top and bottom
+     of interior pages get the 6mm page margin alone, since padding only
+     applies where the document itself starts and ends. */
+  @media print{body{padding:8mm;max-width:none}.bar{display:none}}
 </style></head><body>
 ${interactive ? `<div class="bar"><p>Choose <b>Save as PDF</b> as the destination to get a PDF file.</p>
 <button onclick="window.print()">Print / Save as PDF</button></div>` : ""}

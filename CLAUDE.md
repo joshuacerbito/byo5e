@@ -222,10 +222,18 @@ A fourth, quieter link still downloads the raw `.html` for hand-editing or maili
 **The print route.** `buildSheetHTML(ctx, { interactive })` — the toolbar at the top of the sheet
 (its own "Print / Save as PDF" button) renders only when `interactive` is true. The downloaded
 file keeps it; the print iframe passes false, so the OS dialog is the first and only thing a
-click produces. The sheet is A4 throughout: `@page` is `size:A4 portrait; margin:14mm`, the body
-column is a full 210mm wide with 14mm padding (exactly the 182mm those margins leave), and the
-iframe is 794×1123px — 210×297mm at 96dpi. Screen and print share one measure, so nothing
-reflows when it prints, and the sized iframe also stops mobile Safari printing a squished sheet.
+click produces. The sheet is A4 throughout: the body column is a full 210mm wide with 14mm
+padding (leaving a 182mm measure) and the iframe is 794×1123px — 210×297mm at 96dpi. Screen and
+print share one measure, so nothing reflows when it prints, and the sized iframe also stops
+mobile Safari printing a squished sheet.
+
+That 14mm is **split** in print: `@page` takes 6mm and the body box takes the other 8mm. The
+reason is the print dialog's date/title/URL headers — Chromium draws them only when the page
+margin is big enough to hold them, and drops them when it isn't, whatever the "Headers and
+footers" checkbox says. Measured against headless Chromium: 9mm and up prints them, 8mm and
+below doesn't. 6mm leaves headroom in case that threshold moves and still clears the ~5mm most
+printers can't reach. Side margins hold on every page; interior pages get the 6mm page margin
+alone at top and bottom, since padding applies only where the document starts and ends.
 
 **The raster route (iOS).** `sheetRaster.js` lays `buildSheetHTML()` out in an offscreen
 A4-wide iframe and photographs it into an A4 PDF with html2canvas + jsPDF. Fidelity is perfect
