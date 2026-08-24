@@ -639,17 +639,22 @@ export default function SinaUnaCreator() {
      works. Printing via a script-opened tab (window.open + document.write)
      is unreliable on iOS/iPadOS Safari — the print dialog often never
      appears there. A hidden same-page iframe prints reliably on iOS as
-     well as desktop, so use that instead. */
+     well as desktop, so use that instead.
+
+     The iframe copy is built with interactive:false, so the sheet's own
+     "Print / Save as PDF" toolbar isn't in it: the OS dialog is the first
+     and only thing the click produces. */
   const printSheet = () => {
     // Zero-size iframes get laid out at 0 width before mobile Safari's
     // print pipeline reflows them, squishing the sheet. Give it a real
-    // desktop-ish box, just parked off-screen.
+    // A4 box — 210mm at 96dpi — parked off-screen, so what gets laid out
+    // is the width it will actually print at.
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.left = "-10000px";
     iframe.style.top = "0";
-    iframe.style.width = "800px";
-    iframe.style.height = "1100px";
+    iframe.style.width = "794px";
+    iframe.style.height = "1123px";
     iframe.style.border = "0";
     document.body.appendChild(iframe);
     const cleanup = () => { if (iframe.parentNode) document.body.removeChild(iframe); };
@@ -661,7 +666,7 @@ export default function SinaUnaCreator() {
       // not window.print's dialog), so also fall back to a generous timer.
       setTimeout(cleanup, 60000);
     };
-    iframe.srcdoc = buildSheetHTML(sheetCtx);
+    iframe.srcdoc = buildSheetHTML(sheetCtx, { interactive: false });
   };
 
   const sheetText = useMemo(() => {

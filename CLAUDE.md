@@ -196,9 +196,22 @@ Two-stage UI: pick base race, then pick lineage from a merged pool with Sina Una
 
 The app runs as a real Vite page now (not an artifact iframe), so `window.print()` works
 directly — no need for `react-to-print` or jsPDF. `buildSheetHTML()` generates a self-contained
-HTML document with its own print stylesheet; `printSheet()` opens it in a new tab via
-`window.open` + `document.write` and calls `.print()` once it loads, landing the user straight
-in the OS print dialog (`Save as PDF` from there). `downloadSheet()` still exists as a secondary
+HTML document with its own print stylesheet; `printSheet()` loads it into a hidden same-page
+iframe and calls `.print()` on load, landing the user straight in the OS print dialog
+(`Save as PDF` from there). A script-opened tab was tried first and is unreliable on iOS Safari,
+where the dialog often never appears.
+
+`buildSheetHTML(ctx, { interactive })` — the toolbar at the top of the sheet (its own
+"Print / Save as PDF" button) renders only when `interactive` is true. The downloaded file keeps
+it, since someone opening that file needs a way to print; the iframe copy passes false so the OS
+dialog is the first and only thing a click produces.
+
+**The sheet is A4 throughout.** `@page` is `size:A4 portrait; margin:14mm`, the body column is
+a full 210mm wide with 14mm padding — exactly the 182mm content width those margins leave — and
+the print iframe is sized 794×1123px (210×297mm at 96dpi). Screen and print therefore share one
+measure, and nothing reflows to a different width when it prints. That iframe size matters on
+mobile Safari for a second reason: it lays the sheet out before the print pipeline reflows it,
+so an unsized (0-width) iframe prints squished. `downloadSheet()` still exists as a secondary
 path — Blob download of the same HTML, for anyone who wants the raw file instead (email to the
 DM, edit by hand, archive). Both build off the same `sheetCtx` object and `buildSheetHTML()`.
 

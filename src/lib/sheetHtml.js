@@ -2,10 +2,14 @@ import { ABILITIES } from '../data/progression.js';
 import { mod, fmt, groupWeapons, parseStartingGold, ACTION_ORDER, ACTION_LABELS } from './derive.js';
 
 /* Builds a standalone, printable HTML document for the character.
-   window.print() can't be used from inside a sandboxed iframe, so the
-   sheet is generated as a self-contained file and handed over as a
-   download. Everything it needs is passed in explicitly. */
-export function buildSheetHTML(ctx) {
+   Everything it needs is passed in explicitly.
+
+   `interactive` controls the on-page toolbar at the top. The downloaded
+   file keeps it, since someone opening that file needs a way to print.
+   The copy printSheet() loads into its hidden iframe passes false: the
+   print dialog is meant to be the first and only thing that appears, and
+   a button nobody can click has no business rendering behind it. */
+export function buildSheetHTML(ctx, { interactive = true } = {}) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore,
     attackRows, masteryEnabled, carriedWeapons, actions,
@@ -148,8 +152,12 @@ export function buildSheetHTML(ctx) {
 <title>${esc(name.trim() || "Unnamed")} — character sheet</title>
 <style>
   *{box-sizing:border-box}
+  /* A4 all the way through: the on-screen column is a full 210mm wide
+     with 14mm padding, which is exactly the 182mm content width @page's
+     14mm margins leave on A4 paper. Screen and print stay in step, and
+     the sheet doesn't reflow to a different measure when it prints. */
   body{font-family:Georgia,'Times New Roman',serif;color:#111;background:#fff;
-    max-width:190mm;margin:0 auto;padding:14mm;font-size:10.5pt;line-height:1.45}
+    max-width:210mm;margin:0 auto;padding:14mm;font-size:10.5pt;line-height:1.45}
   .bar{background:#0B1622;color:#E8DEC9;padding:12px 16px;border-radius:3px;
     display:flex;align-items:center;gap:14px;margin-bottom:18px;font-family:system-ui,sans-serif}
   .bar p{margin:0;font-size:13px;flex:1}
@@ -191,11 +199,11 @@ export function buildSheetHTML(ctx) {
   table.atk th{text-align:left;font-size:7pt;letter-spacing:.08em;text-transform:uppercase;
     color:#555;border-bottom:1px solid #999;padding:3px 5px}
   table.atk td{padding:3px 5px;border-bottom:1px solid #ddd}
-  @page{margin:14mm}
+  @page{size:A4 portrait;margin:14mm}
   @media print{body{padding:0;max-width:none}.bar{display:none}}
 </style></head><body>
-<div class="bar"><p>Choose <b>Save as PDF</b> as the destination to get a PDF file.</p>
-<button onclick="window.print()">Print / Save as PDF</button></div>
+${interactive ? `<div class="bar"><p>Choose <b>Save as PDF</b> as the destination to get a PDF file.</p>
+<button onclick="window.print()">Print / Save as PDF</button></div>` : ""}
 <header><div><div class="nm">${esc(name.trim() || "Unnamed")}</div>
 <div class="sb">${esc(head)}</div></div><div class="br">Sina Una</div></header>
 <div class="vits">${vitals}</div>
