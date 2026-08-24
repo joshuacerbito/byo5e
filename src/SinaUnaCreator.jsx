@@ -7,6 +7,7 @@ import { WEAPONS, PROPERTY_LABELS, DMG_TYPE_LABELS, WEAPON_MASTERY_2024, MASTERY
 import { ALL_SUBCLASSES } from "./data/subclasses.js";
 import { BACKGROUNDS } from "./data/backgrounds.js";
 import { PHB_SPELLS, CLS_CODE } from "./data/phbSpells.js";
+import { SCC_SPELLS } from "./data/sccSpells.js";
 import { SPELLS, SPIRIT_TABLE, SPELL_LISTS } from "./data/islandSpells.js";
 import {
   ABILITIES, POINT_COST, POINT_BUDGET, STANDARD_ARRAY,
@@ -21,6 +22,12 @@ import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
 import { STYLES } from "./styles.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
+
+/* Both non-island pools in one list. Strixhaven's five spells sit on the
+   ordinary 2014 class lists, so they're offered wherever a class code
+   matches — the app never needs to treat them as a separate pool, only
+   to label where they came from (`src: "scc"`). */
+const BOOK_SPELLS = [...PHB_SPELLS, ...SCC_SPELLS];
 
 const STORAGE_KEY = "sina-una-character";
 
@@ -508,13 +515,17 @@ export default function SinaUnaCreator() {
       ? SPELLS.filter((sp) => SPELL_LISTS[key].includes(sp.name) && (sp.level === 0 || sp.level <= maxLvl))
       : [];
 
-    /* PHB spells — name and level only. */
+    /* Handbook spells, then Strixhaven's — kept in separate lists so the
+       picker can head each with the book it came from, the same way the
+       island rows are headed. Both are filtered by the same class code. */
     const code = CLS_CODE[key];
-    const phb = code
-      ? PHB_SPELLS.filter((sp) => sp.cls.includes(code) && (sp.level === 0 || sp.level <= maxLvl))
-      : [];
+    const byCode = (pool) => (code
+      ? pool.filter((sp) => sp.cls.includes(code) && (sp.level === 0 || sp.level <= maxLvl))
+      : []);
+    const phb = byCode(PHB_SPELLS);
+    const scc = byCode(SCC_SPELLS);
 
-    return { key, maxLvl, rows: island, phb, all: [...island, ...phb] };
+    return { key, maxLvl, rows: island, phb, scc, all: [...island, ...phb, ...scc] };
   }, [casting, classId]);
 
   const hasSpellStep = !!(casting && !casting.pending);
@@ -525,12 +536,12 @@ export default function SinaUnaCreator() {
   const spellBudget = casting?.known ?? casting?.prepared ?? 0;
 
   const spellLevelOf = (n) =>
-    (SPELLS.find((s) => s.name === n) || PHB_SPELLS.find((s) => s.name === n))?.level ?? 0;
+    (SPELLS.find((s) => s.name === n) || BOOK_SPELLS.find((s) => s.name === n))?.level ?? 0;
   const pickedCantrips = pickedSpells.filter((n) => spellLevelOf(n) === 0);
   const pickedLeveled = pickedSpells.filter((n) => spellLevelOf(n) > 0);
 
   const findSpell = (nm) =>
-    SPELLS.find((x) => x.name === nm) || PHB_SPELLS.find((x) => x.name === nm);
+    SPELLS.find((x) => x.name === nm) || BOOK_SPELLS.find((x) => x.name === nm);
 
   const toggleSpell = (nm) => {
     const sp = findSpell(nm);
@@ -547,7 +558,7 @@ export default function SinaUnaCreator() {
 
   /* Full records for whatever was picked, sorted for display. */
   const chosenSpells = useMemo(
-    () => [...SPELLS, ...PHB_SPELLS].filter((s) => pickedSpells.includes(s.name))
+    () => [...SPELLS, ...BOOK_SPELLS].filter((s) => pickedSpells.includes(s.name))
       .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name)),
     [pickedSpells]
   );
@@ -567,13 +578,14 @@ export default function SinaUnaCreator() {
       out.push({ group: "Subclass choice", name: subclass.choice.name,
         text: `${o.name} — ${o.sub}. ${subclass.choice.note}` });
     }
-    const spellEntry = (sp) => ({ group: sp.src === "phb" ? "Handbook spells" : "Island spells", name: sp.name,
+    const SPELL_GROUP = { phb: "Handbook spells", scc: "Strixhaven spells" };
+    const spellEntry = (sp) => ({ group: SPELL_GROUP[sp.src] || "Island spells", name: sp.name,
       text: `${sp.level === 0 ? "Cantrip" : `Level ${sp.level}`} ${sp.school}. ` +
         `Casting time ${sp.time}. Range ${sp.range}. Components ${sp.comp}. Duration ${sp.dur}.` +
         `${sp.ritual ? " Ritual." : ""}${sp.conc ? " Concentration." : ""} ${sp.text}` });
-    /* Island spells before Handbook spells. */
-    chosenSpells.filter((sp) => sp.src !== "phb").forEach((sp) => out.push(spellEntry(sp)));
-    chosenSpells.filter((sp) => sp.src === "phb").forEach((sp) => out.push(spellEntry(sp)));
+    /* Island spells first, then Handbook, then Strixhaven. */
+    for (const src of [undefined, "phb", "scc"])
+      chosenSpells.filter((sp) => sp.src === src).forEach((sp) => out.push(spellEntry(sp)));
     return out;
   }, [subclass, curse, chosenSpells]);
 
@@ -1677,6 +1689,18 @@ export default function SinaUnaCreator() {
                       ))}
                     </>
                   )}
+                  {availableSpells?.scc.filter((x) => x.level === 0).length > 0 && (
+                    <>
+                      <div className="su-src">Strixhaven
+                        <span className="su-src-n">{availableSpells.scc.filter((x) => x.level === 0).length}</span></div>
+                      {availableSpells.scc.filter((x) => x.level === 0).map((sp) => (
+                        <SpellTableRow key={sp.name} sp={sp} casting={casting}
+                                  on={pickedSpells.includes(sp.name)}
+                                  full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
+                                  onToggle={() => toggleSpell(sp.name)} />
+                      ))}
+                    </>
+                  )}
                 </div>
                 <Rule />
               </>
@@ -1698,7 +1722,8 @@ export default function SinaUnaCreator() {
                       {[1, 2, 3].map((lvl) => {
                         const rows = availableSpells.rows.filter((x) => x.level === lvl);
                         const phb = availableSpells.phb.filter((x) => x.level === lvl);
-                        if (!rows.length && !phb.length) return null;
+                        const scc = availableSpells.scc.filter((x) => x.level === lvl);
+                        if (!rows.length && !phb.length && !scc.length) return null;
                         return (
                           <div key={lvl}>
                             <div className="su-lvlh">Level {lvl}
@@ -1730,6 +1755,18 @@ export default function SinaUnaCreator() {
                                 ))}
                               </>
                             )}
+                            {scc.length > 0 && (
+                              <>
+                                <div className="su-src">Strixhaven
+                                  <span className="su-src-n">{scc.length}</span></div>
+                                {scc.map((sp) => (
+                                  <SpellTableRow key={sp.name} sp={sp} casting={casting}
+                                            on={pickedSpells.includes(sp.name)}
+                                            full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
+                                            onToggle={() => toggleSpell(sp.name)} />
+                                ))}
+                              </>
+                            )}
                           </div>
                         );
                       })}
@@ -1743,7 +1780,7 @@ export default function SinaUnaCreator() {
             <div className="su-panel">
               <h3>Anything else</h3>
               <p className="su-note" style={{ marginBottom: 10 }}>
-                Everything from the Handbook and the islands is listed above. If your table uses spells
+                Everything from the Handbook, Strixhaven, and the islands is listed above. If your table uses spells
                 from another book, add them here — one per line.
               </p>
               <textarea className="su-out" rows={4} value={otherSpells}

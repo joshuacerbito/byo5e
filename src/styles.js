@@ -215,6 +215,9 @@ export const STYLES = `
   text-transform:uppercase;border:1px solid var(--gold-dim);color:var(--gold);
   border-radius:2px;padding:1px 5px;}
 .su-tag.alt{border-color:var(--line);color:var(--bone-dim);}
+/* One-letter tags: the .1em tracking would sit as dead space after a lone
+   glyph and knock it off-centre in the box. */
+.su-tag.one{letter-spacing:0;padding:1px 4px;}
 
 .su-atk-table{display:flex;flex-direction:column;}
 .su-atk-row{display:grid;grid-template-columns:1.4fr .8fr .7fr .9fr 1.4fr;gap:8px;
@@ -244,6 +247,8 @@ export const STYLES = `
 .su-sprow.is-sel .su-spell-n{color:var(--gold);}
 .su-sprow-tbl .su-atk-row{border-bottom:none;padding:0;font-size:12px;}
 .su-sprow-tbl .su-spell-n{display:flex;align-items:center;gap:5px;font-size:14px;}
+.su-spell-trig{display:block;margin-top:6px;font-size:12px;color:var(--gold);
+  font-style:italic;line-height:1.5;}
 .su-heal{color:var(--jade);}
 
 .su-export{display:flex;align-items:center;justify-content:space-between;gap:16px;

@@ -94,6 +94,7 @@ src/
     weapons.js             WEAPONS (37 PHB + 18 Sina Una), PROPERTY_LABELS, WEAPON_MASTERY_2024 (opt-in, see below)
     islandSpells.js        SPELLS, SPIRIT_TABLE, SPELL_LISTS
     phbSpells.js           198 PHB spells, levels 0-3
+    sccSpells.js           5 Strixhaven (SCC) spells, levels 0-3 — the book's whole set
     progression.js         ABILITIES, point buy, slots, CASTING, SKILL_ABILITY
 ```
 
@@ -171,6 +172,36 @@ printable sheet has its own compact version of this table (name/time/range/hit-D
 notes, no description) built straight from `chosenSpells` in `sheetHtml.js` — same
 at-a-glance intent as the Attacks table, sitting on the main pages. Full spell text stays where
 it always was, in the Reference appendix.
+
+**Strixhaven spells.** `src/data/sccSpells.js` holds all five spells from *Strixhaven: A
+Curriculum of Chaos* (SCC) — Silvery Barbs, Borrowed Knowledge, Kinetic Jaunt, Vortex Warp,
+Wither and Bloom. Same shape as `phbSpells.js` (raw tuples + a combat-metadata map + a mapped
+export), so the two pools concatenate; text and class eligibility pulled from 5etools-src
+(`data/spells/spells-scc.json` and the `SCC` block of `data/spells/sources.json`, taking the
+2014 `PHB`-source class entries, not the XPHB ones), not hand-guessed. All five are level 1–2,
+so nothing was filtered out by the level-5 ceiling. It is **2014-compatible content, not 2024**
+— SCC predates the revision — so this is an ordinary content add, not an exception like Weapon
+Mastery. Artificer tags in the source data are dropped (no artificer in this app), and none of
+the five is on the babaylan list (book p.224), so none carries the `y` code.
+
+Provenance is the `src` field, which is what every downstream branch reads: `"phb"`, `"scc"`,
+or absent for island spells. The Spells step heads each pool with its book ("Sina Una" /
+"Player's Handbook" / "Strixhaven"), the appendix groups them the same way (island → Handbook →
+Strixhaven), and the printed spell table marks island spells `*` and Strixhaven spells `†`.
+Note that `availableSpells.phb` and `.scc` are deliberately separate lists rather than one
+merged pool — the picker needs to head them separately. `BOOK_SPELLS` (top of
+`SinaUnaCreator.jsx`) is the merged lookup list used by name-resolution helpers only.
+
+**Reaction triggers live outside the Time column.** Seven spells (PHB's Shield, Counterspell,
+Feather Fall, Hellish Rebuke; Silvery Barbs; the island Apolaki's Light and False Self) carry
+their trigger inside the casting-time string — "1 reaction, which you take when you are hit by
+an attack". Rendered into the narrow Time cell of the spell table that wrapped to ten lines and
+swallowed the row. `splitCastingTime()` (`src/lib/derive.js`) splits the head from the trigger:
+the column shows "1 reaction", the app row shows "Trigger: …" above the description, and the
+printed sheet folds it into the Notes cell beside ritual/conc. It splits only on a comma after
+a "reaction" head — Plant Growth's "1 action, 8 hours" is two genuine casting times and stays
+whole — and drops the PHB's "which you take " filler lead-in. The underlying `time` data is
+untouched, so the Reference appendix still prints the full string.
 
 **The printable sheet has no fixed page count.** It flows to however many pages the character
 needs — don't reintroduce "Page 1 / Page 2" framing in the UI or docs (a "two pages, then an
@@ -308,6 +339,7 @@ Static build, no server, no API — `npm run build` outputs `dist/` and that's t
 | Backgrounds | 6 | Sina Una only |
 | Island spells | 14 in app | levels 0–3; 24 total in `spells.json` |
 | PHB spells | 198 | levels 0–3 |
+| Strixhaven spells | 5 | levels 0–3; whole book |
 | Weapons | 55 | 37 PHB + 18 Sina Una, simple + martial |
 | Armor rows | 19 | 13 PHB + 6 Sina Una |
 

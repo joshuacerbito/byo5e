@@ -1,5 +1,5 @@
 import { ABILITIES } from '../data/progression.js';
-import { mod, fmt, groupWeapons, parseStartingGold, ACTION_ORDER, ACTION_LABELS } from './derive.js';
+import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS } from './derive.js';
 
 /* Builds a standalone, printable HTML document for the character.
    Everything it needs is passed in explicitly.
@@ -134,11 +134,14 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
       </div>
       ${chosenSpells.length ? `
       <table class="atk"><thead><tr><th>Name</th><th>Time</th><th>Range</th><th>Hit/DC</th><th>Effect</th><th>Notes</th></tr></thead>
-      <tbody>${chosenSpells.map((sp) => `<tr><td>${esc(sp.name)}${sp.src === "phb" ? "" : " *"}</td>` +
-        `<td>${esc(sp.time)}</td><td>${esc(sp.range)}</td><td>${esc(spellHitDC(sp))}</td>` +
-        `<td>${esc(spellEffect(sp))}</td><td>${[sp.ritual && "ritual", sp.conc && "conc"].filter(Boolean).map(esc).join(", ") || "—"}</td></tr>`).join("")}</tbody></table>` : ""}
+      <tbody>${chosenSpells.map((sp) => `<tr><td>${esc(sp.name)}${sp.src ? "" : " *"}${sp.src === "scc" ? " \u2020" : ""}</td>` +
+        `<td>${esc(splitCastingTime(sp.time).head)}</td><td>${esc(sp.range)}</td><td>${esc(spellHitDC(sp))}</td>` +
+        `<td>${esc(spellEffect(sp))}</td><td>${[sp.ritual && "ritual", sp.conc && "conc",
+          splitCastingTime(sp.time).trigger && `trigger: ${splitCastingTime(sp.time).trigger.toLowerCase()}`,
+        ].filter(Boolean).map(esc).join(", ") || "—"}</td></tr>`).join("")}</tbody></table>` : ""}
       ${otherSpells.trim() ? `<p><b>Other.</b> ${otherSpells.split("\n").map((x) => esc(x.trim())).filter(Boolean).join(", ")}</p>` : ""}
-      ${chosenSpells.some((x) => x.src !== "phb") ? `<p class="mut">* island spell — full text in the reference below.</p>` : ""}
+      ${chosenSpells.some((x) => !x.src) ? `<p class="mut">* island spell — full text in the reference below.</p>` : ""}
+      ${chosenSpells.some((x) => x.src === "scc") ? `<p class="mut">\u2020 Strixhaven spell — full text in the reference below.</p>` : ""}
       </section>` : "";
 
     const groups = [...new Set(appendix.map((a) => a.group))];

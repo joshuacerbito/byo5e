@@ -120,10 +120,11 @@ if (orphanDef.length) console.log(`  · ${orphanDef.length} unused rule(s): ${or
 console.log("Data");
 const counts = await (async () => {
   const [{ BASE_RACES }, { LINEAGES }, { CLASSES, ARMOR }, { ALL_SUBCLASSES },
-         { BACKGROUNDS }, { PHB_SPELLS }, { SPELLS }, { WEAPONS }] = await Promise.all([
+         { BACKGROUNDS }, { PHB_SPELLS }, { SCC_SPELLS }, { SPELLS }, { WEAPONS }] = await Promise.all([
     import("../src/data/baseRaces.js"), import("../src/data/lineages.js"),
     import("../src/data/classes.js"), import("../src/data/subclasses.js"),
     import("../src/data/backgrounds.js"), import("../src/data/phbSpells.js"),
+    import("../src/data/sccSpells.js"),
     import("../src/data/islandSpells.js"), import("../src/data/weapons.js"),
   ]);
   return {
@@ -135,6 +136,7 @@ const counts = await (async () => {
     "backgrounds": [BACKGROUNDS.length, 6],
     "island spells": [SPELLS.length, 14],
     "phb spells": [PHB_SPELLS.length, 198],
+    "strixhaven spells": [SCC_SPELLS.length, 5],
     "weapons": [WEAPONS.length, 55],
   };
 })();

@@ -112,3 +112,20 @@ export function resolveLineage(lineage, choicePicks) {
     droppedTraits: base.traits.filter((t) => dropped.has(t.name)),
   };
 }
+
+/* Reaction spells carry their trigger inside the casting-time string —
+   "1 reaction, which you take when you are hit by an attack". In a narrow
+   table column that wraps to ten lines and buries the rest of the row, so
+   the trigger is split off and shown beside the description instead. Only
+   a comma after a "reaction" head splits: Plant Growth's "1 action, 8
+   hours" is two real casting times and stays whole. The stock PHB
+   "which you take " lead-in is dropped as filler; Sina Una and SCC phrase
+   theirs without it. */
+export function splitCastingTime(time) {
+  const i = (time || "").indexOf(",");
+  if (i < 0) return { head: time || "", trigger: "" };
+  const head = time.slice(0, i);
+  if (!/reaction/i.test(head)) return { head: time, trigger: "" };
+  const rest = time.slice(i + 1).trim().replace(/^which you take\s+/i, "");
+  return { head, trigger: rest.charAt(0).toUpperCase() + rest.slice(1) };
+}
