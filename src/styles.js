@@ -121,6 +121,17 @@ export const STYLES = `
 .su-linkbtn:hover{color:var(--gold);}
 .su-linkbtn:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 
+.su-btn-danger{border-color:var(--coral);color:var(--coral);}
+.su-btn-danger:hover:not(:disabled){background:var(--coral);border-color:var(--coral);color:var(--bone);}
+
+.su-modal-bg{position:fixed;inset:0;background:rgba(11,22,34,.82);display:flex;
+  align-items:center;justify-content:center;padding:20px;z-index:50;}
+.su-modal{max-width:400px;width:100%;background:var(--rock);border:1px solid var(--coral);
+  border-radius:3px;padding:22px;}
+.su-modal-t{font-family:'Fraunces',serif;font-size:19px;color:var(--bone);margin:0 0 10px;}
+.su-modal-s{font-size:13.5px;color:var(--bone-dim);line-height:1.55;margin:0 0 18px;}
+.su-modal-row{display:flex;gap:10px;justify-content:flex-end;}
+
 .su-chip{display:flex;align-items:center;gap:10px;background:var(--rock);
   border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:2px;
   padding:9px 13px;margin-bottom:12px;}

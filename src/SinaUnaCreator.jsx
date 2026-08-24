@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 
 import { BASE_RACES } from "./data/baseRaces.js";
 import { LINEAGES, BASE_RACE_ORDER } from "./data/lineages.js";
@@ -20,23 +20,46 @@ import { STYLES } from "./styles.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
 
+const STORAGE_KEY = "sina-una-character";
+
+/* Read once per page load — this is a single-page app with no client routing,
+   so a fresh parse per mount would never see a different value anyway. */
+function loadSaved() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+const saved = loadSaved();
+
+const DEFAULTS = {
+  step: 0, baseId: null, lineageId: null, choicePicks: [], mode: "pointbuy",
+  scores: { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 }, arrayAssign: {},
+  name: "", classId: null, level: 1, subclassId: null, curse: null, skillPicks: [],
+  bgId: null, bgSkillPicks: [], bgChoice: null, armorId: "none", hasShield: false,
+  equipmentChoices: {}, masteryEnabled: false, pickedSpells: [], otherSpells: "",
+};
+
 export default function SinaUnaCreator() {
-  const [step, setStep] = useState(0);
-  const [baseId, setBaseId] = useState(null);
-  const [lineageId, setLineageId] = useState(null);
-  const [choicePicks, setChoicePicks] = useState([]);
-  const [mode, setMode] = useState("pointbuy");
-  const [scores, setScores] = useState({ str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 });
-  const [arrayAssign, setArrayAssign] = useState({});
-  const [name, setName] = useState("");
-  const [classId, setClassId] = useState(null);
-  const [level, setLevel] = useState(1);
-  const [subclassId, setSubclassId] = useState(null);
-  const [curse, setCurse] = useState(null);
-  const [skillPicks, setSkillPicks] = useState([]);
-  const [bgId, setBgId] = useState(null);
-  const [bgSkillPicks, setBgSkillPicks] = useState([]);
-  const [bgChoice, setBgChoice] = useState(null);
+  const [step, setStep] = useState(saved?.step ?? DEFAULTS.step);
+  const [baseId, setBaseId] = useState(saved?.baseId ?? DEFAULTS.baseId);
+  const [lineageId, setLineageId] = useState(saved?.lineageId ?? DEFAULTS.lineageId);
+  const [choicePicks, setChoicePicks] = useState(saved?.choicePicks ?? DEFAULTS.choicePicks);
+  const [mode, setMode] = useState(saved?.mode ?? DEFAULTS.mode);
+  const [scores, setScores] = useState(saved?.scores ?? DEFAULTS.scores);
+  const [arrayAssign, setArrayAssign] = useState(saved?.arrayAssign ?? DEFAULTS.arrayAssign);
+  const [name, setName] = useState(saved?.name ?? DEFAULTS.name);
+  const [classId, setClassId] = useState(saved?.classId ?? DEFAULTS.classId);
+  const [level, setLevel] = useState(saved?.level ?? DEFAULTS.level);
+  const [subclassId, setSubclassId] = useState(saved?.subclassId ?? DEFAULTS.subclassId);
+  const [curse, setCurse] = useState(saved?.curse ?? DEFAULTS.curse);
+  const [skillPicks, setSkillPicks] = useState(saved?.skillPicks ?? DEFAULTS.skillPicks);
+  const [bgId, setBgId] = useState(saved?.bgId ?? DEFAULTS.bgId);
+  const [bgSkillPicks, setBgSkillPicks] = useState(saved?.bgSkillPicks ?? DEFAULTS.bgSkillPicks);
+  const [bgChoice, setBgChoice] = useState(saved?.bgChoice ?? DEFAULTS.bgChoice);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const ancestry = LINEAGES.find((a) => a.id === lineageId) || null;
   const baseRace = baseId ? BASE_RACES[baseId] : null;
@@ -187,12 +210,62 @@ export default function SinaUnaCreator() {
     setBgChoice(null);
   };
 
-  const [armorId, setArmorId] = useState("none");
-  const [hasShield, setHasShield] = useState(false);
-  const [equipmentChoices, setEquipmentChoices] = useState({});
-  const [masteryEnabled, setMasteryEnabled] = useState(false);
-  const [pickedSpells, setPickedSpells] = useState([]);
-  const [otherSpells, setOtherSpells] = useState("");
+  const [armorId, setArmorId] = useState(saved?.armorId ?? DEFAULTS.armorId);
+  const [hasShield, setHasShield] = useState(saved?.hasShield ?? DEFAULTS.hasShield);
+  const [equipmentChoices, setEquipmentChoices] = useState(saved?.equipmentChoices ?? DEFAULTS.equipmentChoices);
+  const [masteryEnabled, setMasteryEnabled] = useState(saved?.masteryEnabled ?? DEFAULTS.masteryEnabled);
+  const [pickedSpells, setPickedSpells] = useState(saved?.pickedSpells ?? DEFAULTS.pickedSpells);
+  const [otherSpells, setOtherSpells] = useState(saved?.otherSpells ?? DEFAULTS.otherSpells);
+
+  /* Persist the whole character to localStorage on every change. */
+  useEffect(() => {
+    const snapshot = {
+      step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
+      classId, level, subclassId, curse, skillPicks, bgId, bgSkillPicks, bgChoice,
+      armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells,
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      /* storage full or unavailable — silently skip, nothing else depends on it */
+    }
+  }, [step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
+      classId, level, subclassId, curse, skillPicks, bgId, bgSkillPicks, bgChoice,
+      armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells]);
+
+  /* Wipes the saved character and every field back to its default, then
+     returns to the first step. */
+  const resetAll = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    setStep(DEFAULTS.step);
+    setBaseId(DEFAULTS.baseId);
+    setLineageId(DEFAULTS.lineageId);
+    setChoicePicks(DEFAULTS.choicePicks);
+    setMode(DEFAULTS.mode);
+    setScores(DEFAULTS.scores);
+    setArrayAssign(DEFAULTS.arrayAssign);
+    setName(DEFAULTS.name);
+    setClassId(DEFAULTS.classId);
+    setLevel(DEFAULTS.level);
+    setSubclassId(DEFAULTS.subclassId);
+    setCurse(DEFAULTS.curse);
+    setSkillPicks(DEFAULTS.skillPicks);
+    setBgId(DEFAULTS.bgId);
+    setBgSkillPicks(DEFAULTS.bgSkillPicks);
+    setBgChoice(DEFAULTS.bgChoice);
+    setArmorId(DEFAULTS.armorId);
+    setHasShield(DEFAULTS.hasShield);
+    setEquipmentChoices(DEFAULTS.equipmentChoices);
+    setMasteryEnabled(DEFAULTS.masteryEnabled);
+    setPickedSpells(DEFAULTS.pickedSpells);
+    setOtherSpells(DEFAULTS.otherSpells);
+    setShowResetConfirm(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   /* Effects currently in play, given the character's level. */
   const effects = useMemo(() => {
@@ -1758,9 +1831,37 @@ export default function SinaUnaCreator() {
               <textarea className="su-out" readOnly rows={10} value={sheetText}
                         onFocus={(e) => e.target.select()} aria-label="Character summary" />
             </div>
+
+            <Rule />
+
+            <div className="su-export">
+              <div>
+                <div className="su-export-t">Start over</div>
+                <div className="su-export-s">Wipes this character and every saved field.</div>
+              </div>
+              <button className="su-btn su-btn-danger" onClick={() => setShowResetConfirm(true)}>
+                Create new character
+              </button>
+            </div>
           </>
         )}
       </div>
+
+      {showResetConfirm && (
+        <div className="su-modal-bg" role="dialog" aria-modal="true" aria-label="Confirm new character">
+          <div className="su-modal">
+            <h3 className="su-modal-t">Create new character?</h3>
+            <p className="su-modal-s">
+              This clears every field — ancestry, abilities, class, background, and spells —
+              and starts a blank character from the first step. This can't be undone.
+            </p>
+            <div className="su-modal-row">
+              <button className="su-btn" onClick={() => setShowResetConfirm(false)}>Cancel</button>
+              <button className="su-btn su-btn-danger" onClick={resetAll}>Create New</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* nav */}
       <div className="su-nav">
