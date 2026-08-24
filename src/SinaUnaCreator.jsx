@@ -1828,15 +1828,15 @@ export default function SinaUnaCreator() {
 
             <div className="su-export">
               <div className="su-export-t">Character sheet</div>
-              <button className="su-btn su-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
-            </div>
-            <div className="su-export-alt">
-              <button className="su-btn" onClick={saveForIOS} disabled={pdfState === "working"}>
-                {pdfState === "working" ? "Building…" : "Save on iOS"}
-              </button>
-              <button className="su-btn" onClick={saveVector} disabled={pdfState === "working"}>
-                Save for other devices
-              </button>
+              <div className="su-export-alt">
+                <button className="su-btn su-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
+                <button className="su-btn" onClick={saveForIOS} disabled={pdfState === "working"}>
+                  {pdfState === "working" ? "Building…" : "Save on iOS"}
+                </button>
+                <button className="su-btn" onClick={saveVector} disabled={pdfState === "working"}>
+                  Save for other devices
+                </button>
+              </div>
             </div>
             <p className="su-note" style={{ marginTop: -2 }}>
               <button className="su-linkbtn" onClick={downloadSheet}>Download the raw HTML</button> instead.

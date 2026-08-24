@@ -251,9 +251,10 @@ export const STYLES = `
   border:1px solid var(--gold-dim);border-radius:3px;padding:16px 18px;margin-bottom:10px;}
 .su-export-t{font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--bone);}
 .su-export-s{font-size:12.5px;color:var(--bone-dim);line-height:1.5;margin-top:4px;}
-/* The other two export routes, secondary to the print one. */
-.su-export-alt{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
-.su-export-alt .su-btn{flex:1 1 auto;}
+/* All three export routes share the box; they wrap under the title on
+   narrow screens rather than squeezing. */
+.su-export-alt{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;}
+.su-export-alt .su-btn{flex:0 1 auto;}
 
 .su-spell-none{font-style:italic;color:#5C7086;}
 .su-lvlh{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--bone);
