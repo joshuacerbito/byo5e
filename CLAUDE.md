@@ -138,9 +138,11 @@ after reading its text and confirming what it costs to use. Powers the "Actions"
 app's Defenses step, grouped by bucket. Currently populated for all 14 core classes and the 18
 Sina Una subclasses (both have full text); PHB subclasses don't have feature text yet (see
 Outstanding work) so aren't tagged. The printable sheet carries a compact version too, titled
-"Class Actions" — name only, grouped by bucket, each entry pointing at the section further down
+"Actions" — name only, grouped by bucket, each entry pointing at the section further down
 that has the full text ("Abayan — See Babaylan features.") rather than repeating it up top,
-which is why an earlier pass removed a fuller excerpt from here.
+which is why an earlier pass removed a fuller excerpt from here. It was headed "Class Actions"
+until a Volcano Dwarf's Molten Armor turned up in it, which is an ancestry trait, not a class
+feature — the panel has always collected all three sources.
 
 **Attack table.** The Actions panel also carries a weapon attack table, sitting above the
 action-economy list. It's driven by `CLASSES[id].startingEquipment` (weapon choice groups +
