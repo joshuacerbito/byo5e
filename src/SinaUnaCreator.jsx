@@ -1580,7 +1580,7 @@ export default function SinaUnaCreator() {
 
                 {actions.length > 0 && (
                   <div className="su-panel">
-                    <h3>Actions</h3>
+                    <h3>Other Actions</h3>
                     {ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => (
                       <div key={k}>
                         <div className="su-actgroup-l">{ACTION_LABELS[k]}</div>

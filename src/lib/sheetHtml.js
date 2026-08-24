@@ -214,7 +214,7 @@ ${interactive ? `<div class="bar"><p>Choose <b>Save as PDF</b> as the destinatio
 <section><h4>Saving throws</h4>${saves}</section></div>
 <section><h4>Skills</h4><div class="sk">${skills}</div></section>
 ${attacksHtml ? `<section><h4>Attacks</h4>${attacksHtml}</section>` : ""}
-${actionsHtml ? `<section><h4>Actions</h4>${actionsHtml}</section>` : ""}
+${actionsHtml ? `<section><h4>Other Actions</h4>${actionsHtml}</section>` : ""}
 ${castBlock}
 <section><h4>Ancestry traits — ${esc(ancestry.name)}</h4>${traits}${dropped}</section>
 ${classFeats ? `<section><h4>${esc(klass.name)} features</h4>${classFeats}</section>` : ""}
