@@ -400,14 +400,57 @@ async function loadPdfMake() {
 export const pdfFileName = (name) =>
   `${(name.trim() || 'unnamed').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-sheet.pdf`;
 
-export async function downloadSheetPDF(ctx) {
+async function renderBlob(ctx) {
   const pdfMake = await loadPdfMake();
-  pdfMake.createPdf(buildSheetDocDefinition(ctx)).download(pdfFileName(ctx.name));
+  return pdfMake.createPdf(buildSheetDocDefinition(ctx)).getBlob();
 }
 
-/* Opens the finished PDF in a tab instead of saving it — the reliable route
-   on iOS, where a download lands in Files with no preview. The window has to
-   be opened synchronously inside the click handler and handed over, or the
+/* Saves the PDF. Deliberately not pdfmake's own .download() (file-saver behind
+   an <a download>): iOS Safari treats a blob it can render — a PDF above all —
+   as something to preview, ignores the download attribute, and drops the file
+   in a tab, leaving the user to go ... → Share → Save to Files by hand.
+
+   So: hand the file straight to the share sheet where that exists, which puts
+   "Save to Files" one tap away on iOS and "Save"/"Share" on Android. Everywhere
+   else (and if the share is refused), fall back to an anchor download typed
+   application/octet-stream, which Safari won't try to display inline.
+
+   navigator.share needs transient user activation, and awaiting the render eats
+   into it, so this must be called from the click handler itself — nothing may
+   await ahead of it. Returns "shared" | "cancelled" | "downloaded" so the
+   caller can word the confirmation correctly. */
+export async function saveSheetPDF(ctx) {
+  const blob = await renderBlob(ctx);
+  const filename = pdfFileName(ctx.name);
+
+  if (typeof File !== 'undefined' && navigator.canShare) {
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    if (navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        return 'shared';
+      } catch (e) {
+        // Dismissing the sheet is a normal outcome, not a failure to retry.
+        if (e && e.name === 'AbortError') return 'cancelled';
+      }
+    }
+  }
+
+  const url = URL.createObjectURL(new Blob([blob], { type: 'application/octet-stream' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return 'downloaded';
+}
+
+/* Opens the finished PDF in a tab instead of saving it — for reading on the
+   spot, or as the manual route if the share sheet isn't wanted. The window has
+   to be opened synchronously inside the click handler and handed over, or the
    popup blocker eats it while the PDF is still rendering. */
 export async function openSheetPDF(ctx, win) {
   const pdfMake = await loadPdfMake();

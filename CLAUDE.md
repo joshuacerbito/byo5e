@@ -202,9 +202,18 @@ Two paths out, both built from the same `sheetCtx` object assembled in the root 
 
 **PDF (primary) — `src/pdf/sheetPdf.js`.** `buildSheetDocDefinition(ctx)` turns `sheetCtx` into
 a pdfmake document definition and pdfmake renders a real vector PDF in the browser:
-`downloadSheetPDF(ctx)` saves it, `openSheetPDF(ctx, win)` shows it in a tab (the tab must be
+`saveSheetPDF(ctx)` saves it, `openSheetPDF(ctx, win)` shows it in a tab (the tab must be
 opened synchronously in the click handler and passed in, or the popup blocker eats it while the
-PDF renders). This replaced the old hidden-iframe `window.print()` route, which worked on
+PDF renders).
+
+Saving does **not** go through pdfmake's own `.download()`, or any `<a download>` holding an
+`application/pdf` blob: iOS Safari previews a blob it can render and ignores the download
+attribute, dumping the file in a tab and leaving the user to walk ... → Share → Save to Files
+by hand. `saveSheetPDF` hands the file to `navigator.share({ files })` where that exists —
+"Save to Files" is then one tap on iOS — and falls back to an anchor download typed
+`application/octet-stream`, which Safari won't try to display inline. `navigator.share` needs
+transient user activation, so it must be reached from the click handler with nothing awaited
+ahead of the render. This replaced the old hidden-iframe `window.print()` route, which worked on
 desktop and was unreliable everywhere else — mobile Safari routes printing through the share
 sheet and frequently never showed a dialog, and most Android print targets offer no "Save as
 PDF" destination at all. Generating the PDF ourselves removes the OS print pipeline from the

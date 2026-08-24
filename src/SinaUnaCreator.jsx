@@ -16,7 +16,7 @@ import { SLOTS_THIRD, buildSteps, profBonus } from "./lib/steps.js";
 import { mod, fmt, recommendedSpread, resolveLineage, ACTION_ORDER, ACTION_LABELS,
   attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold } from "./lib/derive.js";
 import { buildSheetHTML } from "./lib/sheetHtml.js";
-import { downloadSheetPDF, openSheetPDF } from "./pdf/sheetPdf.js";
+import { saveSheetPDF, openSheetPDF } from "./pdf/sheetPdf.js";
 import { STYLES } from "./styles.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
@@ -641,7 +641,7 @@ export default function SinaUnaCreator() {
     }
   };
 
-  const savePDF = () => runPdf(() => downloadSheetPDF(sheetCtx));
+  const savePDF = () => runPdf(() => saveSheetPDF(sheetCtx));
 
   /* The tab has to be opened synchronously from the click, before the
      await, or the popup blocker kills it while the PDF renders. */
@@ -1796,15 +1796,16 @@ export default function SinaUnaCreator() {
                 <div className="su-export-s">
                   Builds a PDF right here — no print dialog, same result on a phone as on a
                   laptop. As many pages as the character needs, then a reference appendix.
+                  On a phone this opens the share sheet, where <em>Save to Files</em> keeps it.
                 </div>
               </div>
               <button className="su-btn su-btn-go" onClick={savePDF} disabled={pdfState === "working"}>
-                {pdfState === "working" ? "Building…" : "Download PDF"}
+                {pdfState === "working" ? "Building…" : "Save PDF"}
               </button>
             </div>
             <p className="su-note" style={{ marginTop: -6 }}>
-              <button className="su-linkbtn" onClick={viewPDF}>Open it in a new tab</button> instead
-              (easier on iOS), or <button className="su-linkbtn" onClick={downloadSheet}>download the raw HTML</button>.
+              Rather just read it? <button className="su-linkbtn" onClick={viewPDF}>Open it in a new tab</button>.
+              Or <button className="su-linkbtn" onClick={downloadSheet}>download the raw HTML</button>.
             </p>
             {pdfState === "error" && (
               <p className="su-warn">The PDF failed to build. Try the raw HTML download instead.</p>
