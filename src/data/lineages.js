@@ -37,7 +37,11 @@ export const LINEAGES = [
     asi: { fixed: { wis: 1 } }, replaces: [],
     traits: [
       { name: "Verdant Intuition", text: "Add 1d4 to Intelligence (Nature) and Wisdom (Survival) checks." },
-      { name: "Spirit of Nature", text: "Know druidcraft. Cast entangle at 3rd level and barkskin at 5th, once each per long rest." }] },
+      { name: "Spirit of Nature", text: "Know druidcraft. Cast entangle at 3rd level and barkskin at 5th, once each per long rest.",
+        spells: [
+          { name: "Druidcraft", atLevel: 1, use: "at will" },
+          { name: "Entangle", atLevel: 3, use: "1/long rest" },
+          { name: "Barkskin", atLevel: 5, use: "1/long rest" }] }] },
   { id: "high-elf", base: "elf", name: "High Elf", src: "phb", kind: "subrace",
     asi: { fixed: { int: 1 } }, replaces: [],
     traits: [
@@ -57,9 +61,13 @@ export const LINEAGES = [
     traits: [
       { name: "Superior Darkvision", text: "Your darkvision has a radius of 120 feet." },
       { name: "Sunlight Sensitivity", text: "Disadvantage on attack rolls and Perception checks in direct sunlight." },
-      { name: "Drow Magic", text: "Know dancing lights. Faerie fire at 3rd level, darkness at 5th, once each per long rest." },
+      { name: "Drow Magic", text: "Know dancing lights. Faerie fire at 3rd level, darkness at 5th, once each per long rest.",
+        ability: "cha", spells: [
+          { name: "Dancing Lights", atLevel: 1, use: "at will" },
+          { name: "Faerie Fire", atLevel: 3, use: "1/long rest" },
+          { name: "Darkness", atLevel: 5, use: "1/long rest" }] },
       { name: "Drow Weapon Training", text: "Proficiency with rapiers, shortswords, hand crossbows." }],
-    effects: [{ type: "darkvision", value: 120 }, { type: "bonusCantrips", count: 1, from: "drow" }] },
+    effects: [{ type: "darkvision", value: 120 }] },
 
   /* ---- GNOME ---- */
   { id: "gold-gnome", base: "gnome", name: "Gold Gnome", src: "sinauna", kind: "subrace", page: 160,
@@ -71,7 +79,8 @@ export const LINEAGES = [
   { id: "forest-gnome", base: "gnome", name: "Forest Gnome", src: "phb", kind: "subrace",
     asi: { fixed: { dex: 1 } }, replaces: [],
     traits: [
-      { name: "Natural Illusionist", text: "You know the minor illusion cantrip. Intelligence is your spellcasting ability." },
+      { name: "Natural Illusionist", text: "You know the minor illusion cantrip. Intelligence is your spellcasting ability.",
+        ability: "int", spells: [{ name: "Minor Illusion", atLevel: 1, use: "at will" }] },
       { name: "Speak with Small Beasts", text: "You can communicate simple ideas to Small or smaller beasts." }],
     effects: [{ type: "bonusCantrips", count: 1, from: "wizard" }] },
   { id: "rock-gnome", base: "gnome", name: "Rock Gnome", src: "phb", kind: "subrace",
@@ -85,7 +94,8 @@ export const LINEAGES = [
     blurb: "Mangrove-root patterns mark their hands, chin, or back.",
     asi: { fixed: { int: 1 } }, replaces: [],
     traits: [
-      { name: "Natural Craftsmanship", text: "You know the mending cantrip." },
+      { name: "Natural Craftsmanship", text: "You know the mending cantrip.",
+        spells: [{ name: "Mending", atLevel: 1, use: "at will" }] },
       { name: "Quick Thinker", text: "Take the Help action as a bonus action.", action: "bonus" }] },
   { id: "lightfoot-halfling", base: "halfling", name: "Lightfoot Halfling", src: "phb", kind: "subrace",
     asi: { fixed: { cha: 1 } }, replaces: [],
@@ -101,7 +111,11 @@ export const LINEAGES = [
     replaces: ["Ability Score Increase", "Menacing", "Savage Attacks", "Languages"],
     traits: [
       { name: "Weapon Training", text: "Proficiency with simple and martial weapons." },
-      { name: "Blessing of Haliya", text: "Cast alarm, detect poison and disease, and identify as rituals, once each per long rest. A further ritual spell at 3rd and 5th level. Charisma is your spellcasting ability." }],
+      { name: "Blessing of Haliya", text: "Cast alarm, detect poison and disease, and identify as rituals, once each per long rest. A further ritual spell at 3rd and 5th level. Charisma is your spellcasting ability.",
+        ability: "cha", spells: [
+          { name: "Alarm", atLevel: 1, use: "as a ritual, 1/long rest" },
+          { name: "Detect Poison and Disease", atLevel: 1, use: "as a ritual, 1/long rest" },
+          { name: "Identify", atLevel: 1, use: "as a ritual, 1/long rest" }] }],
     languages: ["Common", "Sylvan"] },
   { id: "half-orc-standard", base: "half-orc", name: "Half-Orc", src: "phb", kind: "standard",
     asi: { fixed: {} }, replaces: [], traits: [] },
@@ -113,7 +127,11 @@ export const LINEAGES = [
     replaces: ["Ability Score Increase", "Draconic Ancestry", "Breath Weapon", "Damage Resistance", "Languages"],
     traits: [
       { name: "Blindsight", text: "Blindsight out to 30 feet.", blindsight: 30 },
-      { name: "Ancestral Protection", text: "Know guidance. Cast sanctuary at 3rd level and warding bond at 5th, once each per long rest. Wisdom is your spellcasting ability." }],
+      { name: "Ancestral Protection", text: "Know guidance. Cast sanctuary at 3rd level and warding bond at 5th, once each per long rest. Wisdom is your spellcasting ability.",
+        ability: "wis", spells: [
+          { name: "Guidance", atLevel: 1, use: "at will" },
+          { name: "Sanctuary", atLevel: 3, use: "1/long rest" },
+          { name: "Warding Bond", atLevel: 5, use: "1/long rest" }] }],
     languages: ["Common", "+1 of your choice"] },
   { id: "dragonborn-standard", base: "dragonborn", name: "Dragonborn", src: "phb", kind: "standard",
     asi: { fixed: {} }, replaces: [], traits: [] },

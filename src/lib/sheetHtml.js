@@ -12,7 +12,7 @@ import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORD
 export function buildSheetHTML(ctx, { interactive = true } = {}) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore,
-    attackRows, masteryEnabled, carriedWeapons, actions,
+    attackRows, masteryEnabled, carriedWeapons, actions, ancestrySpells,
   } = ctx;
 
     const esc = (x) => String(x ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -121,6 +121,42 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
       return "—";
     };
 
+    /* Legend for the Lvl column, assembled from what the character actually
+       took — no note about cantrips for a paladin, none about upcasting for
+       someone who picked nothing that scales. */
+    const spellLegend = (() => {
+      const bits = [
+        chosenSpells.some((x) => x.level === 0) && "<b>C</b> is a cantrip",
+        chosenSpells.some((x) => x.higher)
+          && "a <b>+</b> means the spell does more cast with a higher slot — the reference below says what",
+      ].filter(Boolean);
+      return bits.length ? `<p class="mut">Lvl: ${bits.join("; ")}.</p>` : "";
+    })();
+
+    /* Ancestry spells sit in their own section rather than inside
+       Spellcasting: a Balat-Kayo fighter has these and no spellcasting block
+       at all, so nesting them there would hide them from exactly the
+       characters who most need reminding. Each row carries its own DC and
+       attack — the granting trait names the ability, which need not be the
+       class's. */
+    const ancestrySpellBlock = (ancestrySpells || []).length ? `
+      <section><h4>Ancestry spells</h4>
+      <table class="atk"><thead><tr><th>Name</th><th>Lvl</th><th>Time</th><th>Range</th><th>Hit/DC</th><th>Effect</th><th>Notes</th></tr></thead>
+      <tbody>${ancestrySpells.map((sp) => {
+        const { head, trigger } = splitCastingTime(sp.time);
+        const hit = sp.atk ? (sp.attack == null ? "—" : fmt(sp.attack))
+          : sp.save ? `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()}${sp.saveDC == null ? "" : ` ${sp.saveDC}`}`
+          : "—";
+        return `<tr><td>${esc(sp.name)}</td><td>${sp.level === 0 ? "C" : sp.level}${sp.higher ? "+" : ""}</td>` +
+          `<td>${esc(head)}</td><td>${esc(sp.range)}</td><td>${esc(hit)}</td><td>${esc(spellEffect(sp))}</td>` +
+          `<td>${esc([sp.use, sp.from, sp.ability ? sp.ability.toUpperCase() : null,
+            sp.ritual && "ritual", sp.conc && "conc",
+            trigger && `trigger: ${trigger.toLowerCase()}`].filter(Boolean).join(", "))}</td></tr>`;
+      }).join("")}</tbody></table>
+      ${ancestrySpells.some((sp) => !sp.ability && (sp.atk || sp.save))
+        ? `<p class="mut">A blank DC means the book names no spellcasting ability for the trait that grants the spell — ask your DM which one it uses.</p>` : ""}
+      </section>` : "";
+
     const castBlock = casting && !casting.pending ? `
       <section><h4>Spellcasting — ${esc(casting.label)}</h4>
       <div class="inl">
@@ -133,13 +169,15 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
         ${casting.known != null ? `<span>Known <b>${casting.known}</b></span>` : ""}
       </div>
       ${chosenSpells.length ? `
-      <table class="atk"><thead><tr><th>Name</th><th>Time</th><th>Range</th><th>Hit/DC</th><th>Effect</th><th>Notes</th></tr></thead>
+      <table class="atk"><thead><tr><th>Name</th><th>Lvl</th><th>Time</th><th>Range</th><th>Hit/DC</th><th>Effect</th><th>Notes</th></tr></thead>
       <tbody>${chosenSpells.map((sp) => `<tr><td>${esc(sp.name)}${sp.src ? "" : " *"}${sp.src === "scc" ? " \u2020" : ""}</td>` +
+        `<td>${sp.level === 0 ? "C" : sp.level}${sp.higher ? "+" : ""}</td>` +
         `<td>${esc(splitCastingTime(sp.time).head)}</td><td>${esc(sp.range)}</td><td>${esc(spellHitDC(sp))}</td>` +
         `<td>${esc(spellEffect(sp))}</td><td>${[sp.ritual && "ritual", sp.conc && "conc",
           splitCastingTime(sp.time).trigger && `trigger: ${splitCastingTime(sp.time).trigger.toLowerCase()}`,
         ].filter(Boolean).map(esc).join(", ") || "—"}</td></tr>`).join("")}</tbody></table>` : ""}
       ${otherSpells.trim() ? `<p><b>Other.</b> ${otherSpells.split("\n").map((x) => esc(x.trim())).filter(Boolean).join(", ")}</p>` : ""}
+      ${spellLegend}
       ${chosenSpells.some((x) => !x.src) ? `<p class="mut">* island spell — full text in the reference below.</p>` : ""}
       ${chosenSpells.some((x) => x.src === "scc") ? `<p class="mut">\u2020 Strixhaven spell — full text in the reference below.</p>` : ""}
       </section>` : "";
@@ -230,6 +268,7 @@ ${interactive ? `<div class="bar"><p>Choose <b>Save as PDF</b> as the destinatio
 ${attacksHtml ? `<section><h4>Attacks</h4>${attacksHtml}</section>` : ""}
 ${actionsHtml ? `<section><h4>Other Actions</h4>${actionsHtml}</section>` : ""}
 ${castBlock}
+${ancestrySpellBlock}
 <section><h4>Ancestry traits — ${esc(ancestry.name)}</h4>${traits}${dropped}</section>
 ${classFeats ? `<section><h4>${esc(klass.name)} features</h4>${classFeats}</section>` : ""}
 ${feats ? `<section><h4>${esc(subclass.name)} — ${esc(subclass.group)}</h4>${feats}</section>` : ""}

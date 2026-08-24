@@ -218,6 +218,8 @@ export const STYLES = `
 /* One-letter tags: the .1em tracking would sit as dead space after a lone
    glyph and knock it off-centre in the box. */
 .su-tag.one{letter-spacing:0;padding:1px 4px;}
+.su-spell-hl{display:block;margin-top:5px;font-size:12.5px;color:var(--bone-dim);line-height:1.55;}
+.su-spell-hl b{color:var(--bone);}
 
 .su-atk-table{display:flex;flex-direction:column;}
 .su-atk-row{display:grid;grid-template-columns:1.4fr .8fr .7fr .9fr 1.4fr;gap:8px;

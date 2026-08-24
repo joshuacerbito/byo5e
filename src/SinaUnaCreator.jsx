@@ -14,7 +14,7 @@ import {
   SKILL_ABILITY, SLOTS_FULL, SLOTS_HALF, PACT, CASTING,
 } from "./data/progression.js";
 import { SLOTS_THIRD, buildSteps, profBonus } from "./lib/steps.js";
-import { mod, fmt, recommendedSpread, resolveLineage, ACTION_ORDER, ACTION_LABELS,
+import { mod, fmt, recommendedSpread, resolveLineage, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
   attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold } from "./lib/derive.js";
 import { buildSheetHTML } from "./lib/sheetHtml.js";
 import { saveSheetPDF } from "./pdf/sheetPdf.js";
@@ -276,11 +276,17 @@ export default function SinaUnaCreator() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /* Effects currently in play, given the character's level. */
+  /* Effects currently in play, given the character's level. Lineage effects
+     are in here too: they default to atLevel 1, where a subclass effect
+     defaults to the level its subclass unlocks at. Leaving them out was
+     silently dropping Hill Dwarf's +1 HP a level and Mountain Dwarf's
+     medium-armour proficiency, both of which only ever existed as effects. */
   const effects = useMemo(() => {
-    if (!subclass || !subclassReady) return [];
-    return (subclass.effects || []).filter((e) => level >= (e.atLevel ?? subclass.unlock));
-  }, [subclass, subclassReady, level]);
+    const lineage = (resolved?.effects || []).filter((e) => level >= (e.atLevel ?? 1));
+    if (!subclass || !subclassReady) return lineage;
+    return [...lineage,
+      ...(subclass.effects || []).filter((e) => level >= (e.atLevel ?? subclass.unlock))];
+  }, [resolved, subclass, subclassReady, level]);
 
   const fx = (type) => effects.filter((e) => e.type === type);
 
@@ -414,6 +420,39 @@ export default function SinaUnaCreator() {
     });
     return rows;
   }, [resolved, klass, carriedWeapons, pb, masteryEnabled, scores, arrayAssign, mode]);
+
+  /* Spells granted by ancestry, not chosen on the Spells step — Blessing of
+     Haliya's rituals, Drow Magic, Infernal Legacy and the rest. They hang off
+     the trait that grants them (`spells` + `ability`), so a variant that
+     replaces the trait drops its spells with it, and they show up whether or
+     not the class casts at all. Full stats are looked up by name in the
+     ordinary spell data, so these rows carry the same Time/Range/Hit-DC/Effect
+     columns as everything else. */
+  const ancestrySpells = useMemo(() => {
+    if (!resolved) return [];
+    const rows = [];
+    for (const t of resolved.traits) {
+      for (const g of t.spells || []) {
+        if (level < (g.atLevel ?? 1)) continue;
+        const sp = BOOK_SPELLS.find((x) => x.name === g.name) || SPELLS.find((x) => x.name === g.name);
+        if (!sp) continue;
+        /* No ability means the book never named one for this trait — see the
+           Balete Elf / Mangrove Halfling note in the docs. Without it there is
+           no honest DC or attack bonus to print, so the column stays an em dash. */
+        const abilityMod = t.ability ? mod(finalScore(t.ability)) : null;
+        rows.push({
+          ...sp,
+          key: `${t.name}-${g.name}`,
+          from: t.name,
+          use: g.use,
+          ability: t.ability || null,
+          saveDC: abilityMod == null ? null : 8 + pb + abilityMod,
+          attack: abilityMod == null ? null : pb + abilityMod,
+        });
+      }
+    }
+    return rows.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+  }, [resolved, level, pb, scores, arrayAssign, mode]);
 
   const allSkills = useMemo(
     () => [...new Set([...(resolved?.skills || []), ...skillPicks, ...bgSkills])].sort(),
@@ -582,12 +621,18 @@ export default function SinaUnaCreator() {
     const spellEntry = (sp) => ({ group: SPELL_GROUP[sp.src] || "Island spells", name: sp.name,
       text: `${sp.level === 0 ? "Cantrip" : `Level ${sp.level}`} ${sp.school}. ` +
         `Casting time ${sp.time}. Range ${sp.range}. Components ${sp.comp}. Duration ${sp.dur}.` +
-        `${sp.ritual ? " Ritual." : ""}${sp.conc ? " Concentration." : ""} ${sp.text}` });
+        `${sp.ritual ? " Ritual." : ""}${sp.conc ? " Concentration." : ""} ${sp.text}` +
+        `${sp.higher ? ` At Higher Levels. ${sp.higher}` : ""}` });
     /* Island spells first, then Handbook, then Strixhaven. */
     for (const src of [undefined, "phb", "scc"])
       chosenSpells.filter((sp) => sp.src === src).forEach((sp) => out.push(spellEntry(sp)));
+    /* Ancestry spells are never in chosenSpells — nobody picked them — so
+       their text would otherwise be missing from the reference entirely. */
+    ancestrySpells
+      .filter((sp) => !chosenSpells.some((c) => c.name === sp.name))
+      .forEach((sp) => out.push({ ...spellEntry(sp), group: "Ancestry spells" }));
     return out;
-  }, [subclass, curse, chosenSpells]);
+  }, [subclass, curse, chosenSpells, ancestrySpells]);
 
   /* Actions / Bonus Actions / Reactions granted by ancestry, class, and
      subclass — the mid-turn "what can I press" list, kept separate from
@@ -634,7 +679,7 @@ export default function SinaUnaCreator() {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passivePerception, passiveSkills, actions, pb, armor, shieldOn,
     savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice,
-    finalScore, attackRows, carriedWeapons, masteryEnabled,
+    finalScore, attackRows, carriedWeapons, masteryEnabled, ancestrySpells,
   };
 
   const downloadSheet = () => {
@@ -1604,6 +1649,32 @@ export default function SinaUnaCreator() {
                         ))}
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {ancestrySpells.length > 0 && (
+                  <div className="su-panel">
+                    <h3>Ancestry spells</h3>
+                    <p className="su-note" style={{ marginBottom: 10 }}>
+                      Granted by your lineage, not picked on the Spells step — and they don't
+                      spend your slots.
+                    </p>
+                    {ancestrySpells.map((sp) => (
+                      <div className="su-trait" key={sp.key}>
+                        <div className="su-trait-n">{sp.name}
+                          <span className="src">{sp.from}{sp.use ? ` — ${sp.use}` : ""}</span></div>
+                        <div className="su-trait-t">
+                          {sp.level === 0 ? "Cantrip" : `Level ${sp.level}`}. {splitCastingTime(sp.time).head}, {sp.range}.
+                          {sp.ability ? ` DC ${sp.saveDC}, attack ${fmt(sp.attack)} (${sp.ability.toUpperCase()}).` : ""} {sp.text}
+                        </div>
+                      </div>
+                    ))}
+                    {ancestrySpells.some((sp) => !sp.ability && (sp.atk || sp.save)) && (
+                      <p className="su-warn">
+                        The book names no spellcasting ability for one of these traits, so there's no
+                        DC to show — ask your DM which ability it uses.
+                      </p>
+                    )}
                   </div>
                 )}
 

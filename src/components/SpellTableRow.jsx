@@ -43,6 +43,7 @@ export default function SpellTableRow({ sp, on, full, onToggle, casting }) {
         {sp.text
           ? <span className="su-spell-t">{sp.text}</span>
           : <span className="su-spell-t su-spell-none">Description not loaded — see the Player's Handbook.</span>}
+        {sp.higher ? <span className="su-spell-hl"><b>At Higher Levels.</b> {sp.higher}</span> : null}
       </span>
     </button>
   );

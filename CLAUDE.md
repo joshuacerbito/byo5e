@@ -119,8 +119,12 @@ Supported types: `acFormula`, `armorProf`, `shieldProf`, `weaponProf`, `skillPro
 `languages`, `hpPerLevel`, `casting`, `bonusCantrips`, `bonusSkills`, `preparedBonus`,
 `speed`, `darkvision`.
 
-Every effect may carry `atLevel`, defaulting to the subclass unlock level. Collected in the
-`effects` memo, read via the `fx(type)` helper.
+Every effect may carry `atLevel`. It defaults to the subclass unlock level for a subclass
+effect and to 1 for a lineage effect. Collected in the `effects` memo, read via the `fx(type)`
+helper. The memo used to collect subclass effects **only**, which silently dropped Hill Dwarf's
+`hpPerLevel` and Mountain Dwarf's `armorProf` — the docs claimed lineage effects worked long
+before they did. Both sources are folded in now; if you add an effect type, check it reads
+sensibly from either.
 
 Three Sina Una subclasses use it: Mentala (`acFormula`), Graverobber (`casting`, `dcBase: 10`),
 and Omen of Swiftness (headhunter) (`casting`, third-caster from the cleric list — same shape
@@ -128,6 +132,32 @@ as the PHB's Eldritch Knight/Arcane Trickster).
 Lineages use it too — Wood Elf `speed`, Drow `darkvision`, Hill Dwarf `hpPerLevel`,
 Mountain Dwarf `armorProf`.
 Twelve of the forty PHB subclasses carry effects.
+
+**Ancestry spells.** A trait can grant spells outright — Balat-Kayo's Blessing of Haliya,
+Drow Magic, Infernal Legacy, Balete Elf's Spirit of Nature, Umalagad's Ancestral Protection,
+Mangrove Halfling's Natural Craftsmanship, Forest Gnome's Natural Illusionist. These hang off
+the **trait**, not the lineage's `effects` array:
+
+```js
+{ name: "Blessing of Haliya", text: "…", ability: "cha", spells: [
+  { name: "Alarm", atLevel: 1, use: "as a ritual, 1/long rest" }, … ] }
+```
+
+Trait-level is what makes replacement free: `resolveLineage` already filters base-race traits
+through `replaces`, so Carabao Tiefling dropping Infernal Legacy drops its three spells with
+it, no extra code. Spell stats are looked up by name in the ordinary spell data, so these rows
+carry the same Lvl/Time/Range/Hit-DC/Effect columns as chosen spells. `ability` is the trait's
+own spellcasting ability, which need not be the class's — and is deliberately absent where the
+book never names one (see Outstanding work), in which case the DC column prints blank rather
+than a guess.
+
+They render in **their own section, never inside Spellcasting** — a Balat-Kayo fighter has these
+and no spellcasting block at all, so nesting them there would hide them from exactly the
+characters who most need reminding. Present in the app's Defenses step, all three export routes,
+and the Reference appendix (they are not in `chosenSpells`, so nothing else would carry their
+text). Note that High Elf's Cantrip stays a `bonusCantrips` effect: it is a free pick from the
+wizard list, not a fixed spell. Drow Magic's was removed — its three spells are fixed, and the
+effect would have handed out a fourth.
 
 **Action-economy tags.** Feature tuples (`CLASS_FEATURES`, `SINA_UNA_SUBCLASSES` features,
 ancestry `traits`) are `[level, name, text]` — or `[level, name, text, action]` when the feature
@@ -172,6 +202,18 @@ printable sheet has its own compact version of this table (name/time/range/hit-D
 notes, no description) built straight from `chosenSpells` in `sheetHtml.js` — same
 at-a-glance intent as the Attacks table, sitting on the main pages. Full spell text stays where
 it always was, in the Reference appendix.
+
+**Spell level and upcasting.** Every spell table — app, HTML sheet, both PDF routes — carries a
+`Lvl` column: `C` for a cantrip, otherwise the number, with a `+` when the spell does more from a
+higher slot. The `+` reads a `higher` field holding the "At Higher Levels" text. That field is
+new: the original PHB extraction pulled `entries` but not `entriesHigherLevel`, so all 198 PHB
+spells shipped without their upcast rules. Re-pulled from 5etools-src for the 67 PHB spells that
+have it, and note that `{@scaledamage 2d6|2-9|1d6}` renders as its **last** field (the per-slot
+increment, "1d6"), not its first. The two SCC spells and six island spells that upcast had the
+clause inline in `text`; it was moved out to `higher` so nothing is printed twice. The text shows
+in the picker, in the Reference appendix, and nowhere in the compact tables — the `+` is the
+pointer. Cantrip scaling ("at 5th, 11th, 17th level") is character-level, not slot-level, and
+stays in `text` where it always was.
 
 **Strixhaven spells.** `src/data/sccSpells.js` holds all five spells from *Strixhaven: A
 Curriculum of Chaos* (SCC) — Silvery Barbs, Borrowed Knowledge, Kinetic Jaunt, Vortex Warp,
@@ -416,7 +458,9 @@ device-local blob, or an ID shareable with the DM.
 
 - Ancestry spellcasting abilities: Balat-Kayo says Charisma, Umalagad says Wisdom, but Balete
   Elf's *entangle*/*barkskin* and Mangrove Halfling's *mending* specify none. May be a book
-  omission — worth a look before it becomes a table argument.
+  omission — worth a look before it becomes a table argument. The app now surfaces this rather
+  than hiding it: those spells print with a blank Hit/DC column and a line saying the book names
+  no ability, instead of a guessed DC.
 - Equipment beyond armor was explicitly descoped.
 - Bestiary never extracted.
 

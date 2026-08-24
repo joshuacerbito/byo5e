@@ -72,7 +72,11 @@ export const BASE_RACES = {
     traits: [
       { name: "Darkvision", text: "See in dim light within 60 feet as if bright light." },
       { name: "Hellish Resistance", text: "Resistance to fire damage." },
-      { name: "Infernal Legacy", text: "Know thaumaturgy; later hellish rebuke and darkness." },
+      { name: "Infernal Legacy", text: "Know thaumaturgy; later hellish rebuke and darkness.",
+        ability: "cha", spells: [
+          { name: "Thaumaturgy", atLevel: 1, use: "at will" },
+          { name: "Hellish Rebuke", atLevel: 3, use: "1/long rest, cast at 2nd level" },
+          { name: "Darkness", atLevel: 5, use: "1/long rest" }] },
     ],
     languages: ["Common", "Infernal"],
   },

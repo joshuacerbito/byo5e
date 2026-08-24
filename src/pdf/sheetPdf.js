@@ -1,5 +1,5 @@
 import { ABILITIES } from '../data/progression.js';
-import { mod, fmt, groupWeapons, parseStartingGold, ACTION_ORDER, ACTION_LABELS } from '../lib/derive.js';
+import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS } from '../lib/derive.js';
 import { saveFile, sheetFileName } from './saveFile.js';
 
 /* Real vector PDF, built in the browser from the same sheetCtx that feeds
@@ -106,7 +106,7 @@ export function buildSheetDocDefinition(ctx) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
-    savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice,
+    savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, ancestrySpells,
     finalScore, attackRows, masteryEnabled, carriedWeapons, actions,
   } = ctx;
 
@@ -262,14 +262,19 @@ export function buildSheetDocDefinition(ctx) {
       content.push({
         table: {
           headerRows: 1,
-          widths: ['*', 46, 52, 44, 86, 52],
+          widths: ['*', 20, 42, 48, 42, 80, 74],
           body: [
-            ['Name', 'Time', 'Range', 'Hit/DC', 'Effect', 'Notes'].map((t) => ({ text: t, style: 'th' })),
-            ...chosenSpells.map((sp) => [
-              sp.name + (sp.src === 'phb' ? '' : ' *'),
-              sp.time, sp.range, spellHitDC(sp), spellEffect(sp),
-              [sp.ritual && 'ritual', sp.conc && 'conc'].filter(Boolean).join(', ') || '—',
-            ]),
+            ['Name', 'Lvl', 'Time', 'Range', 'Hit/DC', 'Effect', 'Notes'].map((t) => ({ text: t, style: 'th' })),
+            ...chosenSpells.map((sp) => {
+              const { head, trigger } = splitCastingTime(sp.time);
+              return [
+                sp.name + (sp.src ? '' : ' *') + (sp.src === 'scc' ? ' \u2020' : ''),
+                `${sp.level === 0 ? 'C' : sp.level}${sp.higher ? '+' : ''}`,
+                head, sp.range, spellHitDC(sp), spellEffect(sp),
+                [sp.ritual && 'ritual', sp.conc && 'conc',
+                  trigger && `trigger: ${trigger.toLowerCase()}`].filter(Boolean).join(', ') || '—',
+              ];
+            }),
           ],
         },
         layout: ROWS,
@@ -279,8 +284,54 @@ export function buildSheetDocDefinition(ctx) {
     if (otherSpells.trim()) {
       content.push(para('Other', otherSpells.split('\n').map((x) => x.trim()).filter(Boolean).join(', ')));
     }
-    if (chosenSpells.some((x) => x.src !== 'phb')) {
+    const legend = [
+      chosenSpells.some((x) => x.level === 0) && 'C is a cantrip',
+      chosenSpells.some((x) => x.higher)
+        && 'a + means the spell does more cast with a higher slot — the reference below says what',
+    ].filter(Boolean);
+    if (legend.length) content.push({ text: `Lvl: ${legend.join('; ')}.`, style: 'mut' });
+    if (chosenSpells.some((x) => !x.src)) {
       content.push({ text: '* island spell — full text in the reference below.', style: 'mut' });
+    }
+    if (chosenSpells.some((x) => x.src === 'scc')) {
+      content.push({ text: '\u2020 Strixhaven spell — full text in the reference below.', style: 'mut' });
+    }
+  }
+
+  /* ---- ancestry spells ---- */
+  /* Its own section, not folded into Spellcasting: a non-caster can have
+     these, and would otherwise never see them. */
+  if ((ancestrySpells || []).length) {
+    content.push(...heading('Ancestry spells'));
+    content.push({
+      table: {
+        headerRows: 1,
+        widths: ['*', 20, 42, 48, 42, 70, 84],
+        body: [
+          ['Name', 'Lvl', 'Time', 'Range', 'Hit/DC', 'Effect', 'Notes'].map((t) => ({ text: t, style: 'th' })),
+          ...ancestrySpells.map((sp) => {
+            const { head, trigger } = splitCastingTime(sp.time);
+            const hit = sp.atk ? (sp.attack == null ? '—' : fmt(sp.attack))
+              : sp.save ? `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()}${sp.saveDC == null ? '' : ` ${sp.saveDC}`}`
+              : '—';
+            const effect = sp.heal ? sp.heal
+              : sp.dmg ? `${sp.dmg}${sp.dmgType ? ` ${sp.dmgType}` : ''}`
+              : sp.cond ? sp.cond[0].toUpperCase() + sp.cond.slice(1) : '—';
+            return [
+              sp.name, `${sp.level === 0 ? 'C' : sp.level}${sp.higher ? '+' : ''}`,
+              head, sp.range, hit, effect,
+              [sp.use, sp.from, sp.ability ? sp.ability.toUpperCase() : null,
+                sp.ritual && 'ritual', sp.conc && 'conc',
+                trigger && `trigger: ${trigger.toLowerCase()}`].filter(Boolean).join(', '),
+            ];
+          }),
+        ],
+      },
+      layout: ROWS,
+      style: 'tbl',
+    });
+    if (ancestrySpells.some((sp) => !sp.ability && (sp.atk || sp.save))) {
+      content.push({ text: 'A blank DC means the book names no spellcasting ability for the trait that grants the spell.', style: 'mut' });
     }
   }
 

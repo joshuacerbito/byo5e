@@ -35,4 +35,11 @@ export const FIXTURE = {
   masteryEnabled: false,
   carriedWeapons: [WEAPONS[0], WEAPONS[0]],
   actions: [{ action: "action", name: "Dash", section: "Wizard features" }],
+  /* Balete Elf's real grants, ability included — the book names none for this
+     trait, so this also exercises the blank-DC branch of the table. */
+  ancestrySpells: ["Druidcraft", "Entangle", "Barkskin"].map((n) => {
+    const sp = PHB_SPELLS.find((x) => x.name === n);
+    return { ...sp, key: `Spirit of Nature-${n}`, from: "Spirit of Nature",
+      use: sp.level === 0 ? "at will" : "1/long rest", ability: null, saveDC: null, attack: null };
+  }),
 };
