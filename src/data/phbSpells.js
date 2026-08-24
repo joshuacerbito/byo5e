@@ -6,7 +6,13 @@
    198/198 names verified to match the roster below exactly.
 
    Class codes: b bard · c cleric · d druid · p paladin
-                r ranger · s sorcerer · k warlock · w wizard
+                r ranger · s sorcerer · k warlock · w wizard · y babaylan
+
+   The "y" (babaylan) tags were added after the fact, cross-referenced
+   against the babaylan spell list on book p.224 (levels 0-3) — the
+   island-only spells on that list (Spirit Dart, Apolaki's Light,
+   Create or Harden Lava, Bonded Spirits, Coral Cage) live in
+   islandSpells.js's SPELL_LISTS.babaylan instead, not tagged here.
 ------------------------------------------------------------------- */
 export const PHB_SPELL_RAW = [
   ["Acid Splash",0,"sw",{
@@ -59,14 +65,14 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "For the duration, you have advantage on all Charisma checks directed at one creature of your choice that isn't hostile toward you. When the spell ends, the creature realizes that you used magic to influence its mood and becomes hostile toward you. A creature prone to violence might attack you. Another creature might seek retribution in other ways (at the DM's discretion), depending on the nature of your interaction with it.",
   }],
-  ["Guidance",0,"cd",{
+  ["Guidance",0,"cdy",{
     school: "divination", page: 248,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "Concentration, up to 1 minute",
     conc: true,
     text: "You touch one willing creature. Once before the spell ends, the target can roll a d4 and add the number rolled to one ability check of its choice. It can roll the die before or after making the ability check. The spell then ends.",
   }],
-  ["Light",0,"bcsw",{
+  ["Light",0,"bcswy",{
     school: "evocation", page: 255,
     time: "1 action", range: "Touch",
     comp: "V, M (a firefly or phosphorescent moss)", dur: "1 hour",
@@ -78,7 +84,7 @@ export const PHB_SPELL_RAW = [
     comp: "V, S", dur: "1 minute",
     text: "A spectral, floating hand appears at a point you choose within range. The hand lasts for the duration or until you dismiss it as an action. The hand vanishes if it is ever more than 30 feet away from you or if you cast this spell again. You can use your action to control the hand. You can use the hand to manipulate an object, open an unlocked door or container, stow or retrieve an item from an open container, or pour the contents out of a vial. You can move the hand up to 30 feet each time you use it. The hand can't attack, activate magic items, or carry more than 10 pounds.",
   }],
-  ["Mending",0,"bcdsw",{
+  ["Mending",0,"bcdswy",{
     school: "transmutation", page: 259,
     time: "1 minute", range: "Touch",
     comp: "V, S, M (two lodestones)", dur: "Instantaneous",
@@ -96,7 +102,7 @@ export const PHB_SPELL_RAW = [
     comp: "S, M (a bit of fleece)", dur: "1 minute",
     text: "You create a sound or an image of an object within range that lasts for the duration. The illusion also ends if you dismiss it as an action or cast this spell again. If you create a sound, its volume can range from a whisper to a scream. It can be your voice, someone else's voice, a lion's roar, a beating of drums, or any other sound you choose. The sound continues unabated throughout the duration, or you can make discrete sounds at different times before the spell ends. If you create an image of an object—such as a chair, muddy footprints, or a small chest—it must be no larger than a 5-foot cube. The image can't create sound, light, smell, or any other sensory effect. Physical interaction with the image reveals it to be an illusion, because things can pass through it. If a creature uses its action to examine the sound or image, the creature can determine that it is an illusion with a successful Intelligence (Investigation) check against your spell save DC. If a creature discerns the illusion for what it is, the illusion becomes faint to the creature.",
   }],
-  ["Poison Spray",0,"dskw",{
+  ["Poison Spray",0,"dskwy",{
     school: "conjuration", page: 266,
     time: "1 action", range: "10 ft",
     comp: "V, S", dur: "Instantaneous",
@@ -108,7 +114,7 @@ export const PHB_SPELL_RAW = [
     comp: "V, S", dur: "1 hour",
     text: "This spell is a minor magical trick that novice spellcasters use for practice. You create one of the following magical effects within range: You create an instantaneous, harmless sensory effect, such as a shower of sparks, a puff of wind, faint musical notes, or an odd odor. You instantaneously light or snuff out a candle, a torch, or a small campfire. You instantaneously clean or soil an object no larger than 1 cubic foot. You chill, warm, or flavor up to 1 cubic foot of nonliving material for 1 hour. You make a color, a small mark, or a symbol appear on an object or a surface for 1 hour. You create a nonmagical trinket or an illusory image that can fit in your hand and that lasts until the end of your next turn. If you cast this spell multiple times, you can have up to three of its non-instantaneous effects active at a time, and you can dismiss such an effect as an action.",
   }],
-  ["Produce Flame",0,"d",{
+  ["Produce Flame",0,"dy",{
     school: "conjuration", page: 269,
     time: "1 action", range: "Self",
     comp: "V, S", dur: "10 minutes",
@@ -120,7 +126,7 @@ export const PHB_SPELL_RAW = [
     comp: "V, S", dur: "Instantaneous",
     text: "A frigid beam of blue-white light streaks toward a creature within range. Make a ranged spell attack against the target. On a hit, it takes 1d8 cold damage, and its speed is reduced by 10 feet until the start of your next turn. The spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
   }],
-  ["Resistance",0,"cd",{
+  ["Resistance",0,"cdy",{
     school: "abjuration", page: 272,
     time: "1 action", range: "Touch",
     comp: "V, S, M (a miniature cloak)", dur: "Concentration, up to 1 minute",
@@ -145,13 +151,13 @@ export const PHB_SPELL_RAW = [
     comp: "V, S", dur: "Instantaneous",
     text: "Lightning springs from your hand to deliver a shock to a creature you try to touch. Make a melee spell attack against the target. You have advantage on the attack roll if the target is wearing armor made of metal. On a hit, the target takes 1d8 lightning damage, and it can't take reactions until the start of its next turn. The spell's damage increases by 1d8 when you reach 5th level (2d8), 11th level (3d8), and 17th level (4d8).",
   }],
-  ["Spare the Dying",0,"c",{
+  ["Spare the Dying",0,"cy",{
     school: "necromancy", page: 277,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "Instantaneous",
     text: "You touch a living creature that has 0 hit points. The creature becomes stable. This spell has no effect on undead or constructs.",
   }],
-  ["Thaumaturgy",0,"c",{
+  ["Thaumaturgy",0,"cy",{
     school: "transmutation", page: 282,
     time: "1 action", range: "30 ft",
     comp: "V", dur: "1 minute",
@@ -259,26 +265,26 @@ export const PHB_SPELL_RAW = [
     ritual: true,
     text: "For the duration, you understand the literal meaning of any spoken language that you hear. You also understand any written language that you see, but you must be touching the surface on which the words are written. It takes about 1 minute to read one page of text. This spell doesn't decode secret messages in a text or a glyph, such as an arcane sigil, that isn't part of a written language.",
   }],
-  ["Create or Destroy Water",1,"cd",{
+  ["Create or Destroy Water",1,"cdy",{
     school: "transmutation", page: 229,
     time: "1 action", range: "30 ft",
     comp: "V, S, M (a drop of water if creating water or a few grains of sand if destroying it)", dur: "Instantaneous",
     text: "You either create or destroy water. Create Water. You create up to 10 gallons of clean water within range in an open container. Alternatively, the water falls as rain in a 30-foot cube within range, extinguishing exposed flames in the area. Destroy Water. You destroy up to 10 gallons of water in an open container within range. Alternatively, you destroy fog in a 30-foot cube within range.",
   }],
-  ["Cure Wounds",1,"bcdpr",{
+  ["Cure Wounds",1,"bcdpry",{
     school: "evocation", page: 230,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "Instantaneous",
     text: "A creature you touch regains a number of hit points equal to 1d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs.",
   }],
-  ["Detect Evil and Good",1,"cp",{
+  ["Detect Evil and Good",1,"cpy",{
     school: "divination", page: 231,
     time: "1 action", range: "Self",
     comp: "V, S", dur: "Concentration, up to 10 minutes",
     conc: true,
     text: "For the duration, you know if there is an aberration, celestial, elemental, fey, fiend, or undead within 30 feet of you, as well as where the creature is located. Similarly, you know if there is a place or object within 30 feet of you that has been magically consecrated or desecrated. The spell can penetrate most barriers, but it is blocked by 1 foot of stone, 1 inch of common metal, a thin sheet of lead, or 3 feet of wood or dirt.",
   }],
-  ["Detect Magic",1,"bcdprsw",{
+  ["Detect Magic",1,"bcdprswy",{
     school: "divination", page: 231,
     time: "1 action", range: "Self",
     comp: "V, S", dur: "Concentration, up to 10 minutes",
@@ -286,7 +292,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "For the duration, you sense the presence of magic within 30 feet of you. If you sense magic in this way, you can use your action to see a faint aura around any visible creature or object in the area that bears magic, and you learn its PHB, if any. The spell can penetrate most barriers, but it is blocked by 1 foot of stone, 1 inch of common metal, a thin sheet of lead, or 3 feet of wood or dirt.",
   }],
-  ["Detect Poison and Disease",1,"cdpr",{
+  ["Detect Poison and Disease",1,"cdpry",{
     school: "divination", page: 231,
     time: "1 action", range: "Self",
     comp: "V, S, M (a yew leaf)", dur: "Concentration, up to 10 minutes",
@@ -360,7 +366,7 @@ export const PHB_SPELL_RAW = [
     ritual: true,
     text: "You gain the service of a familiar, a spirit that takes an animal form you choose: bat, cat, crab, frog (toad), hawk, lizard, octopus, owl, poisonous snake, fish (quipper), rat, raven, sea horse, spider, or weasel. Appearing in an unoccupied space within range, the familiar has the statistics of the chosen form, though it is a celestial, fey, or fiend (your choice) instead of a beast. Your familiar acts independently of you, but it always obeys your commands. In combat, it rolls its own initiative and acts on its own turn. A familiar can't attack, but it can take other actions as normal. When the familiar drops to 0 hit points, it disappears, leaving behind no physical form. It reappears after you cast this spell again. As an action, you can temporarily dismiss the familiar to a pocket dimension. Alternatively, you can dismiss it forever. As an action while it is temporarily dismissed, you can cause it to reappear in any unoccupied space within 30 feet of you. Whenever the familiar drops to 0 hit points or disappears into the pocket dimension, it leaves behind in its space anything it was wearing or carrying. While your familiar is within 100 feet of you, you can communicate with it telepathically. Additionally, as an action, you can see through your familiar's eyes and hear what it hears until the start of your next turn, gaining the benefits of any special senses that the familiar has. During this time, you are deafened and blinded with regard to your own senses. You can't have more than one familiar at a time. If you cast this spell while you already have a familiar, you instead cause it to adopt a new form. Choose one of the forms from the above list. Your familiar transforms into the chosen creature. Finally, when you cast a spell with a range of touch, your familiar can deliver the spell as if it had cast the spell. Your familiar must be within 100 feet of you, and it must use its reaction to deliver the spell when you cast it. If the spell requires an attack roll, you use your attack modifier for the roll.",
   }],
-  ["Fog Cloud",1,"drsw",{
+  ["Fog Cloud",1,"drswy",{
     school: "conjuration", page: 243,
     time: "1 action", range: "120 ft",
     comp: "V, S", dur: "Concentration, up to 1 hour",
@@ -392,7 +398,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "The next time you hit a creature with a ranged weapon attack before the spell ends, this spell creates a rain of thorns that sprouts from your ranged weapon or ammunition. In addition to the normal effect of the attack, the target of the attack and each creature within 5 feet of it must make a Dexterity saving throw. A creature takes 1d10 piercing damage on a failed save, or half as much damage on a successful one.",
   }],
-  ["Healing Word",1,"bcd",{
+  ["Healing Word",1,"bcdy",{
     school: "evocation", page: 250,
     time: "1 bonus action", range: "60 ft",
     comp: "V", dur: "Instantaneous",
@@ -439,7 +445,7 @@ export const PHB_SPELL_RAW = [
     ritual: true,
     text: "You write on parchment, paper, or some other suitable writing material and imbue it with a potent illusion that lasts for the duration. To you and any creatures you designate when you cast the spell, the writing appears normal, written in your hand, and conveys whatever meaning you intended when you wrote the text. To all others, the writing appears as if it were written in an unknown or magical script that is unintelligible. Alternatively, you can cause the writing to appear to be an entirely different message, written in a different hand and language, though the language must be one you know. Should the spell be dispelled, the original script and the illusion both disappear. A creature with truesight can read the hidden message.",
   }],
-  ["Inflict Wounds",1,"c",{
+  ["Inflict Wounds",1,"cy",{
     school: "necromancy", page: 253,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "Instantaneous",
@@ -469,14 +475,14 @@ export const PHB_SPELL_RAW = [
     comp: "V, S", dur: "Instantaneous",
     text: "You create three glowing darts of magical force. Each dart hits a creature of your choice that you can see within range. A dart deals 1d4 + 1 force damage to its target. The darts all strike simultaneously, and you can direct them to hit one creature or several.",
   }],
-  ["Protection from Evil and Good",1,"cpkw",{
+  ["Protection from Evil and Good",1,"cpkwy",{
     school: "abjuration", page: 270,
     time: "1 action", range: "Touch",
     comp: "V, S, M (holy water or powdered silver and iron, which the spell consumes)", dur: "Concentration, up to 10 minutes",
     conc: true,
     text: "Until the spell ends, one willing creature you touch is protected against certain types of creatures: aberrations, celestials, elementals, fey, fiends, and undead. The protection grants several benefits. Creatures of those types have disadvantage on attack rolls against the target. The target also can't be charmed, frightened, or possessed by them. If the target is already charmed, frightened, or possessed by such a creature, the target has advantage on any new saving throw against the relevant effect.",
   }],
-  ["Purify Food and Drink",1,"cdp",{
+  ["Purify Food and Drink",1,"cdpy",{
     school: "transmutation", page: 270,
     time: "1 action", range: "10 ft",
     comp: "V, S", dur: "Instantaneous",
@@ -489,7 +495,7 @@ export const PHB_SPELL_RAW = [
     comp: "V, S", dur: "Instantaneous",
     text: "A ray of sickening greenish energy lashes out toward a creature within range. Make a ranged spell attack against the target. On a hit, the target takes 2d8 poison damage and must make a Constitution saving throw. On a failed save, it is also poisoned until the end of your next turn.",
   }],
-  ["Sanctuary",1,"c",{
+  ["Sanctuary",1,"cy",{
     school: "abjuration", page: 272,
     time: "1 bonus action", range: "30 ft",
     comp: "V, S, M (a small silver mirror)", dur: "1 minute",
@@ -528,7 +534,7 @@ export const PHB_SPELL_RAW = [
     comp: "V, S, M (a pinch of fine sand, rose petals, or a cricket)", dur: "1 minute",
     text: "This spell sends creatures into a magical slumber. Roll 5d8; the total is how many hit points of creatures this spell can affect. Creatures within 20 feet of a point you choose within range are affected in ascending order of their current hit points (ignoring unconscious creatures). Starting with the creature that has the lowest current hit points, each creature affected by this spell falls unconscious until the spell ends, the sleeper takes damage, or someone uses an action to shake or slap the sleeper awake. Subtract each creature's hit points from the total before moving on to the creature with the next lowest hit points. A creature's hit points must be equal to or less than the remaining total for that creature to be affected. Undead and creatures immune to being charmed aren't affected by this spell.",
   }],
-  ["Speak with Animals",1,"bdr",{
+  ["Speak with Animals",1,"bdry",{
     school: "divination", page: 277,
     time: "1 action", range: "Self",
     comp: "V, S", dur: "10 minutes",
@@ -556,7 +562,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "The first time you hit with a melee weapon attack during this spell's duration, your weapon rings with thunder that is audible within 300 feet of you, and the attack deals an extra 2d6 thunder damage to the target. Additionally, if the target is a creature, it must succeed on a Strength saving throw or be pushed 10 feet away from you and knocked prone.",
   }],
-  ["Thunderwave",1,"bdsw",{
+  ["Thunderwave",1,"bdswy",{
     school: "evocation", page: 282,
     time: "1 action", range: "cube",
     comp: "V, S", dur: "Instantaneous",
@@ -583,7 +589,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "The next time you hit with a melee weapon attack during this spell's duration, your attack deals an extra 1d6 psychic damage. Additionally, if the target is a creature, it must make a Wisdom saving throw or be frightened of you until the spell ends. As an action, the creature can make a Wisdom check against your spell save DC to steel its resolve and end this spell.",
   }],
-  ["Aid",2,"cp",{
+  ["Aid",2,"cpy",{
     school: "abjuration", page: 211,
     time: "1 action", range: "30 ft",
     comp: "V, S, M (a tiny strip of white cloth)", dur: "8 hours",
@@ -609,7 +615,7 @@ export const PHB_SPELL_RAW = [
     comp: "V, S, M (gold dust worth at least 25 gp, which the spell consumes)", dur: "Until dispelled or triggered",
     text: "You touch a closed door, window, gate, chest, or other entryway, and it becomes locked for the duration. You and the creatures you designate when you cast this spell can open the object normally. You can also set a password that, when spoken within 5 feet of the object, suppresses this spell for 1 minute. Otherwise, it is impassable until it is broken or the spell is dispelled or suppressed. Casting knock on the object suppresses arcane lock for 10 minutes. While affected by this spell, the object is more difficult to break or force open; the DC to break it or pick any locks on it increases by 10.",
   }],
-  ["Augury",2,"c",{
+  ["Augury",2,"cy",{
     school: "divination", page: 215,
     time: "1 minute", range: "Self",
     comp: "V, S, M (specially marked sticks, bones, or similar tokens worth at least 25 gp)", dur: "Instantaneous",
@@ -631,7 +637,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "You touch a willing beast. For the duration of the spell, you can use your action to see through the beast's eyes and hear what it hears, and continue to do so until you use your action to return to your normal senses. While perceiving through the beast's senses, you gain the benefits of any special senses possessed by that creature, though you are blinded and deafened to your own surroundings.",
   }],
-  ["Blindness/Deafness",2,"bcsw",{
+  ["Blindness/Deafness",2,"bcswy",{
     school: "necromancy", page: 219,
     time: "1 action", range: "30 ft",
     comp: "V", dur: "1 minute",
@@ -665,7 +671,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "You fill the air with spinning daggers in a cube 5 feet on each side, centered on a point you choose within range. A creature takes 4d4 slashing damage when it enters the spell's area for the first time on a turn or starts its turn there.",
   }],
-  ["Continual Flame",2,"cw",{
+  ["Continual Flame",2,"cwy",{
     school: "evocation", page: 227,
     time: "1 action", range: "Touch",
     comp: "V, S, M (ruby dust worth 50 gp, which the spell consumes)", dur: "Until dispelled or triggered",
@@ -691,7 +697,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "Magical darkness spreads from a point you choose within range to fill a 15-foot-radius sphere for the duration. The darkness spreads around corners. A creature with darkvision can't see through this darkness, and nonmagical light can't illuminate it. If the point you choose is on an object you are holding or one that isn't being worn or carried, the darkness emanates from the object and moves with it. Completely covering the source of the darkness with an opaque object, such as a bowl or a helm, blocks the darkness. If any of this spell's area overlaps with an area of light created by a spell of 2nd level or lower, the spell that created the light is dispelled.",
   }],
-  ["Darkvision",2,"drsw",{
+  ["Darkvision",2,"drswy",{
     school: "transmutation", page: 230,
     time: "1 action", range: "Touch",
     comp: "V, S, M (either a pinch of dried carrot or an agate)", dur: "8 hours",
@@ -750,7 +756,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "A 5-foot-diameter sphere of fire appears in an unoccupied space of your choice within range and lasts for the duration. Any creature that ends its turn within 5 feet of the sphere must make a Dexterity saving throw. The creature takes 2d6 fire damage on a failed save, or half as much damage on a successful one. As a bonus action, you can move the sphere up to 30 feet. If you ram the sphere into a creature, that creature must make the saving throw against the sphere's damage, and the sphere stops moving this turn. When you move the sphere, you can direct it over barriers up to 5 feet tall and jump it across pits up to 10 feet wide. The sphere ignites flammable objects not being worn or carried, and it sheds bright light in a 20-foot radius and dim light for an additional 20 feet.",
   }],
-  ["Gentle Repose",2,"cw",{
+  ["Gentle Repose",2,"cwy",{
     school: "necromancy", page: 245,
     time: "1 action", range: "Touch",
     comp: "V, S, M (a pinch of salt and one copper piece placed on each of the corpse's eyes, which must remain there for the duration)", dur: "10 days",
@@ -791,7 +797,7 @@ export const PHB_SPELL_RAW = [
     comp: "V", dur: "Instantaneous",
     text: "Choose an object that you can see within range. The object can be a door, a box, a phb, a set of phb, a padlock, or another object that contains a mundane or magical means that prevents access. A target that is held shut by a mundane lock or that is stuck or barred becomes unlocked, unstuck, or unbarred. If the object has multiple locks, only one of them is unlocked. If you choose a target that is held shut with arcane lock, that spell is suppressed for 10 minutes, during which time the target can be opened and shut normally. When you cast the spell, a loud knock, audible from as far away as 300 feet, emanates from the target object.",
   }],
-  ["Lesser Restoration",2,"bcdpr",{
+  ["Lesser Restoration",2,"bcdpry",{
     school: "abjuration", page: 255,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "Instantaneous",
@@ -804,14 +810,14 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "One creature or loose object of your choice that you can see within range rises vertically, up to 20 feet, and remains suspended there for the duration. The spell can levitate a target that weighs up to 500 pounds. An unwilling creature that succeeds on a Constitution saving throw is unaffected. The target can move only by pushing or pulling against a fixed object or surface within reach (such as a wall or a ceiling), which allows it to move as if it were climbing. You can change the target's altitude by up to 20 feet in either direction on your turn. If you are the target, you can move up or down as part of your move. Otherwise, you can use your action to move the target, which must remain within the spell's range. When the spell ends, the target floats gently to the ground if it is still aloft.",
   }],
-  ["Locate Animals or Plants",2,"bdr",{
+  ["Locate Animals or Plants",2,"bdry",{
     school: "divination", page: 256,
     time: "1 action", range: "Self",
     comp: "V, S, M (a bit of fur from a bloodhound)", dur: "Instantaneous",
     ritual: true,
     text: "Describe or name a specific kind of beast or plant. Concentrating on the voice of nature in your surroundings, you learn the direction and distance to the closest creature or plant of that kind within 5 miles, if any are present.",
   }],
-  ["Locate Object",2,"bcdprw",{
+  ["Locate Object",2,"bcdprwy",{
     school: "divination", page: 256,
     time: "1 action", range: "Self",
     comp: "V, S, M (a forked twig)", dur: "Concentration, up to 10 minutes",
@@ -850,7 +856,7 @@ export const PHB_SPELL_RAW = [
     comp: "V", dur: "Instantaneous",
     text: "Briefly surrounded by silvery mist, you teleport up to 30 feet to an unoccupied space that you can see.",
   }],
-  ["Moonbeam",2,"d",{
+  ["Moonbeam",2,"dy",{
     school: "evocation", page: 261,
     time: "1 action", range: "120 ft",
     comp: "V, S, M (several seeds of any moonseed plant and a piece of opalescent feldspar)", dur: "Concentration, up to 1 minute",
@@ -877,13 +883,13 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "You craft an illusion that takes root in the mind of a creature that you can see within range. The target must make an Intelligence saving throw. On a failed save, you create a phantasmal object, creature, or other visible phenomenon of your choice that is no larger than a 10-foot cube and that is perceivable only to the target for the duration. This spell has no effect on undead or constructs. The phantasm includes sound, temperature, and other stimuli, also evident only to the creature. The target can use its action to examine the phantasm with an Intelligence (Investigation) check against your spell save DC. If the check succeeds, the target realizes that the phantasm is an illusion, and the spell ends. While a target is affected by the spell, the target treats the phantasm as if it were real. The target rationalizes any illogical outcomes from interacting with the phantasm. For example, a target attempting to walk across a phantasmal bridge that spans a chasm falls once it steps onto the bridge. If the target survives the fall, it still believes that the bridge exists and comes up with some other explanation for its fall—it was pushed, it slipped, or a strong wind might have knocked it off. An affected target is so convinced of the phantasm's reality that it can even take damage from the illusion. A phantasm created to appear as a creature can attack the target. Similarly, a phantasm created to appear as fire, a pool of acid, or lava can burn the target. Each round on your turn, the phantasm can deal 1d6 psychic damage to the target if it is in the phantasm's area or within 5 feet of the phantasm, provided that the illusion is of a creature or hazard that could logically deal damage, such as by attacking. The target perceives the damage as a type appropriate to the illusion.",
   }],
-  ["Prayer of Healing",2,"c",{
+  ["Prayer of Healing",2,"cy",{
     school: "evocation", page: 267,
     time: "10 minutes", range: "30 ft",
     comp: "V", dur: "Instantaneous",
     text: "Up to six creatures of your choice that you can see within range each regain hit points equal to 2d8 + your spellcasting ability modifier. This spell has no effect on undead or constructs.",
   }],
-  ["Protection from Poison",2,"cdpr",{
+  ["Protection from Poison",2,"cdpry",{
     school: "abjuration", page: 270,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "1 hour",
@@ -920,7 +926,7 @@ export const PHB_SPELL_RAW = [
     comp: "V, S, M (a chip of mica)", dur: "Instantaneous",
     text: "A sudden loud ringing noise, painfully intense, erupts from a point of your choice within range. Each creature in a 10-foot-radius sphere centered on that point must make a Constitution saving throw. A creature takes 3d8 thunder damage on a failed save, or half as much damage on a successful one. A creature made of inorganic material such as stone, crystal, or metal has disadvantage on this saving throw. A nonmagical object that isn't being worn or carried also takes the damage if it's in the spell's area.",
   }],
-  ["Silence",2,"bcr",{
+  ["Silence",2,"bcry",{
     school: "illusion", page: 275,
     time: "1 action", range: "120 ft",
     comp: "V, S", dur: "Concentration, up to 10 minutes",
@@ -935,7 +941,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "Until the spell ends, one willing creature you touch gains the ability to move up, down, and across vertical surfaces and upside down along ceilings, while leaving its hands free. The target also gains a climbing speed equal to its walking speed.",
   }],
-  ["Spike Growth",2,"dr",{
+  ["Spike Growth",2,"dry",{
     school: "transmutation", page: 277,
     time: "1 action", range: "150 ft",
     comp: "V, S, M (seven sharp thorns or seven small twigs, each sharpened to a point)", dur: "Concentration, up to 10 minutes",
@@ -968,7 +974,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "You conjure a mass of thick, sticky webbing at a point of your choice within range. The webs fill a 20-foot cube from that point for the duration. The webs are difficult terrain and lightly obscure their area. If the webs aren't anchored between two solid masses (such as walls or trees) or layered across a floor, wall, or ceiling, the conjured web collapses on itself, and the spell ends at the start of your next turn. Webs layered over a flat surface have a depth of 5 feet. Each creature that starts its turn in the webs or that enters them during its turn must make a Dexterity saving throw. On a failed save, the creature is restrained as long as it remains in the webs or until it breaks free. A creature restrained by the webs can use its action to make a Strength check against your spell save DC. If it succeeds, it is no longer restrained. The webs are flammable. Any 5-foot cube of webs exposed to fire burns away in 1 round, dealing 2d4 fire damage to any creature that starts its turn in the fire.",
   }],
-  ["Zone of Truth",2,"bcp",{
+  ["Zone of Truth",2,"bcpy",{
     school: "enchantment", page: 289,
     time: "1 action", range: "60 ft",
     comp: "V, S", dur: "10 minutes",
@@ -987,14 +993,14 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "Healing energy radiates from you in an aura with a 30-foot radius. Until the spell ends, the aura moves with you, centered on you. You can use a bonus action to cause one creature in the aura (including you) to regain 2d6 hit points.",
   }],
-  ["Beacon of Hope",3,"c",{
+  ["Beacon of Hope",3,"cy",{
     school: "abjuration", page: 217,
     time: "1 action", range: "30 ft",
     comp: "V, S", dur: "Concentration, up to 1 minute",
     conc: true,
     text: "This spell bestows hope and vitality. Choose any number of creatures within range. For the duration, each target has advantage on Wisdom saving throws and death saving throws, and regains the maximum number of hit points possible from any healing.",
   }],
-  ["Bestow Curse",3,"bcw",{
+  ["Bestow Curse",3,"bcwy",{
     school: "necromancy", page: 218,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "Concentration, up to 1 minute",
@@ -1014,14 +1020,14 @@ export const PHB_SPELL_RAW = [
     comp: "V, S", dur: "1 minute",
     text: "Roll a d20 at the end of each of your turns for the duration of the spell. On a roll of 11 or higher, you vanish from your current plane of existence and appear in the Ethereal Plane (the spell fails and the casting is wasted if you were already on that plane). At the start of your next turn, and when the spell ends if you are on the Ethereal Plane, you return to an unoccupied space of your choice that you can see within 10 feet of the space you vanished from. If no unoccupied space is available within that range, you appear in the nearest unoccupied space (chosen at random if more than one space is equally near). You can dismiss this spell as an action. While on the Ethereal Plane, you can see and hear the plane you originated from, which is cast in shades of gray, and you can't see anything there more than 60 feet away. You can only affect and be affected by other creatures on the Ethereal Plane. Creatures that aren't there can't perceive you or interact with you, unless they have the ability to do so.",
   }],
-  ["Call Lightning",3,"d",{
+  ["Call Lightning",3,"dy",{
     school: "conjuration", page: 220,
     time: "1 action", range: "120 ft",
     comp: "V, S", dur: "Concentration, up to 10 minutes",
     conc: true,
     text: "A storm cloud appears in the shape of a cylinder that is 10 feet tall with a 60-foot radius, centered on a point you can see within range directly above you. The spell fails if you can't see a point in the air where the storm cloud could appear (for example, if you are in a room that can't accommodate the cloud). When you cast the spell, choose a point you can see under the cloud. A bolt of lightning flashes down from the cloud to that point. Each creature within 5 feet of that point must make a Dexterity saving throw. A creature takes 3d10 lightning damage on a failed save, or half as much damage on a successful one. On each of your turns until the spell ends, you can use your action to call down lightning in this way again, targeting the same point or a different one. If you are outdoors in stormy conditions when you cast this spell, the spell gives you control over the existing storm instead of creating a new one. Under such conditions, the spell's damage increases by 1d10.",
   }],
-  ["Clairvoyance",3,"bcsw",{
+  ["Clairvoyance",3,"bcswy",{
     school: "divination", page: 222,
     time: "10 minutes", range: "1 mile",
     comp: "V, S, M (a focus worth at least 100 gp, either a jeweled horn for hearing or a glass eye for seeing)", dur: "Concentration, up to 10 minutes",
@@ -1060,13 +1066,13 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "Holy power radiates from you in an aura with a 30-foot radius, awakening boldness in friendly creatures. Until the spell ends, the aura moves with you, centered on you. While in the aura, each nonhostile creature in the aura (including you) deals an extra 1d4 radiant damage when it hits with a weapon attack.",
   }],
-  ["Daylight",3,"cdprs",{
+  ["Daylight",3,"cdprsy",{
     school: "evocation", page: 230,
     time: "1 action", range: "60 ft",
     comp: "V, S", dur: "1 hour",
     text: "A 60-foot-radius sphere of light spreads out from a point you choose within range. The sphere is bright light and sheds dim light for an additional 60 feet. If you chose a point on an object you are holding or one that isn't being worn or carried, the light shines from the object and moves with it. Completely covering the affected object with an opaque object, such as a bowl or a helm, blocks the light. If any of this spell's area overlaps with an area of darkness created by a spell of 3rd level or lower, the spell that created the darkness is dispelled.",
   }],
-  ["Dispel Magic",3,"bcdpskw",{
+  ["Dispel Magic",3,"bcdpskwy",{
     school: "abjuration", page: 234,
     time: "1 action", range: "120 ft",
     comp: "V, S", dur: "Instantaneous",
@@ -1160,7 +1166,7 @@ export const PHB_SPELL_RAW = [
     comp: "V, S, M (a bit of fur and a rod of amber, crystal, or glass)", dur: "Instantaneous",
     text: "A stroke of lightning forming a line 100 feet long and 5 feet wide blasts out from you in a direction you choose. Each creature in the line must make a Dexterity saving throw. A creature takes 8d6 lightning damage on a failed save, or half as much damage on a successful one. The lightning ignites flammable objects in the area that aren't being worn or carried.",
   }],
-  ["Magic Circle",3,"cpkw",{
+  ["Magic Circle",3,"cpkwy",{
     school: "abjuration", page: 256,
     time: "1 minute", range: "10 ft",
     comp: "V, S, M (holy water or powdered silver and iron worth at least 100 gp, which the spell consumes)", dur: "1 hour",
@@ -1173,7 +1179,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "You create the image of an object, a creature, or some other visible phenomenon that is no larger than a 20-foot cube. The image appears at a spot that you can see within range and lasts for the duration. It seems completely real, including sounds, smells, and temperature appropriate to the thing depicted. You can't create sufficient heat or cold to cause damage, a sound loud enough to deal thunder damage or deafen a creature, or a smell that might sicken a creature (like a troglodyte stench). As long as you are within range of the illusion, you can use your action to cause the image to move to any other spot within range. As the image changes location, you can alter its appearance so that its movements appear natural for the image. For example, if you create an image of a creature and move it, you can alter the image so that it appears to be walking. Similarly, you can cause the illusion to make different sounds at different times, even making it carry on a conversation, for example. Physical interaction with the image reveals it to be an illusion, because things can pass through it. A creature that uses its action to examine the image can determine that it is an illusion with a successful Intelligence (Investigation) check against your spell save DC. If a creature discerns the illusion for what it is, the creature can see through the image, and its other sensory qualities become faint to the creature.",
   }],
-  ["Mass Healing Word",3,"c",{
+  ["Mass Healing Word",3,"cy",{
     school: "evocation", page: 258,
     time: "1 bonus action", range: "60 ft",
     comp: "V", dur: "Instantaneous",
@@ -1199,20 +1205,20 @@ export const PHB_SPELL_RAW = [
     ritual: true,
     text: "A Large quasi-real, horselike creature appears on the ground in an unoccupied space of your choice within range. You decide the creature's appearance, but it is equipped with a saddle, bit, and bridle. Any of the equipment created by the spell vanishes in a puff of smoke if it is carried more than 10 feet away from the steed. For the duration, you or a creature you choose can ride the steed. The creature uses the statistics for a riding horse, except it has a speed of 100 feet and can travel 10 miles in an hour, or 13 miles at a fast pace. When the spell ends, the steed gradually fades, giving the rider 1 minute to dismount. The spell ends if you use an action to dismiss it or if the steed takes any damage.",
   }],
-  ["Plant Growth",3,"bdr",{
+  ["Plant Growth",3,"bdry",{
     school: "transmutation", page: 266,
     time: "1 action, 8 hours", range: "150 ft",
     comp: "V, S", dur: "Instantaneous",
     text: "This spell channels vitality into plants within a specific area. There are two possible uses for the spell, granting either immediate or long-term benefits. If you cast this spell using 1 action, choose a point within range. All normal plants in a 100-foot radius centered on that point become thick and overgrown. A creature moving through the area must spend 4 feet of movement for every 1 foot it moves. You can exclude one or more areas of any size within the spell's area from being affected. If you cast this spell over 8 hours, you enrich the land. All plants in a half-mile radius centered on a point within range become enriched for 1 year. The plants yield twice the normal amount of food when harvested.",
   }],
-  ["Protection from Energy",3,"cdrsw",{
+  ["Protection from Energy",3,"cdrswy",{
     school: "abjuration", page: 270,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "Concentration, up to 1 hour",
     conc: true,
     text: "For the duration, the willing creature you touch has resistance to one damage type of your choice: acid, cold, fire, lightning, or thunder.",
   }],
-  ["Remove Curse",3,"cpkw",{
+  ["Remove Curse",3,"cpkwy",{
     school: "abjuration", page: 271,
     time: "1 action", range: "Touch",
     comp: "V, S", dur: "Instantaneous",
@@ -1244,19 +1250,19 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "You alter time around up to six creatures of your choice in a 40-foot cube within range. Each target must succeed on a Wisdom saving throw or be affected by this spell for the duration. An affected target's speed is halved, it takes a −2 penalty to AC and Dexterity saving throws, and it can't use reactions. On its turn, it can use either an action or a bonus action, not both. Regardless of the creature's abilities or magic items, it can't make more than one melee or ranged attack during its turn. If the creature attempts to cast a spell with a casting time of 1 action, roll a d20. On an 11 or higher, the spell doesn't take effect until the creature's next turn, and the creature must use its action on that turn to complete the spell. If it can't, the spell is wasted. A creature affected by this spell makes another Wisdom saving throw at the end of each of its turns. On a successful save, the effect ends for it.",
   }],
-  ["Speak with Dead",3,"bc",{
+  ["Speak with Dead",3,"bcy",{
     school: "necromancy", page: 277,
     time: "1 action", range: "10 ft",
     comp: "V, S, M (burning incense)", dur: "10 minutes",
     text: "You grant the semblance of life and intelligence to a corpse of your choice within range, allowing it to answer the questions you pose. The corpse must still have a mouth and can't be undead. The spell fails if the corpse was the target of this spell within the last 10 days. Until the spell ends, you can ask the corpse up to five questions. The corpse knows only what it knew in life, including the languages it knew. Answers are usually brief, cryptic, or repetitive, and the corpse is under no compulsion to offer a truthful answer if you are hostile to it or it recognizes you as an enemy. This spell doesn't return the creature's soul to its body, only its animating spirit. Thus, the corpse can't learn new information, doesn't comprehend anything that has happened since it died, and can't speculate about future events.",
   }],
-  ["Speak with Plants",3,"bdr",{
+  ["Speak with Plants",3,"bdry",{
     school: "transmutation", page: 277,
     time: "1 action", range: "Self (30-foot radius)",
     comp: "V, S", dur: "10 minutes",
     text: "You imbue plants within 30 feet of you with limited sentience and animation, giving them the ability to communicate with you and follow your simple commands. You can question plants about events in the spell's area within the past day, gaining information about creatures that have passed, weather, and other circumstances. You can also turn difficult terrain caused by plant growth (such as thickets and undergrowth) into ordinary terrain that lasts for the duration. Or you can turn ordinary terrain where plants are present into difficult terrain that lasts for the duration, causing vines and branches to hinder pursuers, for example. Plants might be able to perform other tasks on your behalf, at the DM's discretion. The spell doesn't enable plants to uproot themselves and move about, but they can freely move branches, tendrils, and stalks. If a plant creature is in the area, you can communicate with it as if you shared a common language, but you gain no magical ability to influence it. This spell can cause the plants created by the entangle spell to release a restrained creature.",
   }],
-  ["Spirit Guardians",3,"c",{
+  ["Spirit Guardians",3,"cy",{
     school: "conjuration", page: 278,
     time: "1 action", range: "Self (15-foot radius)",
     comp: "V, S, M (a holy symbol)", dur: "Concentration, up to 10 minutes",
@@ -1270,7 +1276,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "You create a 20-foot-radius sphere of yellow, nauseating gas centered on a point within range. The cloud spreads around corners, and its area is PHB. The cloud lingers in the air for the duration. Each creature that is completely within the cloud at the start of its turn must make a Constitution saving throw against poison. On a failed save, the creature spends its action that turn retching and reeling. Creatures that don't need to breathe or are immune to poison automatically succeed on this saving throw. A moderate wind (at least 10 miles per hour) disperses the cloud after 4 rounds. A strong wind (at least 20 miles per hour) disperses it after 1 round.",
   }],
-  ["Tongues",3,"bcskw",{
+  ["Tongues",3,"bcskwy",{
     school: "divination", page: 283,
     time: "1 action", range: "Touch",
     comp: "V, M (a small clay model of a ziggurat)", dur: "1 hour",
@@ -1283,7 +1289,7 @@ export const PHB_SPELL_RAW = [
     conc: true,
     text: "The touch of your shadow-wreathed hand can siphon life force from others to heal your wounds. Make a melee spell attack against a creature within your reach. On a hit, the target takes 3d6 necrotic damage, and you regain hit points equal to half the amount of necrotic damage dealt. Until the spell ends, you can make the attack again on each of your turns as an action.",
   }],
-  ["Water Breathing",3,"drsw",{
+  ["Water Breathing",3,"drswy",{
     school: "transmutation", page: 287,
     time: "1 action", range: "30 ft",
     comp: "V, S, M (a short reed or piece of straw)", dur: "24 hours",
@@ -1307,8 +1313,115 @@ export const PHB_SPELL_RAW = [
 ];
 
 export const CLS_CODE = { bard: "b", cleric: "c", druid: "d", paladin: "p",
-  ranger: "r", sorcerer: "s", warlock: "k", wizard: "w" };
+  ranger: "r", sorcerer: "s", warlock: "k", wizard: "w", babaylan: "y" };
+
+/* Combat-table metadata, by name — extracted from 5etools-src spells-phb.json
+   (spellAttack/savingThrow/damageInflict/miscTags "HL"/conditionInflict fields,
+   source PHB), not hand-guessed. Only 98 of 198 carry it — the rest are pure
+   utility spells with no attack roll, save, damage, or condition to show.
+   atk: "melee"|"ranged" (spell attack roll) · save: ability key the target
+   rolls · dmg: base damage dice at character level 1 (no scaling parsed) ·
+   dmgType: damage type · heal: healing dice · cond: condition inflicted. */
+const PHB_COMBAT = {
+  "Acid Splash": { save: "dex", dmg: "1d6", dmgType: "acid" },
+  "Chill Touch": { atk: "ranged", dmg: "1d8", dmgType: "necrotic" },
+  "Eldritch Blast": { atk: "ranged", dmg: "1d10", dmgType: "force" },
+  "Fire Bolt": { atk: "ranged", dmg: "1d10", dmgType: "fire" },
+  "Light": { save: "dex" },
+  "Poison Spray": { save: "con", dmg: "1d12", dmgType: "poison" },
+  "Produce Flame": { atk: "ranged", dmg: "1d8", dmgType: "fire" },
+  "Ray of Frost": { atk: "ranged", dmg: "1d8", dmgType: "cold" },
+  "Sacred Flame": { save: "dex", dmg: "1d8", dmgType: "radiant" },
+  "Shocking Grasp": { atk: "melee", dmg: "1d8", dmgType: "lightning" },
+  "Thorn Whip": { atk: "melee", dmg: "1d6", dmgType: "piercing" },
+  "Vicious Mockery": { save: "wis", dmg: "1d4", dmgType: "psychic" },
+  "Animal Friendship": { save: "wis", cond: "charmed" },
+  "Arms of Hadar": { save: "str", dmg: "2d6", dmgType: "necrotic" },
+  "Bane": { save: "cha" },
+  "Burning Hands": { save: "dex", dmg: "3d6", dmgType: "fire" },
+  "Charm Person": { save: "wis", cond: "charmed" },
+  "Chromatic Orb": { atk: "ranged", dmg: "3d8", dmgType: "acid" },
+  "Color Spray": { cond: "blinded" },
+  "Command": { save: "wis", cond: "prone" },
+  "Compelled Duel": { save: "wis" },
+  "Cure Wounds": { heal: "1d8" },
+  "Dissonant Whispers": { save: "wis", dmg: "3d6", dmgType: "psychic" },
+  "Divine Favor": { dmg: "1d4", dmgType: "radiant" },
+  "Ensnaring Strike": { save: "str", dmg: "1d6", dmgType: "piercing", cond: "restrained" },
+  "Entangle": { save: "str", cond: "restrained" },
+  "Faerie Fire": { save: "dex" },
+  "Grease": { save: "dex", cond: "prone" },
+  "Guiding Bolt": { atk: "ranged", dmg: "4d6", dmgType: "radiant" },
+  "Hail of Thorns": { save: "dex", dmg: "1d10", dmgType: "piercing" },
+  "Healing Word": { heal: "1d4" },
+  "Hellish Rebuke": { save: "dex", dmg: "2d10", dmgType: "fire" },
+  "Hex": { dmg: "1d6", dmgType: "necrotic" },
+  "Inflict Wounds": { atk: "melee", dmg: "3d10", dmgType: "necrotic" },
+  "Magic Missile": { dmg: "1d4+1", dmgType: "force" },
+  "Ray of Sickness": { atk: "ranged", save: "con", dmg: "2d8", dmgType: "poison", cond: "poisoned" },
+  "Sanctuary": { save: "wis" },
+  "Searing Smite": { save: "con", dmg: "1d6", dmgType: "fire" },
+  "Sleep": { cond: "unconscious" },
+  "Tasha's Hideous Laughter": { save: "wis", cond: "incapacitated" },
+  "Thunderous Smite": { save: "str", dmg: "2d6", dmgType: "thunder", cond: "prone" },
+  "Thunderwave": { save: "con", dmg: "2d8", dmgType: "thunder" },
+  "Witch Bolt": { atk: "ranged", dmg: "1d12", dmgType: "lightning" },
+  "Wrathful Smite": { save: "wis", dmg: "1d6", dmgType: "psychic", cond: "frightened" },
+  "Alter Self": { dmg: "1d6", dmgType: "bludgeoning" },
+  "Blindness/Deafness": { save: "con", cond: "blinded" },
+  "Branding Smite": { dmg: "2d6", dmgType: "radiant" },
+  "Calm Emotions": { save: "cha" },
+  "Cloud of Daggers": { dmg: "4d4", dmgType: "slashing" },
+  "Cordon of Arrows": { save: "dex", dmg: "1d6", dmgType: "piercing" },
+  "Crown of Madness": { save: "wis", cond: "charmed" },
+  "Detect Thoughts": { save: "wis" },
+  "Enlarge/Reduce": { save: "con" },
+  "Enthrall": { save: "wis" },
+  "Flame Blade": { atk: "melee", dmg: "3d6", dmgType: "fire" },
+  "Flaming Sphere": { save: "dex", dmg: "2d6", dmgType: "fire" },
+  "Gust of Wind": { save: "str" },
+  "Heat Metal": { save: "con", dmg: "2d8", dmgType: "fire" },
+  "Hold Person": { save: "wis", cond: "paralyzed" },
+  "Invisibility": { cond: "invisible" },
+  "Levitate": { save: "con" },
+  "Melf's Acid Arrow": { atk: "ranged", dmg: "4d4", dmgType: "acid" },
+  "Moonbeam": { save: "con", dmg: "2d10", dmgType: "radiant" },
+  "Phantasmal Force": { save: "int", dmg: "1d6", dmgType: "psychic" },
+  "Prayer of Healing": { heal: "2d8" },
+  "Ray of Enfeeblement": { atk: "ranged", save: "con" },
+  "Scorching Ray": { atk: "ranged", dmg: "2d6", dmgType: "fire" },
+  "Shatter": { save: "con", dmg: "3d8", dmgType: "thunder" },
+  "Silence": { cond: "deafened" },
+  "Spike Growth": { dmg: "2d4", dmgType: "piercing" },
+  "Spiritual Weapon": { atk: "melee", dmg: "1d8", dmgType: "force" },
+  "Suggestion": { save: "wis" },
+  "Web": { save: "dex", dmg: "2d4", dmgType: "fire", cond: "restrained" },
+  "Zone of Truth": { save: "cha" },
+  "Aura of Vitality": { heal: "2d6" },
+  "Bestow Curse": { save: "wis", dmg: "1d8", dmgType: "necrotic" },
+  "Blinding Smite": { save: "con", dmg: "3d8", dmgType: "radiant", cond: "blinded" },
+  "Call Lightning": { save: "dex", dmg: "3d10", dmgType: "lightning" },
+  "Conjure Barrage": { save: "dex" },
+  "Crusader's Mantle": { dmg: "1d4", dmgType: "radiant" },
+  "Elemental Weapon": { dmg: "1d4", dmgType: "acid" },
+  "Fear": { save: "wis", cond: "frightened" },
+  "Feign Death": { cond: "blinded" },
+  "Fireball": { save: "dex", dmg: "8d6", dmgType: "fire" },
+  "Glyph of Warding": { save: "dex", dmg: "5d8", dmgType: "acid" },
+  "Hunger of Hadar": { save: "dex", dmg: "2d6", dmgType: "acid", cond: "blinded" },
+  "Hypnotic Pattern": { save: "wis", cond: "charmed" },
+  "Lightning Arrow": { save: "dex", dmg: "4d8", dmgType: "lightning" },
+  "Lightning Bolt": { save: "dex", dmg: "8d6", dmgType: "lightning" },
+  "Magic Circle": { save: "cha" },
+  "Mass Healing Word": { heal: "1d4" },
+  "Sleet Storm": { save: "dex", cond: "prone" },
+  "Slow": { save: "wis" },
+  "Spirit Guardians": { save: "wis", dmg: "3d8", dmgType: "necrotic" },
+  "Stinking Cloud": { save: "con" },
+  "Vampiric Touch": { atk: "melee", dmg: "3d6", dmgType: "necrotic" },
+  "Wind Wall": { save: "str", dmg: "3d8", dmgType: "bludgeoning" },
+};
 
 export const PHB_SPELLS = PHB_SPELL_RAW.map(([name, level, cls, meta]) => ({
-  name, level, cls, src: "phb", ...meta,
+  name, level, cls, src: "phb", ...meta, ...(PHB_COMBAT[name] || {}),
 }));

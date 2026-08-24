@@ -200,13 +200,25 @@ export const STYLES = `
   color:var(--bone-dim);letter-spacing:.06em;}
 
 .su-spell-n{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--bone);}
-.su-spell-tags{display:flex;gap:4px;flex-shrink:0;}
 .su-tag{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;
   text-transform:uppercase;border:1px solid var(--gold-dim);color:var(--gold);
   border-radius:2px;padding:1px 5px;}
 .su-tag.alt{border-color:var(--line);color:var(--bone-dim);}
-.su-spell-m{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;
-  color:var(--bone-dim);margin-top:4px;line-height:1.55;}
+
+.su-atk-table{display:flex;flex-direction:column;}
+.su-atk-row{display:grid;grid-template-columns:1.4fr .8fr .7fr .9fr 1.4fr;gap:8px;
+  align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px;}
+.su-atk-row:last-child{border-bottom:none;}
+.su-atk-head{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--bone-dim);padding-bottom:8px;}
+.su-atk-name{font-family:'Fraunces',serif;font-weight:600;color:var(--bone);
+  display:flex;align-items:center;gap:6px;}
+.su-atk-num{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--gold);}
+.su-atk-notes{color:var(--bone-dim);}
+@media (max-width:520px){
+  .su-atk-row{grid-template-columns:1.2fr .7fr .6fr;}
+  .su-atk-row span:nth-child(4),.su-atk-row span:nth-child(5){grid-column:1/-1;}
+}
 .su-spell-t{display:block;font-size:12.5px;color:var(--bone-dim);line-height:1.5;
   margin-top:6px;}
 
@@ -218,9 +230,10 @@ export const STYLES = `
 .su-sprow:disabled{opacity:.32;cursor:not-allowed;}
 .su-sprow:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 .su-sprow-b{font-size:11px;color:var(--gold);padding-top:3px;flex-shrink:0;}
-.su-sprow-body{display:block;flex:1;}
-.su-sprow-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
 .su-sprow.is-sel .su-spell-n{color:var(--gold);}
+.su-sprow-tbl .su-atk-row{border-bottom:none;padding:0;font-size:12px;}
+.su-sprow-tbl .su-spell-n{display:flex;align-items:center;gap:5px;font-size:14px;}
+.su-heal{color:var(--jade);}
 
 .su-export{display:flex;align-items:center;gap:16px;background:var(--rock);
   border:1px solid var(--gold-dim);border-radius:3px;padding:16px 18px;margin-bottom:12px;}

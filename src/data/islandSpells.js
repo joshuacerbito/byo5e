@@ -7,18 +7,19 @@
 ------------------------------------------------------------------- */
 export const SPELLS = [
   { name: "Lava Plume", level: 0, school: "evocation", page: 229, time: "1 action", range: "120 ft",
-    comp: "V, S", dur: "Instantaneous",
+    comp: "V, S", dur: "Instantaneous", save: "dex", dmg: "1d6", dmgType: "fire",
     text: "A 5-foot fountain of lava bursts up. Creatures within 5 feet make a Dexterity save or take 1d6 fire damage. Scales at 5th, 11th, 17th level." },
   { name: "Spirit Dart", level: 0, school: "evocation", page: 231, time: "1 action", range: "120 ft",
-    comp: "V, S", dur: "Instantaneous", table: true,
+    comp: "V, S", dur: "Instantaneous", table: true, atk: "ranged", dmg: "1d8", dmgType: "varies",
     text: "Ranged spell attack for 1d8. Damage type set by the nature spirit that answers — roll or choose on the spirit table. Extra darts at 5th, 11th, 17th level." },
 
   { name: "Apolaki's Light", level: 1, school: "abjuration", page: 226,
     time: "1 reaction, when damaged by a creature within 30 ft you can see", range: "30 ft",
-    comp: "V, S", dur: "Instantaneous",
+    comp: "V, S", dur: "Instantaneous", save: "con", dmg: "1d12", dmgType: "radiant", cond: "blinded",
     text: "Solar light lashes back. Constitution save or 1d12 radiant and blinded until the start of its next turn; half and no blinding on a success. +1d12 per slot above 1st." },
   { name: "Create or Harden Lava", level: 1, school: "transmutation", page: 228, time: "1 action",
     range: "30 ft", comp: "V, S, M (obsidian shard, or volcanic rock)", dur: "Instantaneous",
+    save: "dex", dmg: "2d10", dmgType: "fire",
     text: "Melt a 10-foot cube of stone into lava (Dexterity save, 2d10 fire) or harden lava into rock (Constitution save or restrained). Cube grows 5 ft per slot above 1st." },
   { name: "False Self", level: 1, school: "transmutation", page: 229,
     time: "1 reaction, when grappled or restrained", range: "Self",
@@ -46,12 +47,15 @@ export const SPELLS = [
     text: "Swimming speed equal to movement, no disadvantage on underwater weapon attacks, and advantage on Dexterity saves while submerged." },
   { name: "Coral Cage", level: 3, school: "transmutation", page: 228, time: "1 action", range: "30 ft",
     comp: "V, S, M (a piece of coral)", dur: "Concentration, up to 10 min", conc: true,
+    save: "dex", dmg: "3d8", dmgType: "force", cond: "restrained",
     text: "Coral erupts around one creature. Dexterity save or 3d8 force and restrained. An aswang automatically fails, and repeats the save at disadvantage. +1d8 per slot above 3rd." },
   { name: "Eruption", level: 3, school: "evocation", page: 228, time: "1 action", range: "120 ft",
     comp: "V, S, M (a piece of igneous rock)", dur: "Instantaneous",
+    save: "dex", dmg: "4d6+4d6", dmgType: "fire+thunder",
     text: "The ground explodes. Creatures within 30 feet make a Dexterity save for 4d6 fire plus 4d6 thunder, leaving difficult terrain until the end of your next turn. +1d6 thunder per slot above 3rd." },
   { name: "Shape Light", level: 3, school: "transmutation", page: 231, time: "1 action", range: "60 ft",
     comp: "V, S, M (a light source and clear crystal)", dur: "Concentration, 1 min", conc: true,
+    save: "dex", dmg: "3d8", dmgType: "radiant", cond: "blinded",
     text: "Choose Moonlight (a weapon becomes magical, +1d8 radiant, three-quarters cover), Starlight (a five-panel wall, -1d4 to ranged attacks, 2d8 radiant), or Sunlight (a bright sphere, 3d8 radiant and blinded)." },
 ];
 

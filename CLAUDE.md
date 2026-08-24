@@ -36,6 +36,20 @@ we use one reading and note the other in an `errata` field. Known cases:
 | Mist of the Moon Twins | Called "Mischievous Mist of the Moon Twins" on cleric and warlock lists |
 | Graverobber (rogue) | Save DC is **10** + proficiency + Charisma. Standard 5e is 8. Implemented as printed |
 | Panday (background) | Grants **three** fixed skills where 5e backgrounds grant two. As printed |
+| Headhunter (class) | "Inevitable" is 17th level in the class table but "At 18th level" in the body text. Implemented at 18, as the body text states |
+| Omen of Strife (headhunter) | No 18th-level feature text appears, though the class table implies one (matching Omen of Knowledge and Omen of Swiftness's 18th-level features). Possibly a book layout gap — recorded, not invented |
+
+**Weapon Mastery is a second deliberate exception — 2024 content, opt-in, off by default.**
+The Actions attack table carries a "Weapon Mastery" toggle (`masteryEnabled` state) that adds
+each carried weapon's 2024 (XPHB) mastery property as an informational tag in the Notes
+column, with the property's effect text available underneath. It is explicitly not part of
+the 2014 chassis: it never feeds AC, attack bonus, damage, or any other derived stat, and the
+app doesn't model "which masteries you know" the way 2024 classes do — every carried weapon
+just shows its property when the toggle is on. Data source: `src/data/weapons.js`
+(`WEAPON_MASTERY_2024`, `MASTERY_PROPERTY_TEXT`), pulled from 5etools-src's XPHB baseitem
+entries and the "Weapon Mastery Properties" variant rule (p.214), not hand-guessed. If this
+ever needs to come out, it's isolated to that toggle, those two exports, and the Notes-column
+line that reads them — nothing else depends on it.
 
 ---
 
@@ -51,21 +65,22 @@ public/_headers              Cloudflare Pages cache rules — copied into dist/ 
 scripts/check.mjs          static checks — run `npm run check` after every edit
 src/
   main.jsx                 entry point
-  SinaUnaCreator.jsx       root component: state, derivation, step rendering (~1480 lines)
+  SinaUnaCreator.jsx       root component: state, derivation, step rendering (~1700 lines)
   styles.js                all CSS as one exported template string
   components/
     Rule.jsx               group divider — hairline + batok chevron
-    SpellRow.jsx           one selectable spell; renders whatever fields exist
+    SpellTableRow.jsx      one selectable spell, table-row layout (name/time/range/hit-DC/effect/notes)
   lib/
-    derive.js              mod, fmt, recommendedSpread, resolveLineage
+    derive.js              mod, fmt, attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold, recommendedSpread, resolveLineage
     steps.js               step list, buildSteps, profBonus, SLOTS_THIRD
     sheetHtml.js           buildSheetHTML(ctx) — standalone printable document
   data/
     baseRaces.js           9 PHB base races
     lineages.js            22 lineages (7 Sina Una, 15 PHB)
-    classes.js             CLASSES, ARMOR, ALL_SKILLS
-    subclasses.js          12 Sina Una + 40 PHB
+    classes.js             CLASSES (incl. weaponProf, startingEquipment), ARMOR, ALL_SKILLS
+    subclasses.js          18 Sina Una + 40 PHB
     backgrounds.js         6 Sina Una
+    weapons.js             WEAPONS (37 PHB + 18 Sina Una), PROPERTY_LABELS, WEAPON_MASTERY_2024 (opt-in, see below)
     islandSpells.js        SPELLS, SPIRIT_TABLE, SPELL_LISTS
     phbSpells.js           198 PHB spells, levels 0-3
     progression.js         ABILITIES, point buy, slots, CASTING, SKILL_ABILITY
@@ -95,7 +110,9 @@ Supported types: `acFormula`, `armorProf`, `shieldProf`, `weaponProf`, `skillPro
 Every effect may carry `atLevel`, defaulting to the subclass unlock level. Collected in the
 `effects` memo, read via the `fx(type)` helper.
 
-Two Sina Una subclasses use it: Mentala (`acFormula`) and Graverobber (`casting`, `dcBase: 10`).
+Three Sina Una subclasses use it: Mentala (`acFormula`), Graverobber (`casting`, `dcBase: 10`),
+and Omen of Swiftness (headhunter) (`casting`, third-caster from the cleric list — same shape
+as the PHB's Eldritch Knight/Arcane Trickster).
 Lineages use it too — Wood Elf `speed`, Drow `darkvision`, Hill Dwarf `hpPerLevel`,
 Mountain Dwarf `armorProf`.
 Twelve of the forty PHB subclasses carry effects.
@@ -106,17 +123,62 @@ is something you spend an action/bonus action/reaction to use. `action` is one o
 `"bonus"` | `"reaction"` | `"free"` (Action Surge-style — grants a turn effect for no cost),
 defined in `ACTION_ORDER`/`ACTION_LABELS` (`src/lib/derive.js`). This is an explicit editorial
 tag, not text-pattern-matched — most features are passive and carry none; only tag a feature
-after reading its text and confirming what it costs to use. Powers the "Actions" panel
-(Defenses step) and printable-sheet section, both grouped by bucket. Currently populated for
-all 12 core classes and the 12 Sina Una subclasses (both have full text); PHB subclasses don't
-have feature text yet (see Outstanding work) so aren't tagged.
+after reading its text and confirming what it costs to use. Powers the "Actions" panel in the
+app's Defenses step, grouped by bucket. Currently populated for all 14 core classes and the 18
+Sina Una subclasses (both have full text); PHB subclasses don't have feature text yet (see
+Outstanding work) so aren't tagged. The printable sheet carries a compact version too, titled
+"Class Actions" — name only, grouped by bucket, each entry pointing at the section further down
+that has the full text ("Abayan — See Babaylan features.") rather than repeating it up top,
+which is why an earlier pass removed a fuller excerpt from here.
+
+**Attack table.** The Actions panel also carries a weapon attack table, sitting above the
+action-economy list. It's driven by `CLASSES[id].startingEquipment` (weapon choice groups +
+fixed weapons, resolved via `equipmentChoices` state the same way `armorOptions` resolves
+armor) and `CLASSES[id].weaponProf` (`{ categories, specific }`, checked by
+`isWeaponProficient()` in `derive.js`). Weapon stats live in `src/data/weapons.js`
+(`WEAPONS`, 37 PHB + 18 Sina Una weapons — one flat array, the app never distinguishes the two
+sources downstream). Unarmed Strike (1 + Str mod, the 2014 damage — not 2024's d4) is
+always listed. Background `equipment` stays prose-only, shown on the Background step — it was
+never wired into the attack table (see Weapon Mastery note above for the one 2024 add-on this
+table carries). The printable sheet gets the same table (`attackRows` from `sheetCtx`), on the
+main pages rather than the appendix — it's meant for at-a-glance use during play.
+
+**Spell table.** The Spells step's cantrip/leveled lists render through
+`components/SpellTableRow.jsx` instead of a plain description list — one row per spell with
+Name/Time/Range/Hit-DC/Effect/Notes columns, full description underneath (this view is for
+picking spells, so the description stays). Hit/DC and Effect come from per-spell
+`atk`/`save`/`dmg`/`dmgType`/`heal`/`cond` fields added to `phbSpells.js` (98 of 198 spells —
+the rest are pure utility, no attack/save/damage to show) and to all 14 `islandSpells.js`
+entries. The PHB fields were script-pulled from 5etools-src's
+`spellAttack`/`savingThrow`/`damageInflict`/`miscTags` ("HL")/`conditionInflict` fields, not
+hand-guessed — same verify-with-a-tool practice as the rest of the spell/feature text. The
+printable sheet has its own compact version of this table (name/time/range/hit-DC/effect/
+notes, no description) built straight from `chosenSpells` in `sheetHtml.js` — same
+at-a-glance intent as the Attacks table, sitting on the main pages. Full spell text stays where
+it always was, in the Reference appendix.
+
+**The printable sheet has no fixed page count.** It flows to however many pages the character
+needs — don't reintroduce "Page 1 / Page 2" framing in the UI or docs (a "two pages, then an
+appendix" claim briefly existed in the Sheet step's copy and was wrong even before the Attacks/
+Spells tables made the sheet longer).
 
 ### Wizard steps
 
 Built by `buildSteps(hasSpellStep)`. The Spells step **only appears for casters**, so step
 indices shift. Always compare against `here` (the step name), never a numeric index.
 
-`Ancestry → Abilities → Class → Background → Defenses → [Spells] → Sheet`
+`Ancestry → Abilities → Class → Background → Defenses → [Spells] → Inventory → Sheet`
+
+**Inventory step.** Consolidated "what do I own" view — weapons (`groupWeapons()`, dedupes
+`carriedWeapons` into `{ weapon, qty }` rows), current armor/shield, gear (class
+`startingEquipment.gear` + background `equipment` + background `tools`), and starting
+currency. Currency is parsed off each background's flavor-text "N gp" equipment line
+(`parseStartingGold()`, `src/lib/derive.js`) rather than being a structured field — no class
+in this app grants extra starting gold, only backgrounds do, and always as one flat gp figure.
+Read-only: no persistence, no in-session spend/earn tracking. Both `groupWeapons()`/
+`parseStartingGold()` are shared by the app step and `sheetHtml.js`'s own Inventory section
+(placed after Background on the printed sheet — background reading, not per-turn combat
+info like Attacks/Spellcasting).
 
 ### Ancestry model
 
@@ -166,11 +228,14 @@ Static build, no server, no API — `npm run build` outputs `dist/` and that's t
 
 | Content | Count | Source |
 |---|---|---|
+| Classes | 14 | 12 PHB, 2 Sina Una (Babaylan, Headhunter) |
 | Lineages | 22 | 7 Sina Una, 15 PHB, across 9 base races |
-| Subclasses | 52 | 12 Sina Una, 40 PHB |
+| Subclasses | 58 | 18 Sina Una, 40 PHB |
 | Backgrounds | 6 | Sina Una only |
 | Island spells | 14 in app | levels 0–3; 24 total in `spells.json` |
 | PHB spells | 198 | levels 0–3 |
+| Weapons | 55 | 37 PHB + 18 Sina Una, simple + martial |
+| Armor rows | 19 | 13 PHB + 6 Sina Una |
 
 ---
 
@@ -210,19 +275,31 @@ Two gaps remain, deliberately out of scope for this pass:
   invocation options) was read but not transcribed in — the app doesn't track invocation picks
   at all yet, PHB or Sina Una.
 
-### 2. The Babaylan class — MISSING ENTIRELY
+### 2. ~~The Babaylan and Headhunter classes~~ — DONE
 
-Sina Una has a **thirteenth class**, the babaylan (priest-shaman), which the app does not
-implement at all. It was missed because the initial class-chapter scan searched only for the
-twelve PHB class names.
+Sina Una has a **13th and 14th class** — babaylan (priest-shaman) and headhunter — neither of
+which the app implemented. Babaylan was flagged in this doc; headhunter wasn't documented
+anywhere (the original class-chapter scan searched only for the twelve PHB class names, and
+whatever found babaylan still missed headhunter).
 
-Evidence: a full babaylan spell list on p.224 running cantrips through 9th level — the second
-longest in the book — sitting alongside the PHB classes as a peer. "Babaylan" appears 213 times
-across the OCR markdown, concentrated in files 2–4.
+Both now have full chassis (`CLASSES.babaylan`/`.headhunter`, `CLASS_FEATURES`, levels 1-5,
+same treatment as the 12 PHB classes) and all 6 subclasses with full feature text through
+level 20 (3 Babaylan Callings chosen at 1st level, 3 Headhunter Omens chosen at 3rd —
+transcribed by visual read of book pp.164-175, the same practice as 1b). Omen of Swiftness
+grants third-caster cleric-list spellcasting via the effects layer (see above). Babaylan's PHB
+spell-list eligibility was cross-referenced against the class list on p.224 and tagged onto the
+relevant `phbSpells.js` entries with a new `y` class code — `SPELL_LISTS.babaylan` (the
+island-only spells) needed no changes, it was already correct.
 
-`SPELL_LISTS.babaylan` already exists in the app, so the spell side is half-ready. The class
-chassis, hit die, proficiencies, and subclasses all still need extracting from PDF parts 4–5.
-Given the babaylan is the figure the whole setting revolves around, this is the biggest gap.
+Along the way, Sina Una's own weapon and armor tables (book pp.204-207 — 18 weapons, 6 armor
+rows) turned out to be missing too, even though `backgrounds.js` already referenced a couple of
+them by name. Added to the same `WEAPONS`/`ARMOR` arrays the PHB set lives in.
+
+Two gaps carried forward from 1b, still out of scope: Memory Options (Omen of Knowledge's
+pick-and-swap feature list) is folded into that feature's prose rather than modeled as its own
+effect type — no other subclass needs that shape yet, and almost none of the existing 52
+features feed derived stats either. And the "Memoriam"-only omen (Strife) 18th-level gap is
+recorded in the errata table above, not invented.
 
 ### 3. Persistence
 

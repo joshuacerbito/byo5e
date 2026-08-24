@@ -1,5 +1,5 @@
 import { ABILITIES } from '../data/progression.js';
-import { mod, fmt, ACTION_ORDER, ACTION_LABELS } from './derive.js';
+import { mod, fmt, groupWeapons, parseStartingGold, ACTION_ORDER, ACTION_LABELS } from './derive.js';
 
 /* Builds a standalone, printable HTML document for the character.
    window.print() can't be used from inside a sandboxed iframe, so the
@@ -7,7 +7,8 @@ import { mod, fmt, ACTION_ORDER, ACTION_LABELS } from './derive.js';
    download. Everything it needs is passed in explicitly. */
 export function buildSheetHTML(ctx) {
   const {
-    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, actions, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore,
+    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore,
+    attackRows, masteryEnabled, carriedWeapons, actions,
   } = ctx;
 
     const esc = (x) => String(x ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -58,11 +59,23 @@ export function buildSheetHTML(ctx) {
           .map((f) => `<p><b>${esc(f[1])}.</b> ${esc(f[2] || `Gained at level ${f[0]}.${subclass.page ? ` See p.${subclass.page}.` : ""}`)}</p>`).join("")
       : "";
 
-    const actionsHtml = actions.length ? ACTION_ORDER.filter((k) => actions.some((a) => a.action === k))
-      .map((k) => `<p class="actg">${esc(ACTION_LABELS[k])}</p>` +
-        actions.filter((a) => a.action === k)
-          .map((a) => `<p><b>${esc(a.name)}</b> <span class="mut">(${esc(a.source)})</span>. ${esc(a.text)}</p>`).join(""))
-      .join("") : "";
+    const attacksHtml = attackRows?.length ? `
+      <table class="atk"><thead><tr><th>Attack</th><th>Range</th><th>Hit/DC</th><th>Damage</th><th>Notes</th></tr></thead>
+      <tbody>${attackRows.map((r) => `<tr><td>${esc(r.name)}${r.proficient ? "" : " <span class=\"mut\">(not proficient)</span>"}</td>` +
+        `<td>${esc(r.range)}</td><td>${esc(r.hitOrDC)}</td>` +
+        `<td>${esc(r.damage)}${r.dmgType ? ` ${esc(r.dmgType)}` : ""}</td><td>${esc(r.notes || "—")}</td></tr>`).join("")}</tbody></table>
+      ${masteryEnabled ? `<p class="mut">Weapon Mastery notes are 2024, not the 2014 chassis this sheet otherwise uses — informational only.</p>` : ""}` : "";
+
+    /* Actions / Bonus Actions / Reactions granted by ancestry, class, and
+       subclass — name only, grouped by bucket, each pointing at the
+       exact section further down ("Abayan — See Babaylan features.")
+       that carries the full text, rather than repeating it up here. */
+    const actionsHtml = actions?.length
+      ? ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => `
+        <p class="mut">${esc(ACTION_LABELS[k])}</p>
+        ${actions.filter((a) => a.action === k).map((a) => `<p><b>${esc(a.name)}</b> — See ${esc(a.section)}.</p>`).join("")}
+      `).join("")
+      : "";
 
     const bg = background ? [
       `<p><b>${esc(background.feature.name)}.</b> ${esc(background.feature.text)}</p>`,
@@ -70,6 +83,39 @@ export function buildSheetHTML(ctx) {
       `<p><b>Equipment.</b> ${background.equipment.map(esc).join(", ")}.</p>`,
       background.tools?.length ? `<p><b>Tools.</b> ${background.tools.map(esc).join(", ")}.</p>` : "",
     ].join("") : "";
+
+    /* Everything the character starts with, in one place — weapons +
+       armor + class/background gear + starting gold. Same at-a-glance
+       intent as Attacks/Spellcasting, but this is background reading
+       (what's in the pack), not per-turn info, so it sits after
+       Background rather than up top. */
+    const weaponRows = groupWeapons(carriedWeapons || []);
+    const startingGold = parseStartingGold(background);
+    const gearList = [...(klass?.startingEquipment?.gear || []), ...startingGold.items,
+      ...(background?.tools || [])];
+    const inventoryHtml = (weaponRows.length || armor?.id !== "none" || shieldOn || gearList.length || startingGold.gp) ? `
+      ${weaponRows.length ? `<p><b>Weapons.</b> ${weaponRows.map((r) =>
+        esc(r.weapon.name) + (r.qty > 1 ? ` ×${r.qty}` : "")).join(", ")}.</p>` : ""}
+      <p><b>Armor.</b> ${armor && armor.id !== "none" ? esc(armor.name) : "None"}${shieldOn ? " + shield" : ""}.</p>
+      ${gearList.length ? `<p><b>Gear.</b> ${gearList.map(esc).join(", ")}.</p>` : ""}
+      <p><b>Currency.</b> ${startingGold.gp} gp.</p>` : "";
+
+    /* Compact spell table — same at-a-glance intent as the Attacks table:
+       Name/Time/Range/Hit-DC/Effect/Notes, no prose. Full descriptions are
+       island/PHB text already carried into the Reference section below,
+       not repeated here. */
+    const ABIL_LABEL = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
+    const spellHitDC = (sp) => {
+      if (sp.atk) return fmt(casting.attack);
+      if (sp.save) return `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()} ${casting.saveDC}`;
+      return "—";
+    };
+    const spellEffect = (sp) => {
+      if (sp.heal) return sp.heal;
+      if (sp.dmg) return `${sp.dmg}${sp.dmgType ? ` ${sp.dmgType}` : ""}`;
+      if (sp.cond) return sp.cond[0].toUpperCase() + sp.cond.slice(1);
+      return "—";
+    };
 
     const castBlock = casting && !casting.pending ? `
       <section><h4>Spellcasting — ${esc(casting.label)}</h4>
@@ -82,18 +128,17 @@ export function buildSheetHTML(ctx) {
         ${casting.prepared != null ? `<span>Prepared <b>${casting.prepared}</b></span>` : ""}
         ${casting.known != null ? `<span>Known <b>${casting.known}</b></span>` : ""}
       </div>
-      ${[0, 1, 2, 3].map((lvl) => {
-        const r = chosenSpells.filter((x) => x.level === lvl);
-        if (!r.length) return "";
-        return `<p><b>${lvl === 0 ? "Cantrips" : `Level ${lvl}`}.</b> ` +
-          r.map((x) => esc(x.name) + (x.src === "phb" ? "" : " *")).join(", ") + `</p>`;
-      }).join("")}
+      ${chosenSpells.length ? `
+      <table class="atk"><thead><tr><th>Name</th><th>Time</th><th>Range</th><th>Hit/DC</th><th>Effect</th><th>Notes</th></tr></thead>
+      <tbody>${chosenSpells.map((sp) => `<tr><td>${esc(sp.name)}${sp.src === "phb" ? "" : " *"}</td>` +
+        `<td>${esc(sp.time)}</td><td>${esc(sp.range)}</td><td>${esc(spellHitDC(sp))}</td>` +
+        `<td>${esc(spellEffect(sp))}</td><td>${[sp.ritual && "ritual", sp.conc && "conc"].filter(Boolean).map(esc).join(", ") || "—"}</td></tr>`).join("")}</tbody></table>` : ""}
       ${otherSpells.trim() ? `<p><b>Other.</b> ${otherSpells.split("\n").map((x) => esc(x.trim())).filter(Boolean).join(", ")}</p>` : ""}
       ${chosenSpells.some((x) => x.src !== "phb") ? `<p class="mut">* island spell — full text in the reference below.</p>` : ""}
       </section>` : "";
 
     const groups = [...new Set(appendix.map((a) => a.group))];
-    const appx = groups.length ? `<div class="brk"></div><h3>Reference</h3>` + groups.map((g) =>
+    const appx = groups.length ? `<h3>Reference</h3>` + groups.map((g) =>
       `<section><h4>${esc(g)}</h4>` +
       appendix.filter((a) => a.group === g).map((a) =>
         `<p><b>${esc(a.name)}.</b> ${esc(a.text)}</p>`).join("") + `</section>`).join("") : "";
@@ -141,7 +186,10 @@ export function buildSheetHTML(ctx) {
     color:#666;margin:8px 0 3px;border-top:1px solid #ccc;padding-top:6px}
   .actg:first-child{margin-top:0;border-top:none;padding-top:0}
   .inl{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:9.5pt;margin-bottom:7px}
-  .brk{break-after:page;page-break-after:always}
+  table.atk{width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:6px}
+  table.atk th{text-align:left;font-size:7pt;letter-spacing:.08em;text-transform:uppercase;
+    color:#555;border-bottom:1px solid #999;padding:3px 5px}
+  table.atk td{padding:3px 5px;border-bottom:1px solid #ddd}
   @page{margin:14mm}
   @media print{body{padding:0;max-width:none}.bar{display:none}}
 </style></head><body>
@@ -154,13 +202,14 @@ export function buildSheetHTML(ctx) {
 <div class="cols"><section><h4>Core</h4>${core}</section>
 <section><h4>Saving throws</h4>${saves}</section></div>
 <section><h4>Skills</h4><div class="sk">${skills}</div></section>
-${actionsHtml ? `<section><h4>Actions</h4>${actionsHtml}</section>` : ""}
-<div class="brk"></div>
+${attacksHtml ? `<section><h4>Attacks</h4>${attacksHtml}</section>` : ""}
+${actionsHtml ? `<section><h4>Class Actions</h4>${actionsHtml}</section>` : ""}
+${castBlock}
 <section><h4>Ancestry traits — ${esc(ancestry.name)}</h4>${traits}${dropped}</section>
 ${classFeats ? `<section><h4>${esc(klass.name)} features</h4>${classFeats}</section>` : ""}
 ${feats ? `<section><h4>${esc(subclass.name)} — ${esc(subclass.group)}</h4>${feats}</section>` : ""}
 ${bg ? `<section><h4>Background — ${esc(background.name)}</h4>${bg}</section>` : ""}
-${castBlock}
+${inventoryHtml ? `<section><h4>Inventory</h4>${inventoryHtml}</section>` : ""}
 ${appx}
 </body></html>`;
 }

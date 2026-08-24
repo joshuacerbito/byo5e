@@ -3,6 +3,7 @@ import React, { useState, useMemo } from "react";
 import { BASE_RACES } from "./data/baseRaces.js";
 import { LINEAGES, BASE_RACE_ORDER } from "./data/lineages.js";
 import { CLASSES, ARMOR, ALL_SKILLS } from "./data/classes.js";
+import { WEAPONS, PROPERTY_LABELS, DMG_TYPE_LABELS, WEAPON_MASTERY_2024, MASTERY_PROPERTY_TEXT } from "./data/weapons.js";
 import { ALL_SUBCLASSES } from "./data/subclasses.js";
 import { BACKGROUNDS } from "./data/backgrounds.js";
 import { PHB_SPELLS, CLS_CODE } from "./data/phbSpells.js";
@@ -12,11 +13,12 @@ import {
   SKILL_ABILITY, SLOTS_FULL, SLOTS_HALF, PACT, CASTING,
 } from "./data/progression.js";
 import { SLOTS_THIRD, buildSteps, profBonus } from "./lib/steps.js";
-import { mod, fmt, recommendedSpread, resolveLineage, ACTION_ORDER, ACTION_LABELS } from "./lib/derive.js";
+import { mod, fmt, recommendedSpread, resolveLineage, ACTION_ORDER, ACTION_LABELS,
+  attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold } from "./lib/derive.js";
 import { buildSheetHTML } from "./lib/sheetHtml.js";
 import { STYLES } from "./styles.js";
 import Rule from "./components/Rule.jsx";
-import SpellRow from "./components/SpellRow.jsx";
+import SpellTableRow from "./components/SpellTableRow.jsx";
 
 export default function SinaUnaCreator() {
   const [step, setStep] = useState(0);
@@ -139,6 +141,7 @@ export default function SinaUnaCreator() {
     setSkillPicks([]);
     setArmorId("none");
     setHasShield(false);
+    setEquipmentChoices({});
     setPickedSpells([]);
     setOtherSpells("");
   };
@@ -186,6 +189,8 @@ export default function SinaUnaCreator() {
 
   const [armorId, setArmorId] = useState("none");
   const [hasShield, setHasShield] = useState(false);
+  const [equipmentChoices, setEquipmentChoices] = useState({});
+  const [masteryEnabled, setMasteryEnabled] = useState(false);
   const [pickedSpells, setPickedSpells] = useState([]);
   const [otherSpells, setOtherSpells] = useState("");
 
@@ -266,6 +271,67 @@ export default function SinaUnaCreator() {
   /* Heavy armor below its Strength requirement costs 10 feet of speed. */
   const strShortfall = armor.strReq && resolved && finalScore("str") < armor.strReq ? armor.strReq : null;
   const speed = resolved ? resolved.speed - (strShortfall ? 10 : 0) : 0;
+
+  /* Starting-weapon choice groups, straight off the class chassis. Each
+     group is an array of options; an option is either a fixed weapon
+     (`weapon`), an open pick from a category (`filter`, resolved to a
+     concrete weapon via a second click), or a non-weapon package
+     (`special`) that may still carry its own fixed `weapon`. */
+  const weaponChoiceGroups = klass?.startingEquipment?.weaponChoices || [];
+
+  const carriedWeapons = useMemo(() => {
+    const out = [];
+    const add = (id, qty) => {
+      const w = WEAPONS.find((x) => x.id === id);
+      if (w) for (let i = 0; i < (qty || 1); i++) out.push(w);
+    };
+    weaponChoiceGroups.forEach((group, gi) => {
+      const choice = equipmentChoices[gi];
+      if (choice == null) return;
+      const opt = group[choice.optIdx];
+      if (!opt) return;
+      if (opt.weapon) add(opt.weapon, opt.qty);
+      else if (opt.filter && choice.weaponId) add(choice.weaponId, opt.qty);
+    });
+    (klass?.startingEquipment?.fixedWeapons || []).forEach((fw) => add(fw.weapon, fw.qty));
+    return out;
+  }, [klass, weaponChoiceGroups, equipmentChoices]);
+
+  const groupedWeapons = useMemo(() => groupWeapons(carriedWeapons), [carriedWeapons]);
+  const startingGold = useMemo(() => parseStartingGold(background), [background]);
+
+  /* Attack table: proficiency (klass.weaponProf) drives whether pb
+     applies; finesse/ranged weapons use the better of Str/Dex. Unarmed
+     Strike (1 + Str mod, 2014 rule — not the 2024 d4) is always listed. */
+  const attackRows = useMemo(() => {
+    if (!resolved || !klass) return [];
+    const str = mod(finalScore("str"));
+    const dex = mod(finalScore("dex"));
+    const rows = [];
+    carriedWeapons.forEach((w, i) => {
+      const proficient = isWeaponProficient(w, klass.weaponProf);
+      const finesse = w.properties.includes("F");
+      const ranged = w.kind === "ranged";
+      const abilityMod = finesse ? Math.max(str, dex) : ranged ? dex : str;
+      const atk = attackBonus(pb, abilityMod, proficient);
+      const notes = w.properties.map((p) => PROPERTY_LABELS[p] || p);
+      if (w.dmg2) notes.push(`Versatile — ${w.dmg2}${fmt(abilityMod)} two-handed`);
+      if (masteryEnabled && WEAPON_MASTERY_2024[w.id]) notes.push(`Mastery: ${WEAPON_MASTERY_2024[w.id]}`);
+      rows.push({
+        key: `${w.id}-${i}`, name: w.name, range: w.range ? w.range.replace("/", " / ") + " ft" : (ranged ? "—" : "5 ft"),
+        hitOrDC: fmt(atk),
+        damage: w.dmg1 ? `${w.dmg1}${fmt(abilityMod)}` : "—",
+        dmgType: w.dmgType ? DMG_TYPE_LABELS[w.dmgType] : null,
+        notes: notes.join(", "), proficient,
+      });
+    });
+    rows.push({
+      key: "unarmed", name: "Unarmed Strike", range: "5 ft",
+      hitOrDC: fmt(attackBonus(pb, str, true)),
+      damage: `${1 + str}`, dmgType: "bludgeoning", notes: "", proficient: true,
+    });
+    return rows;
+  }, [resolved, klass, carriedWeapons, pb, masteryEnabled, scores, arrayAssign, mode]);
 
   const allSkills = useMemo(
     () => [...new Set([...(resolved?.skills || []), ...skillPicks, ...bgSkills])].sort(),
@@ -417,38 +483,24 @@ export default function SinaUnaCreator() {
   /* Everything that needs a full write-up in the printed appendix. */
   const appendix = useMemo(() => {
     const out = [];
-    if (resolved) {
-      resolved.traits.forEach((t) =>
-        out.push({ group: "Ancestry traits", name: t.name, text: t.text }));
-    }
-    if (klass) {
-      (klass.features || []).filter((f) => f[0] <= level).forEach((f) =>
-        out.push({ group: `${klass.name} features`, name: f[1], text: f[2] }));
-    }
-    if (subclass && subclassReady) {
-      subclass.features.filter((f) => f[0] <= level).forEach((f) =>
-        out.push({ group: `${subclass.name} features`, name: f[1],
-          text: f[2] || `Gained at ${klass.name} level ${f[0]}. Full text on p.${subclass.page || "—"} of the source.` }));
-    }
-    if (background) {
-      out.push({ group: "Background", name: background.feature.name, text: background.feature.text });
-      if (background.choice && bgChoice) {
-        out.push({ group: "Background", name: background.choice.name,
-          text: `${bgChoice}. ${background.choice.note}` });
-      }
-    }
+    /* Ancestry traits, class/subclass features, and Background are all
+       already written out in full on the Sheet itself — not repeated
+       here. Only what the Sheet doesn't already say in full goes in the
+       Reference. */
     if (curse && subclass?.choice) {
       const o = subclass.choice.options.find((x) => x.id === curse);
       out.push({ group: "Subclass choice", name: subclass.choice.name,
         text: `${o.name} — ${o.sub}. ${subclass.choice.note}` });
     }
-    chosenSpells.forEach((sp) =>
-      out.push({ group: sp.src === "phb" ? "Handbook spells" : "Island spells", name: sp.name,
-        text: `${sp.level === 0 ? "Cantrip" : `Level ${sp.level}`} ${sp.school}. ` +
-          `Casting time ${sp.time}. Range ${sp.range}. Components ${sp.comp}. Duration ${sp.dur}.` +
-          `${sp.ritual ? " Ritual." : ""}${sp.conc ? " Concentration." : ""} ${sp.text}` }));
+    const spellEntry = (sp) => ({ group: sp.src === "phb" ? "Handbook spells" : "Island spells", name: sp.name,
+      text: `${sp.level === 0 ? "Cantrip" : `Level ${sp.level}`} ${sp.school}. ` +
+        `Casting time ${sp.time}. Range ${sp.range}. Components ${sp.comp}. Duration ${sp.dur}.` +
+        `${sp.ritual ? " Ritual." : ""}${sp.conc ? " Concentration." : ""} ${sp.text}` });
+    /* Island spells before Handbook spells. */
+    chosenSpells.filter((sp) => sp.src !== "phb").forEach((sp) => out.push(spellEntry(sp)));
+    chosenSpells.filter((sp) => sp.src === "phb").forEach((sp) => out.push(spellEntry(sp)));
     return out;
-  }, [resolved, subclass, subclassReady, level, klass, background, bgChoice, curse, chosenSpells]);
+  }, [subclass, curse, chosenSpells]);
 
   /* Actions / Bonus Actions / Reactions granted by ancestry, class, and
      subclass — the mid-turn "what can I press" list, kept separate from
@@ -459,16 +511,19 @@ export default function SinaUnaCreator() {
     const out = [];
     if (resolved) {
       resolved.traits.forEach((t) => {
-        if (t.action) out.push({ name: t.name, source: ancestry.name, action: t.action, text: t.text });
+        if (t.action) out.push({ name: t.name, source: ancestry.name, action: t.action, text: t.text,
+          section: `Ancestry traits — ${ancestry.name}` });
       });
     }
     if (klass) {
       (klass.features || []).filter((f) => f[0] <= level && f[3]).forEach((f) =>
-        out.push({ name: f[1], source: klass.name, action: f[3], text: f[2] }));
+        out.push({ name: f[1], source: klass.name, action: f[3], text: f[2],
+          section: `${klass.name} features` }));
     }
     if (subclass && subclassReady) {
       subclass.features.filter((f) => f[0] <= level && f[3]).forEach((f) =>
-        out.push({ name: f[1], source: subclass.name, action: f[3], text: f[2] }));
+        out.push({ name: f[1], source: subclass.name, action: f[3], text: f[2],
+          section: `${subclass.name} — ${subclass.group}` }));
     }
     return out;
   }, [resolved, ancestry, klass, subclass, subclassReady, level]);
@@ -492,7 +547,7 @@ export default function SinaUnaCreator() {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passivePerception, passiveSkills, actions, pb, armor, shieldOn,
     savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice,
-    finalScore,
+    finalScore, attackRows, carriedWeapons, masteryEnabled,
   };
 
   const downloadSheet = () => {
@@ -619,7 +674,7 @@ export default function SinaUnaCreator() {
       <div className="su-wrap">
         <p className="su-eyebrow">The Islands of Sina Una</p>
         <h1 className="su-h1">Make a character</h1>
-        <p className="su-sub">Six steps. Only legal options are shown.</p>
+        <p className="su-sub">{STEPS.length} steps. Only legal options are shown.</p>
 
         {/* batok chevron rail */}
         <div className="su-rail">
@@ -905,21 +960,34 @@ export default function SinaUnaCreator() {
               </div>
             </div>
 
-            {Object.entries(CLASSES).map(([id, c]) => {
-              const sel = id === classId;
-              const subs = ALL_SUBCLASSES.filter((s) => s.cls === id);
+            {["sinauna", "phb"].map((source) => {
+              const list = Object.entries(CLASSES).filter(([, c]) => c.src === source);
+              if (!list.length) return null;
               return (
-                <button key={id} className={`su-card ${sel ? "is-sel" : ""}`}
-                        onClick={() => pickClass(id)} aria-pressed={sel}>
-                  <div className="su-card-top">
-                    <span className="su-card-name">{c.name}</span>
-                    <span className="su-card-kind">d{c.hitDie} hit die</span>
+                <div key={source}>
+                  <div className="su-src">
+                    {source === "sinauna" ? "Sina Una" : "Player's Handbook"}
+                    <span className="su-src-n">{list.length}</span>
                   </div>
-                  <p className="su-card-blurb">
-                    Saves: {c.saves.join(", ")} · {c.skillCount} skills ·{" "}
-                    {subs.length ? `${subs[0].name} available at ${subs[0].unlock}` : "no Sina Una option"}
-                  </p>
-                </button>
+                  {list.map(([id, c]) => {
+                    const sel = id === classId;
+                    const subs = ALL_SUBCLASSES.filter((s) => s.cls === id);
+                    return (
+                      <button key={id} className={`su-card ${sel ? "is-sel" : ""}`}
+                              style={{ marginTop: 8 }}
+                              onClick={() => pickClass(id)} aria-pressed={sel}>
+                        <div className="su-card-top">
+                          <span className="su-card-name">{c.name}</span>
+                          <span className="su-card-kind">d{c.hitDie} hit die</span>
+                        </div>
+                        <p className="su-card-blurb">
+                          Saves: {c.saves.join(", ")} · {c.skillCount} skills ·{" "}
+                          {subs.length ? `${subs[0].name} available at ${subs[0].unlock}` : "no Sina Una option"}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
               );
             })}
 
@@ -1282,6 +1350,110 @@ export default function SinaUnaCreator() {
                   ))}
                 </div>
 
+                {weaponChoiceGroups.length > 0 && (
+                  <div className="su-panel">
+                    <h3>Starting Equipment <span className="su-count">weapons</span></h3>
+                    <p className="su-note" style={{ marginBottom: 10 }}>
+                      {klass.name}'s starting gear. Background gear — packs, tools, trinkets — is on the Background step.
+                    </p>
+                    {weaponChoiceGroups.length > 1 && (
+                      <p className="su-note" style={{ marginBottom: 4 }}>
+                        You get one pick from <em>each</em> row below — {weaponChoiceGroups.length} weapons total, not one.
+                      </p>
+                    )}
+                    {weaponChoiceGroups.map((group, gi) => {
+                      const choice = equipmentChoices[gi];
+                      const ordinal = ["1st", "2nd", "3rd", "4th"][gi] || `${gi + 1}th`;
+                      return (
+                        <div key={gi} style={{ marginBottom: 10 }}>
+                          {weaponChoiceGroups.length > 1 && (
+                            <span className="su-row-label" style={{ display: "block", marginBottom: 4 }}>
+                              {ordinal} weapon
+                            </span>
+                          )}
+                          <div className="su-skills">
+                            {group.map((opt, oi) => {
+                              const sel = choice?.optIdx === oi;
+                              const label = opt.label || WEAPONS.find((w) => w.id === opt.weapon)?.name || opt.weapon;
+                              return (
+                                <button key={oi} className={`su-skill ${sel ? "is-sel" : ""}`}
+                                        onClick={() => setEquipmentChoices((prev) => ({ ...prev, [gi]: { optIdx: oi, weaponId: null } }))}
+                                        aria-pressed={sel}>
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {choice != null && group[choice.optIdx]?.filter && (() => {
+                            const optQty = group[choice.optIdx].qty || 1;
+                            return (
+                              <>
+                                {optQty > 1 && (
+                                  <p className="su-note" style={{ marginTop: 6, marginBottom: 4 }}>
+                                    Pick one — you get {optQty} of it.
+                                  </p>
+                                )}
+                                <div className="su-skills" style={{ marginTop: 6 }}>
+                                  {WEAPONS.filter((w) => {
+                                    const f = group[choice.optIdx].filter;
+                                    if (f.category && w.category !== f.category) return false;
+                                    if (f.melee && w.kind !== "melee") return false;
+                                    return true;
+                                  }).map((w) => (
+                                    <button key={w.id} className={`su-skill ${choice.weaponId === w.id ? "is-sel" : ""}`}
+                                            onClick={() => setEquipmentChoices((prev) => ({ ...prev, [gi]: { ...prev[gi], weaponId: w.id } }))}
+                                            aria-pressed={choice.weaponId === w.id}>
+                                      {w.name}{optQty > 1 ? ` ×${optQty}` : ""}
+                                    </button>
+                                  ))}
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      );
+                    })}
+                    {klass.startingEquipment?.gear?.length > 0 && (
+                      <p className="su-note" style={{ marginTop: 4 }}>
+                        Also: {klass.startingEquipment.gear.join(", ")}.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="su-panel">
+                  <h3>Attacks</h3>
+                  <div className="su-atk-table">
+                    <div className="su-atk-row su-atk-head">
+                      <span>Attack</span><span>Range</span><span>Hit / DC</span><span>Damage</span><span>Notes</span>
+                    </div>
+                    {attackRows.map((r) => (
+                      <div className="su-atk-row" key={r.key}>
+                        <span className="su-atk-name">{r.name}{!r.proficient && <span className="su-tag alt">not proficient</span>}</span>
+                        <span>{r.range}</span>
+                        <span className="su-atk-num">{r.hitOrDC}</span>
+                        <span className="su-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
+                        <span className="su-atk-notes">{r.notes || "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="su-row" style={{ marginTop: 10 }}>
+                    <span className="su-row-label">Weapon Mastery <span className="su-count">2024, optional</span></span>
+                    <button className={`su-opt ${masteryEnabled ? "is-sel" : ""}`}
+                            onClick={() => setMasteryEnabled((v) => !v)} aria-pressed={masteryEnabled}>
+                      {masteryEnabled ? "On" : "Off"}
+                    </button>
+                  </div>
+                  {masteryEnabled && (
+                    <p className="su-warn">
+                      Off the 2014 chassis Sina Una uses — an informational tag only, in the Notes column above.
+                      It doesn't change AC, attack bonus, or damage, and this app doesn't track which masteries
+                      you'd actually know. {[...new Set(carriedWeapons.map((w) => WEAPON_MASTERY_2024[w.id]).filter(Boolean))]
+                        .map((m) => `${m} — ${MASTERY_PROPERTY_TEXT[m]}`).join(" ")}
+                    </p>
+                  )}
+                </div>
+
                 {actions.length > 0 && (
                   <div className="su-panel">
                     <h3>Actions</h3>
@@ -1298,6 +1470,11 @@ export default function SinaUnaCreator() {
                     ))}
                   </div>
                 )}
+
+                <div className="su-panel">
+                  <h3>Actions in Combat</h3>
+                  <p className="su-note">{BASIC_ACTIONS.join(", ")}.</p>
+                </div>
               </>
             )}
           </>
@@ -1357,7 +1534,7 @@ export default function SinaUnaCreator() {
                       <div className="su-src">Sina Una
                         <span className="su-src-n">{availableSpells.rows.filter((x) => x.level === 0).length}</span></div>
                       {availableSpells.rows.filter((x) => x.level === 0).map((sp) => (
-                        <SpellRow key={sp.name} sp={sp}
+                        <SpellTableRow key={sp.name} sp={sp} casting={casting}
                                   on={pickedSpells.includes(sp.name)}
                                   full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
                                   onToggle={() => toggleSpell(sp.name)} />
@@ -1369,7 +1546,7 @@ export default function SinaUnaCreator() {
                       <div className="su-src">Player's Handbook
                         <span className="su-src-n">{availableSpells.phb.filter((x) => x.level === 0).length}</span></div>
                       {availableSpells.phb.filter((x) => x.level === 0).map((sp) => (
-                        <SpellRow key={sp.name} sp={sp}
+                        <SpellTableRow key={sp.name} sp={sp} casting={casting}
                                   on={pickedSpells.includes(sp.name)}
                                   full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
                                   onToggle={() => toggleSpell(sp.name)} />
@@ -1400,13 +1577,17 @@ export default function SinaUnaCreator() {
                         if (!rows.length && !phb.length) return null;
                         return (
                           <div key={lvl}>
-                            <div className="su-lvlh">Level {lvl}</div>
+                            <div className="su-lvlh">Level {lvl}
+                              {casting.slots?.[lvl - 1] != null && (
+                                <span className="su-count">{casting.slots[lvl - 1]} slot{casting.slots[lvl - 1] === 1 ? "" : "s"}</span>
+                              )}
+                            </div>
                             {rows.length > 0 && (
                               <>
                                 <div className="su-src">Sina Una
                                   <span className="su-src-n">{rows.length}</span></div>
                                 {rows.map((sp) => (
-                                  <SpellRow key={sp.name} sp={sp}
+                                  <SpellTableRow key={sp.name} sp={sp} casting={casting}
                                             on={pickedSpells.includes(sp.name)}
                                             full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
                                             onToggle={() => toggleSpell(sp.name)} />
@@ -1418,7 +1599,7 @@ export default function SinaUnaCreator() {
                                 <div className="su-src">Player's Handbook
                                   <span className="su-src-n">{phb.length}</span></div>
                                 {phb.map((sp) => (
-                                  <SpellRow key={sp.name} sp={sp}
+                                  <SpellTableRow key={sp.name} sp={sp} casting={casting}
                                             on={pickedSpells.includes(sp.name)}
                                             full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
                                             onToggle={() => toggleSpell(sp.name)} />
@@ -1449,6 +1630,67 @@ export default function SinaUnaCreator() {
           </>
         )}
 
+        {/* ---------------- INVENTORY ---------------- */}
+        {here === "Inventory" && resolved && (
+          <>
+            <div className="su-panel">
+              <h3>Weapons</h3>
+              {groupedWeapons.length > 0 ? groupedWeapons.map(({ weapon, qty }) => (
+                <div className="su-row" key={weapon.id}>
+                  <span className="su-row-label">{weapon.name}</span>
+                  {qty > 1 && <span className="su-mod" style={{ width: "auto" }}>×{qty}</span>}
+                </div>
+              )) : (
+                <p className="su-note">
+                  Nothing picked yet. <button className="su-linkbtn" onClick={() => setStep(at("Defenses"))}>
+                    Choose starting weapons
+                  </button> on the Defenses step.
+                </p>
+              )}
+            </div>
+
+            <div className="su-panel">
+              <h3>Armor</h3>
+              <div className="su-row">
+                <span className="su-row-label">Worn</span>
+                <span className="su-mod" style={{ width: "auto" }}>{armor.id === "none" ? "None" : armor.name}</span>
+              </div>
+              <div className="su-row">
+                <span className="su-row-label">Shield</span>
+                <span className="su-mod" style={{ width: "auto" }}>{shieldOn ? "Carrying" : "None"}</span>
+              </div>
+              <p className="su-note" style={{ marginTop: 6 }}>
+                <button className="su-linkbtn" onClick={() => setStep(at("Defenses"))}>Change armor</button> on the Defenses step.
+              </p>
+            </div>
+
+            <div className="su-panel">
+              <h3>Gear</h3>
+              {[...(klass?.startingEquipment?.gear || []), ...startingGold.items,
+                ...(background?.tools || [])].map((g) => (
+                <div className="su-row" key={g}><span className="su-row-label">{g}</span></div>
+              ))}
+              {!klass && !background && (
+                <p className="su-note">Pick a class and background to see starting gear.</p>
+              )}
+            </div>
+
+            <div className="su-panel">
+              <h3>Currency</h3>
+              {background ? (
+                <div className="su-vitals" style={{ gridTemplateColumns: "1fr" }}>
+                  <div className="su-vital">
+                    <div className="su-vital-n">{startingGold.gp} gp</div>
+                    <div className="su-vital-l">Starting gold — {background.name}</div>
+                  </div>
+                </div>
+              ) : (
+                <p className="su-note">Pick a background to see starting gold.</p>
+              )}
+            </div>
+          </>
+        )}
+
         {/* ---------------- SHEET / EXPORT ---------------- */}
         {here === "Sheet" && resolved && (
           <>
@@ -1465,7 +1707,7 @@ export default function SinaUnaCreator() {
                 <div className="su-export-t">Character sheet</div>
                 <div className="su-export-s">
                   Opens a print-ready sheet in a new tab and triggers the print dialog —
-                  two pages of sheet, then a reference appendix. Choose <em>Save as PDF</em> there.
+                  as many pages as the character needs, then a reference appendix. Choose <em>Save as PDF</em> there.
                 </div>
               </div>
               <button className="su-btn su-btn-go" onClick={printSheet}>Print / Save as PDF</button>
@@ -1482,10 +1724,14 @@ export default function SinaUnaCreator() {
 
             <div className="su-panel">
               <h3>What goes in the file</h3>
-              <div className="su-row"><span className="su-row-label">Page 1</span>
-                <span className="su-mod" style={{ width: "auto" }}>Abilities, saves, skills, defenses</span></div>
-              <div className="su-row"><span className="su-row-label">Page 2</span>
-                <span className="su-mod" style={{ width: "auto" }}>Traits, features, equipment, spells</span></div>
+              <p className="su-note" style={{ marginBottom: 10 }}>
+                Length isn't fixed to a page count — it flows to however many pages the
+                character actually needs.
+              </p>
+              <div className="su-row"><span className="su-row-label">Sheet</span>
+                <span className="su-mod" style={{ width: "auto" }}>
+                  Abilities, saves, skills, defenses, traits, features, attacks, spells
+                </span></div>
               <div className="su-row"><span className="su-row-label">Appendix</span>
                 <span className="su-mod" style={{ width: "auto" }}>
                   {appendix.length} full description{appendix.length === 1 ? "" : "s"}

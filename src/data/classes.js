@@ -102,59 +102,201 @@ const CLASS_FEATURES = {
     [1, "Arcane Recovery", "You have learned to regain some of your magical energy by studying your spellbook. Once per day when you finish a short rest, you can choose expended spell slots to recover. The spell slots can have a combined level that is equal to or less than half your wizard level (rounded up), and none of the slots can be 6th level or higher. For example, if you're a 4th-level wizard, you can recover up to two levels worth of spell slots. You can recover either a 2nd-level spell slot or two 1st-level spell slots."],
     [4, "Ability Score Improvement", "When you reach 4th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature. If your DM allows the use of feats, you may instead take a feat."],
   ],
+  /* Babaylan and Headhunter — Sina Una's own 13th and 14th classes
+     (book pp.164-175), visually transcribed the same way the 12 Sina
+     Una subclasses were. "Babaylan Calling" / "Hunter's Omen" are
+     subclass-pick markers, omitted here the same way "Divine Domain"
+     and "Sacred Oath" are omitted from cleric/paladin above. */
+  babaylan: [
+    [1, "Abayan", "As a babaylan, your journey is guided by a steadfast spirit companion known as an abayan, part guardian and part mentor, who helps you better understand your connection to the spirit realm and channel your magical gifts. Your abayan manifests as an incorporeal semi-transparent creature of Medium size. Often, the form the abayan chooses to adopt is a beast native to your home, though there are exceptions. Regardless of their form, your abayan has truesight out to 60 feet, is immune to all damage, and cannot be dismissed or dispelled by magical means. You can use your abayan as a spellcasting focus for your babaylan spells; unlike other spellcasting foci, you do not need to be holding your abayan to gain this benefit. While your abayan is within 60 feet of you, you can communicate with them telepathically. An abayan is always truthful, but they may answer questions cryptically or withhold information as they see fit in order to best facilitate your spiritual journey as a babaylan. As a bonus action on your turn, you can ask your abayan to move up to 30 feet in any direction. Your abayan can then immediately move to where you directed it as part of that same bonus action (provided the abayan is willing). When you cast a spell with a range of touch, your abayan can deliver the touch as if they had cast it; if the spell requires an attack roll, you use your attack modifier for the roll. Additionally, when you cast a spell that produces an area of effect originating from yourself, you can choose to have it originate from your abayan instead.", "bonus"],
+    [3, "Spirit Conduit", "At 3rd level, your abayan begins to lend you some of its innate power, allowing you to become a conduit for the spirit and strengthen your spells. The power your abayan lends you is represented by a pool of d4s called Spirit Dice. You start with 4d4 in this pool and gain more dice as you reach higher levels, as shown in the Spirit Dice column of the Babaylan table. You can use dice from this pool to bolster a spell via one of the following conduit options. Once you take a die from the pool and roll it for one of the conduit options, the die is expended and cannot be used for another option. You can use multiple conduit options on a single spell, but the total number of Spirit Dice expended in a single turn must be less than or equal to your Intelligence modifier (minimum of one). You regain all expended Spirit Dice after a long rest. Persistence. When you cast a spell that requires a saving throw against damage or an effect, you can roll a number of Spirit Dice and add the total to your usual spell save DC; the result is the new DC for the spell until the start of your next turn. You must choose this option before affected creatures make their saving throws. Precision. When you cast a spell that requires an attack roll, you can roll a number of Spirit Dice and add the total to your attack roll, after rolling the d20 but before you know if the attack hits. Vehemence. When you roll damage for a spell, you can roll a number of Spirit Dice and add the total rolled to the spell's damage."],
+    [4, "Ability Score Improvement", "When you reach 4th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature. If your DM allows the use of feats, you may instead take a feat."],
+  ],
+  headhunter: [
+    [1, "Focused Hunter", "Your dedication to your mission hones the strength of your mind. You have advantage on saving throws against being charmed or frightened."],
+    [1, "Conviction", "Through communion and offerings, the spirits of your ancestors aid your hunt, strengthening your resolve and rendering your presence a portent of death. Once per round, you can deal 1d4 force damage to one creature you target with a weapon attack. The attack does not have to successfully hit in order for the target to take this force damage; on a critical hit, this force damage is multiplied along with the attack's regular damage. The amount of force damage increases as you gain levels in this class, as shown in the Conviction Damage column of the Headhunter table."],
+    [2, "Rite of the Ancestors", "Starting at 2nd level, you learn to conduct a rite to ask your ancestors for guidance on your upcoming path. When you finish a long rest, you can choose one creature that is familiar to you; you do not need to have previously seen or interacted with this creature, only know enough about it to describe it. This creature is considered your quarry. You can then ask three of the following questions: What is my quarry's Armor Class? Is my quarry within one mile of my current location? What is one of my quarry's damage resistances, if it has any? What is one of my quarry's damage vulnerabilities, if it has any? What is my quarry's highest ability score? You cannot choose another quarry until you finish another long rest."],
+    [2, "Fighting Style", "Also at 2nd level, you adopt a particular style of fighting as your specialty. Choose one of the following options. You can't take a Fighting Style option more than once, even if you later get to choose again. Defense. While you are wearing armor, you gain a +1 bonus to AC. Distance. You gain a +2 bonus to attack rolls you make with ranged and thrown weapons. Great Weapon Fighting. When you roll a 1 or 2 on a damage die for an attack you make with a melee weapon that you are wielding with two hands, you can reroll the die and must use the new roll, even if the new roll is a 1 or a 2. The weapon must have the two-handed or versatile property for you to gain this benefit. Protection. When a creature you can see attacks a target other than you that is within 5 feet of you, you can use your reaction to impose disadvantage on the attack roll. You must be wielding a shield. Pursuant. You gain a +1 bonus to attack rolls made against your quarry, as chosen by your Rite of the Ancestors feature. Skirmisher. When you use your reaction to make an attack of opportunity against a creature, you can also move in the same direction as that creature a number of feet equal to half your movement speed."],
+    [4, "Ability Score Improvement", "When you reach 4th level, you can increase one ability score of your choice by 2, or you can increase two ability scores of your choice by 1. As normal, you can't increase an ability score above 20 using this feature. If your DM allows the use of feats, you may instead take a feat."],
+  ],
 };
 /* ------------------------------------------------------------------
    Class chassis (SRD 5.1, CC-BY-4.0). Level 1 only. Core class
    features (levels 1-5) are attached from CLASS_FEATURES above.
 ------------------------------------------------------------------- */
 export const CLASSES = {
-  barbarian: { name: "Barbarian", features: CLASS_FEATURES.barbarian, hitDie: 12, saves: ["Strength", "Constitution"], skillCount: 2,
+  barbarian: { name: "Barbarian", features: CLASS_FEATURES.barbarian, hitDie: 12, src: "phb", saves: ["Strength", "Constitution"], skillCount: 2,
     skills: ["Animal Handling", "Athletics", "Intimidation", "Nature", "Perception", "Survival"],
     armor: "Light, medium, shields", weapons: "Simple, martial",
-    armorProf: ["light", "medium"], shield: true, unarmored: { name: "Unarmored Defense", add: "con" } },
-  bard: { name: "Bard", features: CLASS_FEATURES.bard, hitDie: 8, saves: ["Dexterity", "Charisma"], skillCount: 3, skills: "any",
+    armorProf: ["light", "medium"], shield: true, unarmored: { name: "Unarmored Defense", add: "con" },
+    weaponProf: { categories: ["simple", "martial"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "greataxe" }, { filter: { category: "martial", melee: true }, label: "Any martial melee weapon" }],
+        [{ weapon: "handaxe", qty: 2, label: "Two handaxes" }, { filter: { category: "simple" }, label: "Any simple weapon" }],
+      ],
+      fixedWeapons: [{ weapon: "javelin", qty: 4 }],
+      gear: ["An explorer's pack"],
+    } },
+  bard: { name: "Bard", features: CLASS_FEATURES.bard, hitDie: 8, src: "phb", saves: ["Dexterity", "Charisma"], skillCount: 3, skills: "any",
     armor: "Light", weapons: "Simple, hand crossbow, longsword, rapier, shortsword",
-    armorProf: ["light"], shield: false },
-  cleric: { name: "Cleric", features: CLASS_FEATURES.cleric, hitDie: 8, saves: ["Wisdom", "Charisma"], skillCount: 2,
+    armorProf: ["light"], shield: false,
+    weaponProf: { categories: ["simple"], specific: ["hand-crossbow", "longsword", "rapier", "shortsword"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "rapier" }, { weapon: "longsword" }, { filter: { category: "simple" }, label: "Any simple weapon" }],
+      ],
+      fixedWeapons: [{ weapon: "dagger" }],
+      gear: ["Leather armor", "A diplomat's pack or an entertainer's pack", "A lute or other musical instrument"],
+    } },
+  cleric: { name: "Cleric", features: CLASS_FEATURES.cleric, hitDie: 8, src: "phb", saves: ["Wisdom", "Charisma"], skillCount: 2,
     skills: ["History", "Insight", "Medicine", "Persuasion", "Religion"],
     armor: "Light, medium, shields", weapons: "Simple",
-    armorProf: ["light", "medium"], shield: true },
-  druid: { name: "Druid", features: CLASS_FEATURES.druid, hitDie: 8, saves: ["Intelligence", "Wisdom"], skillCount: 2,
+    armorProf: ["light", "medium"], shield: true,
+    weaponProf: { categories: ["simple"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "mace" }, { weapon: "warhammer", label: "Warhammer (if proficient)" }],
+        [{ weapon: "light-crossbow", label: "Light crossbow and 20 bolts" }, { filter: { category: "simple" }, label: "Any simple weapon" }],
+      ],
+      gear: ["Scale mail, leather armor, or chain mail (if proficient)", "A priest's pack or an explorer's pack", "A shield", "A holy symbol"],
+    } },
+  druid: { name: "Druid", features: CLASS_FEATURES.druid, hitDie: 8, src: "phb", saves: ["Intelligence", "Wisdom"], skillCount: 2,
     skills: ["Arcana", "Animal Handling", "Insight", "Medicine", "Nature", "Perception", "Religion", "Survival"],
     armor: "Light, medium, shields (nonmetal)", weapons: "Clubs, daggers, darts, javelins, maces, quarterstaffs, scimitars, sickles, slings, spears",
-    armorProf: ["light", "medium"], shield: true, noMetal: true },
-  fighter: { name: "Fighter", features: CLASS_FEATURES.fighter, hitDie: 10, saves: ["Strength", "Constitution"], skillCount: 2,
+    armorProf: ["light", "medium"], shield: true, noMetal: true,
+    weaponProf: { specific: ["club", "dagger", "dart", "javelin", "mace", "quarterstaff", "scimitar", "sickle", "sling", "spear"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ special: "shield", label: "A wooden shield" }, { filter: { category: "simple" }, label: "Any simple weapon" }],
+        [{ weapon: "scimitar" }, { filter: { category: "simple", melee: true }, label: "Any simple melee weapon" }],
+      ],
+      gear: ["Leather armor", "An explorer's pack", "A druidic focus"],
+    } },
+  fighter: { name: "Fighter", features: CLASS_FEATURES.fighter, hitDie: 10, src: "phb", saves: ["Strength", "Constitution"], skillCount: 2,
     skills: ["Acrobatics", "Animal Handling", "Athletics", "History", "Insight", "Intimidation", "Perception", "Survival"],
     armor: "All armor, shields", weapons: "Simple, martial",
-    armorProf: ["light", "medium", "heavy"], shield: true },
-  monk: { name: "Monk", features: CLASS_FEATURES.monk, hitDie: 8, saves: ["Strength", "Dexterity"], skillCount: 2,
+    armorProf: ["light", "medium", "heavy"], shield: true,
+    weaponProf: { categories: ["simple", "martial"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ special: "armor", label: "Chain mail" }, { special: "armor", label: "Leather armor, a longbow, and 20 arrows", weapon: "longbow" }],
+        [{ filter: { category: "martial" }, withShield: true, label: "A martial weapon and a shield" }, { filter: { category: "martial" }, qty: 2, label: "Two martial weapons" }],
+        [{ weapon: "light-crossbow", label: "Light crossbow and 20 bolts" }, { weapon: "handaxe", qty: 2, label: "Two handaxes" }],
+      ],
+      gear: ["A dungeoneer's pack or an explorer's pack"],
+    } },
+  monk: { name: "Monk", features: CLASS_FEATURES.monk, hitDie: 8, src: "phb", saves: ["Strength", "Dexterity"], skillCount: 2,
     skills: ["Acrobatics", "Athletics", "History", "Insight", "Religion", "Stealth"],
     armor: "None", weapons: "Simple, shortswords",
-    armorProf: [], shield: false, unarmored: { name: "Unarmored Defense", add: "wis", noShield: true } },
-  paladin: { name: "Paladin", features: CLASS_FEATURES.paladin, hitDie: 10, saves: ["Wisdom", "Charisma"], skillCount: 2,
+    armorProf: [], shield: false, unarmored: { name: "Unarmored Defense", add: "wis", noShield: true },
+    weaponProf: { categories: ["simple"], specific: ["shortsword"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "shortsword" }, { filter: { category: "simple" }, label: "Any simple weapon" }],
+      ],
+      fixedWeapons: [{ weapon: "dart", qty: 10 }],
+      gear: ["A dungeoneer's pack or an explorer's pack"],
+    } },
+  paladin: { name: "Paladin", features: CLASS_FEATURES.paladin, hitDie: 10, src: "phb", saves: ["Wisdom", "Charisma"], skillCount: 2,
     skills: ["Athletics", "Insight", "Intimidation", "Medicine", "Persuasion", "Religion"],
     armor: "All armor, shields", weapons: "Simple, martial",
-    armorProf: ["light", "medium", "heavy"], shield: true },
-  ranger: { name: "Ranger", features: CLASS_FEATURES.ranger, hitDie: 10, saves: ["Strength", "Dexterity"], skillCount: 3,
+    armorProf: ["light", "medium", "heavy"], shield: true,
+    weaponProf: { categories: ["simple", "martial"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ filter: { category: "martial" }, withShield: true, label: "A martial weapon and a shield" }, { filter: { category: "martial" }, qty: 2, label: "Two martial weapons" }],
+        [{ weapon: "javelin", qty: 5, label: "Five javelins" }, { filter: { category: "simple", melee: true }, label: "Any simple melee weapon" }],
+      ],
+      gear: ["A priest's pack or an explorer's pack", "Chain mail", "A holy symbol"],
+    } },
+  ranger: { name: "Ranger", features: CLASS_FEATURES.ranger, hitDie: 10, src: "phb", saves: ["Strength", "Dexterity"], skillCount: 3,
     skills: ["Animal Handling", "Athletics", "Insight", "Investigation", "Nature", "Perception", "Stealth", "Survival"],
     armor: "Light, medium, shields", weapons: "Simple, martial",
-    armorProf: ["light", "medium"], shield: true },
-  rogue: { name: "Rogue", features: CLASS_FEATURES.rogue, hitDie: 8, saves: ["Dexterity", "Intelligence"], skillCount: 4,
+    armorProf: ["light", "medium"], shield: true,
+    weaponProf: { categories: ["simple", "martial"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "shortsword", qty: 2, label: "Two shortswords" }, { filter: { category: "simple", melee: true }, qty: 2, label: "Two simple melee weapons" }],
+      ],
+      fixedWeapons: [{ weapon: "longbow" }],
+      gear: ["Scale mail or leather armor", "A dungeoneer's pack or an explorer's pack", "A quiver of 20 arrows"],
+    } },
+  rogue: { name: "Rogue", features: CLASS_FEATURES.rogue, hitDie: 8, src: "phb", saves: ["Dexterity", "Intelligence"], skillCount: 4,
     skills: ["Acrobatics", "Athletics", "Deception", "Insight", "Intimidation", "Investigation", "Perception", "Performance", "Persuasion", "Sleight of Hand", "Stealth"],
     armor: "Light", weapons: "Simple, hand crossbow, longsword, rapier, shortsword",
-    armorProf: ["light"], shield: false },
-  sorcerer: { name: "Sorcerer", features: CLASS_FEATURES.sorcerer, hitDie: 6, saves: ["Constitution", "Charisma"], skillCount: 2,
+    armorProf: ["light"], shield: false,
+    weaponProf: { categories: ["simple"], specific: ["hand-crossbow", "longsword", "rapier", "shortsword"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "rapier" }, { weapon: "shortsword" }],
+        [{ weapon: "shortbow", label: "Shortbow and a quiver of 20 arrows" }, { weapon: "shortsword" }],
+      ],
+      fixedWeapons: [{ weapon: "dagger", qty: 2 }],
+      gear: ["A burglar's, dungeoneer's, or explorer's pack", "Leather armor", "Thieves' tools"],
+    } },
+  sorcerer: { name: "Sorcerer", features: CLASS_FEATURES.sorcerer, hitDie: 6, src: "phb", saves: ["Constitution", "Charisma"], skillCount: 2,
     skills: ["Arcana", "Deception", "Insight", "Intimidation", "Persuasion", "Religion"],
     armor: "None", weapons: "Daggers, darts, slings, quarterstaffs, light crossbows",
-    armorProf: [], shield: false },
-  warlock: { name: "Warlock", features: CLASS_FEATURES.warlock, hitDie: 8, saves: ["Wisdom", "Charisma"], skillCount: 2,
+    armorProf: [], shield: false,
+    weaponProf: { specific: ["dagger", "dart", "sling", "quarterstaff", "light-crossbow"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "light-crossbow", label: "Light crossbow and 20 bolts" }, { filter: { category: "simple" }, label: "Any simple weapon" }],
+      ],
+      fixedWeapons: [{ weapon: "dagger", qty: 2 }],
+      gear: ["A component pouch or an arcane focus", "A dungeoneer's pack or an explorer's pack"],
+    } },
+  warlock: { name: "Warlock", features: CLASS_FEATURES.warlock, hitDie: 8, src: "phb", saves: ["Wisdom", "Charisma"], skillCount: 2,
     skills: ["Arcana", "Deception", "History", "Intimidation", "Investigation", "Nature", "Religion"],
     armor: "Light", weapons: "Simple",
-    armorProf: ["light"], shield: false },
-  wizard: { name: "Wizard", features: CLASS_FEATURES.wizard, hitDie: 6, saves: ["Intelligence", "Wisdom"], skillCount: 2,
+    armorProf: ["light"], shield: false,
+    weaponProf: { categories: ["simple"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "light-crossbow", label: "Light crossbow and 20 bolts" }, { filter: { category: "simple" }, label: "Any simple weapon" }],
+        [{ filter: { category: "simple" }, label: "Any simple weapon" }],
+      ],
+      fixedWeapons: [{ weapon: "dagger", qty: 2 }],
+      gear: ["Leather armor", "A component pouch or an arcane focus", "A scholar's pack or a dungeoneer's pack"],
+    } },
+  wizard: { name: "Wizard", features: CLASS_FEATURES.wizard, hitDie: 6, src: "phb", saves: ["Intelligence", "Wisdom"], skillCount: 2,
     skills: ["Arcana", "History", "Insight", "Investigation", "Medicine", "Religion"],
     armor: "None", weapons: "Daggers, darts, slings, quarterstaffs, light crossbows",
-    armorProf: [], shield: false },
+    armorProf: [], shield: false,
+    weaponProf: { specific: ["dagger", "dart", "sling", "quarterstaff", "light-crossbow"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "quarterstaff" }, { weapon: "dagger" }],
+      ],
+      gear: ["A component pouch or an arcane focus", "A scholar's pack or an explorer's pack", "A spellbook"],
+    } },
+  babaylan: { name: "Babaylan", features: CLASS_FEATURES.babaylan, hitDie: 8, src: "sinauna", saves: ["Intelligence", "Constitution"], skillCount: 2,
+    skills: ["Arcana", "History", "Insight", "Medicine", "Nature", "Perception", "Persuasion", "Religion"],
+    armor: "Light armor", weapons: "Simple weapons, coral-tipped spears, kampilans, songils",
+    armorProf: ["light"], shield: false,
+    weaponProf: { categories: ["simple"], specific: ["coral-tipped-spear", "kampilan", "songil"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ weapon: "bangkaw" }, { weapon: "kampilan" }],
+        [{ weapon: "busog", label: "Busog and 20 arrows" }, { filter: { category: "simple", melee: true }, label: "Any simple melee weapon" }],
+      ],
+      fixedWeapons: [{ weapon: "bolo" }],
+      gear: ["A dungeoneer's pack or an explorer's pack", "Reinforced leather armor", "A component pouch", "Herbalism Kit"],
+    } },
+  headhunter: { name: "Headhunter", features: CLASS_FEATURES.headhunter, hitDie: 10, src: "sinauna", saves: ["Strength", "Wisdom"], skillCount: 2,
+    skills: ["Athletics", "History", "Insight", "Intimidation", "Investigation", "Perception", "Religion", "Survival"],
+    armor: "Light armor, medium armor, shields", weapons: "Simple, martial",
+    armorProf: ["light", "medium"], shield: true,
+    weaponProf: { categories: ["simple", "martial"] },
+    startingEquipment: {
+      weaponChoices: [
+        [{ special: "armor", label: "Carabao hide armor" }, { special: "armor", label: "Habay-habay armor, a busog, and 20 arrows", weapon: "busog" }],
+        [{ filter: { category: "martial", melee: true }, label: "Any martial melee weapon" }, { filter: { category: "simple" }, qty: 2, label: "Two simple weapons" }],
+      ],
+      fixedWeapons: [{ weapon: "bunang" }],
+      gear: ["A dungeoneer's pack or an explorer's pack", "A shield", "Hunter's Kit"],
+    } },
 };
 
 /* Armor (SRD 5.1, CC-BY-4.0). maxDex null = no cap. */
@@ -172,6 +314,18 @@ export const ARMOR = [
   { id: "chain-mail", name: "Chain mail", cat: "heavy", base: 16, maxDex: 0, stealth: true, metal: true, strReq: 13 },
   { id: "splint", name: "Splint", cat: "heavy", base: 17, maxDex: 0, stealth: true, metal: true, strReq: 15 },
   { id: "plate", name: "Plate", cat: "heavy", base: 18, maxDex: 0, stealth: true, metal: true, strReq: 15 },
+  /* Sina Una's own armor (book p.204) — most of the setting avoids
+     metal, so these mostly replace rather than duplicate the SRD set.
+     "Chain shirt" here is a deliberate reprint with different numbers
+     (AC14 + stealth disadvantage vs. the SRD's AC13, no disadvantage)
+     — not a transcription error, just a same-named island item; kept
+     under its own id so both are selectable. */
+  { id: "habay-habay", name: "Habay-habay", cat: "light", base: 11, maxDex: null },
+  { id: "reinforced-leather", name: "Reinforced leather", cat: "light", base: 12, maxDex: null },
+  { id: "carabao-hide", name: "Carabao hide", cat: "medium", base: 13, maxDex: 2 },
+  { id: "island-chain-shirt", name: "Chain shirt", cat: "medium", base: 14, maxDex: 2, stealth: true, metal: true },
+  { id: "barote", name: "Barote", cat: "medium", base: 15, maxDex: 2 },
+  { id: "pakil", name: "Pakil", cat: "heavy", base: 18, maxDex: 0, stealth: true, strReq: 15 },
 ];
 
 export const ALL_SKILLS = ["Acrobatics", "Animal Handling", "Arcana", "Athletics", "Deception", "History",

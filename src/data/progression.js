@@ -40,4 +40,6 @@ export const CASTING = {
     cantrips: { 1: 2, 4: 3 }, known: { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 } },
   wizard: { ability: "int", type: "full", prep: "prepared", prepFormula: "mod+level",
     cantrips: { 1: 3, 4: 4 }, spellbook: true },
+  babaylan: { ability: "int", type: "full", prep: "prepared", prepFormula: "mod+level",
+    cantrips: { 1: 3, 4: 4 } },
 };
