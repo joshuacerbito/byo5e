@@ -144,6 +144,7 @@ export function buildSheetHTML(ctx) {
         `<p><b>${esc(a.name)}.</b> ${esc(a.text)}</p>`).join("") + `</section>`).join("") : "";
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(name.trim() || "Unnamed")} — character sheet</title>
 <style>
   *{box-sizing:border-box}

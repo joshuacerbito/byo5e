@@ -563,17 +563,32 @@ export default function SinaUnaCreator() {
   };
 
   /* Runs as a real page now (not an artifact iframe), so window.print()
-     works — open the sheet in its own tab and trigger the OS print
-     dialog immediately, skipping the old download-then-open-then-print
-     detour. Opened synchronously from the click handler so popup
-     blockers let it through. */
+     works. Printing via a script-opened tab (window.open + document.write)
+     is unreliable on iOS/iPadOS Safari — the print dialog often never
+     appears there. A hidden same-page iframe prints reliably on iOS as
+     well as desktop, so use that instead. */
   const printSheet = () => {
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.open();
-    win.document.write(buildSheetHTML(sheetCtx));
-    win.document.close();
-    win.onload = () => { win.focus(); win.print(); };
+    // Zero-size iframes get laid out at 0 width before mobile Safari's
+    // print pipeline reflows them, squishing the sheet. Give it a real
+    // desktop-ish box, just parked off-screen.
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "800px";
+    iframe.style.height = "1100px";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+    const cleanup = () => { if (iframe.parentNode) document.body.removeChild(iframe); };
+    iframe.onload = () => {
+      iframe.contentWindow.addEventListener("afterprint", cleanup);
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      // afterprint doesn't fire on iOS (Print goes through the share sheet,
+      // not window.print's dialog), so also fall back to a generous timer.
+      setTimeout(cleanup, 60000);
+    };
+    iframe.srcdoc = buildSheetHTML(sheetCtx);
   };
 
   const sheetText = useMemo(() => {
@@ -1781,7 +1796,10 @@ export default function SinaUnaCreator() {
           {here === "Spells" && cantripBudget > 0 && pickedCantrips.length === 0 && (
             <span className="su-hint">Pick your cantrips</span>
           )}
-          <button className="su-btn su-btn-go" onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+          <button className="su-btn su-btn-go" onClick={() => {
+                    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
                   disabled={step === STEPS.length - 1 || !canAdvance()}>
             {step === STEPS.length - 1 ? "Done" : "Next"}
           </button>
