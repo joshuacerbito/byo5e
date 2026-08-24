@@ -188,7 +188,9 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
   .ln em{font-size:7pt;text-transform:uppercase;color:#888;font-style:normal;letter-spacing:.06em;margin-left:3px}
   .dot{font-size:8pt;width:9px;flex:none!important;color:#bbb}
   .ln.p .dot{color:#111}
-  .sk{column-count:2;column-gap:22px}
+  /* Grid, not column-count: CSS multi-column doesn't survive the
+     rasteriser the iOS export runs the sheet through. */
+  .sk{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
   p{margin:0 0 6px;font-size:9.5pt;text-align:justify}
   .mut{color:#666;font-style:italic;font-size:8.5pt}
   .actg{font-size:8pt;font-weight:700;letter-spacing:.1em;text-transform:uppercase;

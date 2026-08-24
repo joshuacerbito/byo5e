@@ -246,10 +246,14 @@ export const STYLES = `
 .su-sprow-tbl .su-spell-n{display:flex;align-items:center;gap:5px;font-size:14px;}
 .su-heal{color:var(--jade);}
 
-.su-export{display:flex;align-items:center;gap:16px;background:var(--rock);
-  border:1px solid var(--gold-dim);border-radius:3px;padding:16px 18px;margin-bottom:12px;}
+.su-export{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  flex-wrap:wrap;background:var(--rock);
+  border:1px solid var(--gold-dim);border-radius:3px;padding:16px 18px;margin-bottom:10px;}
 .su-export-t{font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--bone);}
 .su-export-s{font-size:12.5px;color:var(--bone-dim);line-height:1.5;margin-top:4px;}
+/* The other two export routes, secondary to the print one. */
+.su-export-alt{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.su-export-alt .su-btn{flex:1 1 auto;}
 
 .su-spell-none{font-style:italic;color:#5C7086;}
 .su-lvlh{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--bone);

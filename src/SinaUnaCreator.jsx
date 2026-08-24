@@ -16,6 +16,8 @@ import { SLOTS_THIRD, buildSteps, profBonus } from "./lib/steps.js";
 import { mod, fmt, recommendedSpread, resolveLineage, ACTION_ORDER, ACTION_LABELS,
   attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold } from "./lib/derive.js";
 import { buildSheetHTML } from "./lib/sheetHtml.js";
+import { saveSheetPDF } from "./pdf/sheetPdf.js";
+import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
 import { STYLES } from "./styles.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
@@ -634,6 +636,35 @@ export default function SinaUnaCreator() {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+
+  /* Three ways out, because no single one works everywhere.
+
+     printSheet() is the browser's own print pipeline — best output, and the
+     right answer on Android, macOS and Windows, where the print dialog offers
+     a Save as PDF destination.
+
+     saveSheetRasterPDF() exists for iOS, where printing is a dead end: Safari
+     renders the print preview and then blanks it, and there is no Save as PDF
+     destination to choose anyway. It photographs the same HTML sheet into an
+     A4 PDF, so what comes out matches the print output exactly.
+
+     saveSheetPDF() draws the sheet a third time as vector text via pdfmake —
+     a small, selectable, searchable file for anything the other two miss. */
+  const [pdfState, setPdfState] = useState("idle"); // idle | working | error
+
+  const runPdf = async (fn) => {
+    setPdfState("working");
+    try {
+      await fn();
+      setPdfState("idle");
+    } catch (e) {
+      console.error(e);
+      setPdfState("error");
+    }
+  };
+
+  const saveForIOS = () => runPdf(() => saveSheetRasterPDF(sheetCtx));
+  const saveVector = () => runPdf(() => saveSheetPDF(sheetCtx));
 
   /* Runs as a real page now (not an artifact iframe), so window.print()
      works. Printing via a script-opened tab (window.open + document.write)
@@ -1796,18 +1827,23 @@ export default function SinaUnaCreator() {
             <Rule />
 
             <div className="su-export">
-              <div>
-                <div className="su-export-t">Character sheet</div>
-                <div className="su-export-s">
-                  Opens a print-ready sheet in a new tab and triggers the print dialog —
-                  as many pages as the character needs, then a reference appendix. Choose <em>Save as PDF</em> there.
-                </div>
-              </div>
-              <button className="su-btn su-btn-go" onClick={printSheet}>Print / Save as PDF</button>
+              <div className="su-export-t">Character sheet</div>
+              <button className="su-btn su-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
             </div>
-            <p className="su-note" style={{ marginTop: -6 }}>
-              Prefer the raw file? <button className="su-linkbtn" onClick={downloadSheet}>Download the HTML instead</button>.
+            <div className="su-export-alt">
+              <button className="su-btn" onClick={saveForIOS} disabled={pdfState === "working"}>
+                {pdfState === "working" ? "Building…" : "Save on iOS"}
+              </button>
+              <button className="su-btn" onClick={saveVector} disabled={pdfState === "working"}>
+                Save for other devices
+              </button>
+            </div>
+            <p className="su-note" style={{ marginTop: -2 }}>
+              <button className="su-linkbtn" onClick={downloadSheet}>Download the raw HTML</button> instead.
             </p>
+            {pdfState === "error" && (
+              <p className="su-warn">That export failed. Try one of the other buttons.</p>
+            )}
 
             {!name.trim() && (
               <p className="su-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>

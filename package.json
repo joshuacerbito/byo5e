@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "check:export": "node scripts/check-exports.mjs"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "pdfmake": "^0.3.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

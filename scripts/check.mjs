@@ -74,7 +74,8 @@ if (!importIssues) console.log("  ✓ every cross-module import resolves");
 console.log("Bindings");
 const GLOBALS = new Set(["React", "window", "document", "Blob", "URL", "setTimeout",
   "console", "Math", "Object", "Array", "JSON", "Set", "Map", "Number", "String",
-  "Boolean", "undefined", "isNaN", "parseInt", "parseFloat", "localStorage"]);
+  "Boolean", "undefined", "isNaN", "parseInt", "parseFloat", "localStorage",
+  "Promise", "Error", "File", "navigator", "Date", "Uint8Array", "btoa"]);
 let unbound = 0;
 for (const f of files) {
   if (!asts[f]) continue;

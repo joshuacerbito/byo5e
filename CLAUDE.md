@@ -60,10 +60,13 @@ Vite + React. No router. All state is `useState` in the root component, mirrored
 
 ```
 index.html
+pdftest.html                harness page for `npm run check:export` — not a build entry
 vite.config.js
 wrangler.toml               pages_build_output_dir for `wrangler pages deploy`
 public/_headers              Cloudflare Pages cache rules — copied into dist/ verbatim by Vite
 scripts/check.mjs          static checks — run `npm run check` after every edit
+scripts/check-exports.mjs  headless-browser check of the iOS raster export — `npm run check:export`
+scripts/build-pdf-fonts.sh regenerates src/pdf/vfsFonts.js (needs python3 + fonttools)
 src/
   main.jsx                 entry point
   SinaUnaCreator.jsx       root component: state, derivation, step rendering (~1700 lines)
@@ -74,7 +77,14 @@ src/
   lib/
     derive.js              mod, fmt, attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold, recommendedSpread, resolveLineage
     steps.js               step list, buildSteps, profBonus, SLOTS_THIRD
-    sheetHtml.js           buildSheetHTML(ctx) — standalone printable document
+    sheetHtml.js           buildSheetHTML(ctx, {interactive}) — standalone A4 HTML sheet
+  pdf/
+    sheetRaster.js         the HTML sheet photographed into an A4 PDF — the iOS route
+    sheetPdf.js            pdfmake vector PDF — the fallback route
+    saveFile.js            share-sheet-or-download delivery, shared by both
+    vfsFonts.js            GENERATED — base64 Fraunces/Karla subsets pdfmake embeds
+  pdfTest.js               harness for npm run check:export (not a build entry)
+  pdfTestFixture.js        fixed character it renders
   data/
     baseRaces.js           9 PHB base races
     lineages.js            22 lineages (7 Sina Una, 15 PHB)
@@ -194,26 +204,64 @@ Two-stage UI: pick base race, then pick lineage from a merged pool with Sina Una
 
 ### Export
 
-The app runs as a real Vite page now (not an artifact iframe), so `window.print()` works
-directly — no need for `react-to-print` or jsPDF. `buildSheetHTML()` generates a self-contained
-HTML document with its own print stylesheet; `printSheet()` loads it into a hidden same-page
-iframe and calls `.print()` on load, landing the user straight in the OS print dialog
-(`Save as PDF` from there). A script-opened tab was tried first and is unreliable on iOS Safari,
-where the dialog often never appears.
+Three buttons, because no single route works everywhere. All three read the same `sheetCtx`
+object assembled in the root component.
 
-`buildSheetHTML(ctx, { interactive })` — the toolbar at the top of the sheet (its own
-"Print / Save as PDF" button) renders only when `interactive` is true. The downloaded file keeps
-it, since someone opening that file needs a way to print; the iframe copy passes false so the OS
-dialog is the first and only thing a click produces.
+| Button | Route | Why |
+|---|---|---|
+| Save on Android/Mac/PC | `printSheet()` — `buildSheetHTML()` in a hidden iframe, `window.print()` | Best output. Those platforms' print dialogs offer a Save as PDF destination |
+| Save on iOS | `saveSheetRasterPDF()` — `src/pdf/sheetRaster.js` | iOS can't print this: Safari renders the print preview then blanks it, and there's no Save as PDF destination to pick anyway |
+| Save for other devices | `saveSheetPDF()` — `src/pdf/sheetPdf.js`, pdfmake | Vector fallback: small, selectable, searchable |
 
-**The sheet is A4 throughout.** `@page` is `size:A4 portrait; margin:14mm`, the body column is
-a full 210mm wide with 14mm padding — exactly the 182mm content width those margins leave — and
-the print iframe is sized 794×1123px (210×297mm at 96dpi). Screen and print therefore share one
-measure, and nothing reflows to a different width when it prints. That iframe size matters on
-mobile Safari for a second reason: it lays the sheet out before the print pipeline reflows it,
-so an unsized (0-width) iframe prints squished. `downloadSheet()` still exists as a secondary
-path — Blob download of the same HTML, for anyone who wants the raw file instead (email to the
-DM, edit by hand, archive). Both build off the same `sheetCtx` object and `buildSheetHTML()`.
+A fourth, quieter link still downloads the raw `.html` for hand-editing or mailing to the DM.
+
+**The print route.** `buildSheetHTML(ctx, { interactive })` — the toolbar at the top of the sheet
+(its own "Print / Save as PDF" button) renders only when `interactive` is true. The downloaded
+file keeps it; the print iframe passes false, so the OS dialog is the first and only thing a
+click produces. The sheet is A4 throughout: `@page` is `size:A4 portrait; margin:14mm`, the body
+column is a full 210mm wide with 14mm padding (exactly the 182mm those margins leave), and the
+iframe is 794×1123px — 210×297mm at 96dpi. Screen and print share one measure, so nothing
+reflows when it prints, and the sized iframe also stops mobile Safari printing a squished sheet.
+
+**The raster route (iOS).** `sheetRaster.js` lays `buildSheetHTML()` out in an offscreen
+A4-wide iframe and photographs it into an A4 PDF with html2canvas + jsPDF. Fidelity is perfect
+by construction — it *is* the HTML sheet, no second layout engine to keep in step — at the cost
+of image text rather than glyphs, and ~1 MB per few pages. Blocks are captured individually,
+not sliced out of one tall screenshot, so a page break lands between sections instead of through
+a line; a block taller than a page is replaced by its children recursively, and only a leaf
+that's still too tall gets its bitmap sliced. Two things this route dictated: the iframe must
+wait for a document that's `complete` **and** populated (`load` fires for the initial
+about:blank, and capturing there gives an empty page), and the skills list is a two-track grid
+rather than `column-count`, which html2canvas doesn't render.
+
+**The vector route.** `sheetPdf.js` builds a pdfmake document definition. Its layout deliberately
+differs from the HTML sheet — pdfmake has no CSS and no break-inside rule that survives long
+content, so section boxes become heading + hairline, kept boxed only for the vitals and ability
+strips (short enough to mark `unbreakable`). Body text is left-aligned, not justified: pdfmake
+doesn't hyphenate, so a justified line in a narrow measure gets filled by splitting a word across
+two lines. Proficiency dots are canvas ellipses (● isn't in Karla) and rules are explicit-width
+canvas lines (`FULL`/`HALF`), since a pdfmake canvas can't auto-size to its column.
+`src/pdf/vfsFonts.js` is **generated** — `scripts/build-pdf-fonts.sh` rebuilds it (needs
+`python3 -m pip install fonttools brotli`): Fraunces and Karla ship from Google Fonts as variable
+fonts, pdfkit can't read a variable axis, so each weight is instanced to a static TTF, subset to
+Latin + punctuation, and base64'd.
+
+**Delivery.** `src/pdf/saveFile.js` is shared by both PDF routes. It does *not* use a bare
+`<a download>` on an `application/pdf` blob — iOS Safari previews a blob it can render, ignores
+the download attribute, and drops the file in a tab. It hands the file to
+`navigator.share({ files })` where that exists (making "Save to Files" one tap on iOS) and falls
+back to an anchor download typed `application/octet-stream`, which Safari won't display inline.
+`navigator.share` needs transient user activation, so nothing may be awaited ahead of the render.
+
+**Both PDF paths are lazy.** pdfmake, the fonts, html2canvas and jsPDF are `import()`ed on first
+use, so the wizard's initial load is unchanged and Vite emits each as its own chunk.
+
+**Verifying it.** `npm run check:export` drives headless Chromium (Brave, Chrome or Chromium —
+`BROWSER=` overrides the path) over CDP, runs the raster export against a fixture, and asserts
+the result is a multi-page A4 PDF that isn't blank. `--keep` prints where the file landed so it
+can be eyeballed. The harness is `/pdftest.html` + `src/pdfTest.js` + `src/pdfTestFixture.js`;
+none of it is a build entry, so nothing ships. It exists because both raster bugs above were
+invisible to any check that didn't run a real layout engine.
 
 ### Deployment — Cloudflare Pages
 
