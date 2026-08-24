@@ -64,7 +64,6 @@ vite.config.js
 wrangler.toml               pages_build_output_dir for `wrangler pages deploy`
 public/_headers              Cloudflare Pages cache rules — copied into dist/ verbatim by Vite
 scripts/check.mjs          static checks — run `npm run check` after every edit
-scripts/build-pdf-fonts.sh regenerates src/pdf/vfsFonts.js (needs python3 + fonttools)
 src/
   main.jsx                 entry point
   SinaUnaCreator.jsx       root component: state, derivation, step rendering (~1700 lines)
@@ -75,10 +74,7 @@ src/
   lib/
     derive.js              mod, fmt, attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold, recommendedSpread, resolveLineage
     steps.js               step list, buildSteps, profBonus, SLOTS_THIRD
-    sheetHtml.js           buildSheetHTML(ctx) — standalone HTML sheet, secondary export
-  pdf/
-    sheetPdf.js            buildSheetDocDefinition(ctx) + downloadSheetPDF/openSheetPDF — primary export
-    vfsFonts.js            GENERATED — base64 Fraunces/Karla subsets pdfmake embeds
+    sheetHtml.js           buildSheetHTML(ctx) — standalone printable document
   data/
     baseRaces.js           9 PHB base races
     lineages.js            22 lineages (7 Sina Una, 15 PHB)
@@ -198,50 +194,13 @@ Two-stage UI: pick base race, then pick lineage from a merged pool with Sina Una
 
 ### Export
 
-Two paths out, both built from the same `sheetCtx` object assembled in the root component.
-
-**PDF (primary) — `src/pdf/sheetPdf.js`.** `buildSheetDocDefinition(ctx)` turns `sheetCtx` into
-a pdfmake document definition and pdfmake renders a real vector PDF in the browser:
-`saveSheetPDF(ctx)` saves it, `openSheetPDF(ctx, win)` shows it in a tab (the tab must be
-opened synchronously in the click handler and passed in, or the popup blocker eats it while the
-PDF renders).
-
-Saving does **not** go through pdfmake's own `.download()`, or any `<a download>` holding an
-`application/pdf` blob: iOS Safari previews a blob it can render and ignores the download
-attribute, dumping the file in a tab and leaving the user to walk ... → Share → Save to Files
-by hand. `saveSheetPDF` hands the file to `navigator.share({ files })` where that exists —
-"Save to Files" is then one tap on iOS — and falls back to an anchor download typed
-`application/octet-stream`, which Safari won't try to display inline. `navigator.share` needs
-transient user activation, so it must be reached from the click handler with nothing awaited
-ahead of the render. This replaced the old hidden-iframe `window.print()` route, which worked on
-desktop and was unreliable everywhere else — mobile Safari routes printing through the share
-sheet and frequently never showed a dialog, and most Android print targets offer no "Save as
-PDF" destination at all. Generating the PDF ourselves removes the OS print pipeline from the
-loop; the same bytes come out on a phone as on a laptop.
-
-pdfmake (~1 MB) and the embedded fonts (~150 KB) are `import()`ed on first export, not at page
-load, and Vite emits them as separate chunks. Fonts are Fraunces (display) and Karla (body),
-embedded so the PDF matches the app's type on machines that don't have them.
-`src/pdf/vfsFonts.js` is **generated** — run `scripts/build-pdf-fonts.sh` to rebuild it (needs
-`python3 -m pip install fonttools brotli`). Both families ship from Google Fonts as variable
-fonts and pdfkit can't read a variable axis, so the script instances each weight to a static
-TTF, subsets it to Latin + the punctuation the sheet uses, and base64s the result. Fraunces is
-display-only, so all four pdfmake slots point at the single 700 instance rather than shipping
-three more weights nothing draws.
-
-The PDF layout deliberately differs from the HTML sheet: pdfmake has no CSS and no
-break-inside rule that survives long content, so bordered section boxes become heading +
-hairline. Boxes are kept only for the vitals and ability strips, which are short enough to mark
-`unbreakable`. Two things are drawn rather than typed for the same reason the fonts are subset:
-proficiency dots are canvas ellipses (● / ○ aren't in Karla), and every rule is an
-explicit-width canvas line (`FULL` / `HALF` constants) because a pdfmake canvas can't auto-size
-to its column — a full-width rule inside a half-width column overflows the page.
-
-**HTML (secondary) — `src/lib/sheetHtml.js`.** `buildSheetHTML()` still generates the
-self-contained document with its own print stylesheet, offered as a Blob download for anyone who
-wants the raw file to hand-edit, mail to the DM, or archive. It carries the same content as the
-PDF; the two builders are parallel and both read `sheetCtx`, so a field added to the sheet needs
-adding in both places.
+The app runs as a real Vite page now (not an artifact iframe), so `window.print()` works
+directly — no need for `react-to-print` or jsPDF. `buildSheetHTML()` generates a self-contained
+HTML document with its own print stylesheet; `printSheet()` opens it in a new tab via
+`window.open` + `document.write` and calls `.print()` once it loads, landing the user straight
+in the OS print dialog (`Save as PDF` from there). `downloadSheet()` still exists as a secondary
+path — Blob download of the same HTML, for anyone who wants the raw file instead (email to the
+DM, edit by hand, archive). Both build off the same `sheetCtx` object and `buildSheetHTML()`.
 
 ### Deployment — Cloudflare Pages
 

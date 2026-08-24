@@ -16,7 +16,6 @@ import { SLOTS_THIRD, buildSteps, profBonus } from "./lib/steps.js";
 import { mod, fmt, recommendedSpread, resolveLineage, ACTION_ORDER, ACTION_LABELS,
   attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold } from "./lib/derive.js";
 import { buildSheetHTML } from "./lib/sheetHtml.js";
-import { saveSheetPDF, openSheetPDF } from "./pdf/sheetPdf.js";
 import { STYLES } from "./styles.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
@@ -613,6 +612,10 @@ export default function SinaUnaCreator() {
     return klass.hitDie + conMod + (level - 1) * (perLevel + conMod) + bonus;
   }, [klass, resolved, level, effects, scores, arrayAssign, mode]);
 
+  /* Artifacts run in a sandboxed iframe, so window.print() targets the
+     host page rather than this sheet. Instead we build a standalone
+     document and hand it over as a file the browser can print properly. */
+
   const sheetCtx = {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passivePerception, passiveSkills, actions, pb, armor, shieldOn,
@@ -620,38 +623,6 @@ export default function SinaUnaCreator() {
     finalScore, attackRows, carriedWeapons, masteryEnabled,
   };
 
-  /* PDF export. The old route was window.print() against a hidden iframe of
-     buildSheetHTML() — it worked on desktop and was unreliable everywhere
-     else: mobile Safari routes printing through the share sheet (the dialog
-     frequently never appeared, and the off-screen iframe reflowed at the
-     wrong width when it did), and most Android print targets don't offer a
-     "Save as PDF" destination at all. The PDF is now generated directly
-     from sheetCtx by pdfmake, so no OS print pipeline is involved and the
-     output is identical on every device. */
-  const [pdfState, setPdfState] = useState("idle"); // idle | working | error
-
-  const runPdf = async (fn) => {
-    setPdfState("working");
-    try {
-      await fn();
-      setPdfState("idle");
-    } catch (e) {
-      console.error(e);
-      setPdfState("error");
-    }
-  };
-
-  const savePDF = () => runPdf(() => saveSheetPDF(sheetCtx));
-
-  /* The tab has to be opened synchronously from the click, before the
-     await, or the popup blocker kills it while the PDF renders. */
-  const viewPDF = () => {
-    const win = window.open("", "_blank");
-    return runPdf(() => openSheetPDF(sheetCtx, win));
-  };
-
-  /* Secondary path, unchanged: the raw HTML sheet, for anyone who wants to
-     edit it by hand or mail it to the DM. */
   const downloadSheet = () => {
     const blob = new Blob([buildSheetHTML(sheetCtx)], { type: "text/html" });
     const url = URL.createObjectURL(blob);
@@ -662,6 +633,35 @@ export default function SinaUnaCreator() {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  /* Runs as a real page now (not an artifact iframe), so window.print()
+     works. Printing via a script-opened tab (window.open + document.write)
+     is unreliable on iOS/iPadOS Safari — the print dialog often never
+     appears there. A hidden same-page iframe prints reliably on iOS as
+     well as desktop, so use that instead. */
+  const printSheet = () => {
+    // Zero-size iframes get laid out at 0 width before mobile Safari's
+    // print pipeline reflows them, squishing the sheet. Give it a real
+    // desktop-ish box, just parked off-screen.
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "800px";
+    iframe.style.height = "1100px";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+    const cleanup = () => { if (iframe.parentNode) document.body.removeChild(iframe); };
+    iframe.onload = () => {
+      iframe.contentWindow.addEventListener("afterprint", cleanup);
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      // afterprint doesn't fire on iOS (Print goes through the share sheet,
+      // not window.print's dialog), so also fall back to a generous timer.
+      setTimeout(cleanup, 60000);
+    };
+    iframe.srcdoc = buildSheetHTML(sheetCtx);
   };
 
   const sheetText = useMemo(() => {
@@ -1794,22 +1794,15 @@ export default function SinaUnaCreator() {
               <div>
                 <div className="su-export-t">Character sheet</div>
                 <div className="su-export-s">
-                  Builds a PDF right here — no print dialog, same result on a phone as on a
-                  laptop. As many pages as the character needs, then a reference appendix.
-                  On a phone this opens the share sheet, where <em>Save to Files</em> keeps it.
+                  Opens a print-ready sheet in a new tab and triggers the print dialog —
+                  as many pages as the character needs, then a reference appendix. Choose <em>Save as PDF</em> there.
                 </div>
               </div>
-              <button className="su-btn su-btn-go" onClick={savePDF} disabled={pdfState === "working"}>
-                {pdfState === "working" ? "Building…" : "Save PDF"}
-              </button>
+              <button className="su-btn su-btn-go" onClick={printSheet}>Print / Save as PDF</button>
             </div>
             <p className="su-note" style={{ marginTop: -6 }}>
-              Rather just read it? <button className="su-linkbtn" onClick={viewPDF}>Open it in a new tab</button>.
-              Or <button className="su-linkbtn" onClick={downloadSheet}>download the raw HTML</button>.
+              Prefer the raw file? <button className="su-linkbtn" onClick={downloadSheet}>Download the HTML instead</button>.
             </p>
-            {pdfState === "error" && (
-              <p className="su-warn">The PDF failed to build. Try the raw HTML download instead.</p>
-            )}
 
             {!name.trim() && (
               <p className="su-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>
