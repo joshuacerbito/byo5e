@@ -1,0 +1,13 @@
+node_modules
+dist
+
+# Data-extraction working material — 5etools-src is a full 5etools data
+# checkout (~550MB); source/ holds the purchased Sina Una PDFs and their
+# OCR passes; reference/ holds intermediate JSON pulled from both while
+# building src/data/*.js. None of it is imported at runtime (only
+# src/data/*.js ships) and none of it belongs in a public deploy.
+5etools-src
+source
+reference
+
+.DS_Store
