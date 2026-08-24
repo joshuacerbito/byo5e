@@ -251,10 +251,17 @@ export const STYLES = `
   border:1px solid var(--gold-dim);border-radius:3px;padding:16px 18px;margin-bottom:10px;}
 .su-export-t{font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--bone);}
 .su-export-s{font-size:12.5px;color:var(--bone-dim);line-height:1.5;margin-top:4px;}
-/* All three export routes share the box; they wrap under the title on
-   narrow screens rather than squeezing. */
-.su-export-alt{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;}
-.su-export-alt .su-btn{flex:0 1 auto;}
+/* The sheet box stacks: title, then one full-width button per export route.
+   Equal widths so no route reads as the "real" one — which platform you're on
+   decides that, not us. Colour carries the difference instead: gold for the
+   print route, jade for the iOS one, slate for the fallback. */
+.su-export-stack{flex-direction:column;align-items:stretch;}
+.su-export-alt{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.su-export-alt .su-btn{width:100%;margin-left:0;}
+.su-btn-ios{background:var(--jade);border-color:var(--jade);color:var(--abyss);}
+.su-btn-ios:hover:not(:disabled){background:#4FBF9C;border-color:#4FBF9C;color:var(--abyss);}
+.su-btn-alt{background:var(--rock-2);border-color:var(--line);color:var(--bone);}
+.su-btn-alt:hover:not(:disabled){background:#22405C;border-color:var(--bone-dim);color:var(--bone);}
 
 .su-spell-none{font-style:italic;color:#5C7086;}
 .su-lvlh{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--bone);

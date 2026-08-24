@@ -1826,14 +1826,14 @@ export default function SinaUnaCreator() {
 
             <Rule />
 
-            <div className="su-export">
+            <div className="su-export su-export-stack">
               <div className="su-export-t">Character sheet</div>
               <div className="su-export-alt">
                 <button className="su-btn su-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
-                <button className="su-btn" onClick={saveForIOS} disabled={pdfState === "working"}>
+                <button className="su-btn su-btn-ios" onClick={saveForIOS} disabled={pdfState === "working"}>
                   {pdfState === "working" ? "Building…" : "Save on iOS"}
                 </button>
-                <button className="su-btn" onClick={saveVector} disabled={pdfState === "working"}>
+                <button className="su-btn su-btn-alt" onClick={saveVector} disabled={pdfState === "working"}>
                   Save for other devices
                 </button>
               </div>
