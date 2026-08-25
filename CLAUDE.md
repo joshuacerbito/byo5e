@@ -501,8 +501,16 @@ nothing else — both PDF routes and the raw-HTML link call it, so a folder of s
 as a list of names. It keeps letters (Unicode, so a name in any script survives), digits, spaces,
 hyphens and underscores, drops everything a filesystem or share sheet could choke on rather than
 substituting for it, collapses runs of whitespace and falls back to `Unnamed` when the name is
-empty or was all punctuation. The print route has no filename of its own — the OS dialog names
-that file.
+empty or was all punctuation.
+
+**The print route names its file through a document title.** It has no filename to set, and which
+title the dialog reads depends on the engine: Chromium takes the printing iframe's, macOS Safari
+takes the *host page's* — which is how a saved sheet arrived called "Sina Una — Character
+Creator". So `printSheet()` swaps `document.title` to `sheetFileBase(name)` for the duration of
+the dialog and puts it back in the same `cleanup` that removes the iframe, and the sheet's own
+`<title>` is the bare name too. Restoring reads `APP_TITLE`, captured at module load rather than
+at click time, so a second print started before the first dialog closes can't restore the
+borrowed title and leave it stuck.
 
 **Both PDF paths are lazy.** pdfmake, the fonts, html2canvas and jsPDF are `import()`ed on first
 use, so the wizard's initial load is unchanged and Vite emits each as its own chunk.

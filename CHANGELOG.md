@@ -7,6 +7,17 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-25 (last, again)
+
+### Fixed
+
+- **"Save on Android/Mac/PC" now suggests the character's name too.** The other export routes
+  were fixed earlier the same day, but this one saves through the browser's own print dialog,
+  which takes its filename from a page title rather than from anything the app hands it — and
+  macOS Safari reads the app's title, not the sheet's, so every saved character came out called
+  "Sina Una — Character Creator". The app now lends the print dialog the character's name and
+  takes its own title back afterwards.
+
 ## 2026-08-25 (last)
 
 ### Changed

@@ -1,6 +1,7 @@
 import { ABILITIES } from '../data/progression.js';
 import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
   spellMark, spellMarkNotes, spellHitDC as hitDC, spellEffect, ABIL_LABEL } from './derive.js';
+import { sheetFileBase } from '../pdf/saveFile.js';
 
 /* Builds a standalone, printable HTML document for the character.
    Everything it needs is passed in explicitly.
@@ -204,7 +205,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(name.trim() || "Unnamed")} — character sheet</title>
+<title>${esc(sheetFileBase(name))}</title>
 <style>
   *{box-sizing:border-box}
   /* A4 all the way through: the on-screen column is a full 210mm wide

@@ -46,10 +46,9 @@ export async function saveFile(blob, filename, type = 'application/pdf') {
    survive, runs of whitespace collapse to one space, and case is kept as
    typed. A name made entirely of punctuation leaves nothing behind, hence
    the second fallback. */
-export const sheetFileName = (name, ext) => {
-  const clean = (name || '')
-    .replace(/[^\p{L}\p{N} _-]+/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return `${clean || 'Unnamed'}.${ext}`;
-};
+export const sheetFileBase = (name) => (name || '')
+  .replace(/[^\p{L}\p{N} _-]+/gu, '')
+  .replace(/\s+/g, ' ')
+  .trim() || 'Unnamed';
+
+export const sheetFileName = (name, ext) => `${sheetFileBase(name)}.${ext}`;
