@@ -183,12 +183,15 @@ export const STYLES = `
 @media(max-width:420px){.su-vitals{grid-template-columns:repeat(2,1fr);}}
 .su-ac-parts{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;
   color:var(--bone-dim);margin-top:2px;}
-.su-prof{width:14px;flex:none;display:inline-flex;align-items:center;justify-content:center;}
-/* Drawn, not typed: Windows renders ●/○ from a fallback face at a
-   noticeably smaller size than macOS does. */
-.su-prof::before{content:"";width:9px;height:9px;box-sizing:border-box;border-radius:50%;
+/* The one selection/proficiency circle, shared by saving throws, skills and
+   the spell picker. Drawn, not typed: Windows renders ●/○ from a fallback
+   face at a noticeably smaller size than macOS does. */
+.su-dot{width:14px;flex:none;display:inline-flex;align-items:center;justify-content:center;}
+.su-dot::before{content:"";width:9px;height:9px;box-sizing:border-box;border-radius:50%;
   border:1.5px solid var(--gold);}
-.su-prof.is-on::before{background:var(--gold);}
+.su-dot.is-on::before{background:var(--gold);}
+/* Rows whose text is taller than one line align the dot to the first line. */
+.su-dot.at-top{align-self:flex-start;padding-top:5px;}
 .su-dim{opacity:.45;}
 
 .su-cast{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
@@ -250,7 +253,6 @@ export const STYLES = `
 .su-sprow:hover:not(:disabled) .su-spell-n{color:var(--gold);}
 .su-sprow:disabled{opacity:.32;cursor:not-allowed;}
 .su-sprow:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
-.su-sprow-b{font-size:11px;color:var(--gold);padding-top:3px;flex-shrink:0;}
 .su-sprow.is-sel .su-spell-n{color:var(--gold);}
 .su-sprow-tbl .su-atk-row{border-bottom:none;padding:0;font-size:12px;}
 .su-sprow-tbl .su-spell-n{display:flex;align-items:center;gap:5px;font-size:14px;}

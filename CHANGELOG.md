@@ -57,8 +57,9 @@ Dates are the day the work landed.
   Hellish Rebuke, Silvery Barbs, Apolaki's Light and False Self carry their trigger inside the
   casting time ("1 reaction, which you take when…"), which wrapped to ten lines in a narrow
   column. The column shows "1 reaction" and the trigger is shown beside the description.
-- **Proficiency circles rendered smaller on Windows.** They were text characters, drawn by
-  whatever font the OS fell back to. They're drawn shapes now, same size everywhere.
+- **The selection circles rendered smaller on Windows** — saving throws, skills and the spell
+  picker. They were text characters, drawn at whatever size the OS's fallback font happened to
+  use. They're drawn shapes now, one shared style everywhere, the same size on every platform.
 - Cloudflare deployment config fixed after the dashboard picked the project up as a Workers
   build rather than a Pages one.
 

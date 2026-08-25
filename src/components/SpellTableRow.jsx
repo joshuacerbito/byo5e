@@ -27,7 +27,7 @@ export default function SpellTableRow({ sp, on, full, onToggle, casting }) {
   return (
     <button className={`su-sprow su-sprow-tbl ${on ? "is-sel" : ""}`} onClick={onToggle}
             disabled={full} aria-pressed={on}>
-      <span className="su-sprow-b" aria-hidden="true">{on ? "●" : "○"}</span>
+      <span className={`su-dot at-top${on ? " is-on" : ""}`} aria-hidden="true" />
       <span className="su-atk-table" style={{ flex: 1 }}>
         <span className="su-atk-row" style={{ gridTemplateColumns: "1.5fr .7fr .8fr .7fr .9fr 1fr" }}>
           <span className="su-spell-n">{sp.name}{tags.map(([short, full]) => (
