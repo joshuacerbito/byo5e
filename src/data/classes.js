@@ -1,3 +1,4 @@
+import { OPTION_LISTS, TCE_CLASS_FEATURES } from "./optionalFeatures.js";
 /* ------------------------------------------------------------------
    Core class features, levels 1-5 (the reachable range). Source:
    5etools-src/data/class/class-<name>.json, classFeature entries,
@@ -331,3 +332,40 @@ export const ARMOR = [
 export const ALL_SKILLS = ["Acrobatics", "Animal Handling", "Arcana", "Athletics", "Deception", "History",
   "Insight", "Intimidation", "Investigation", "Medicine", "Nature", "Perception", "Performance",
   "Persuasion", "Religion", "Sleight of Hand", "Stealth", "Survival"];
+
+/* ------------------------------------------------------------------
+   Optional class features (Tasha's) and the option lists the books add
+   to features that already say "choose one of the following".
+
+   Both are generated into optionalFeatures.js; what's hand-authored
+   here is the action-economy tag, which is an editorial call made by
+   reading the feature text — the same rule the rest of the app's
+   `action` tags follow (see CLAUDE.md). Most of these are passive or
+   cost nothing extra, so most carry none.
+------------------------------------------------------------------- */
+const OPTIONAL_ACTION_TAGS = {
+  "Channel Divinity: Harness Divine Power": "bonus",
+  "Wild Companion": "action",
+  "Ki-Fueled Attack": "bonus",
+  "Quickened Healing": "action",
+  "Steady Aim": "bonus",
+};
+
+/* The class's own features plus whatever the extra books add, in level
+   order. Tasha's material only appears when the character has the
+   optional-features toggle on; Xanathar's and the Handbook's option
+   lists are always in. */
+export function classFeaturesFor(classId, { tceOptional = false, subclassId = null } = {}) {
+  const base = CLASSES[classId]?.features || [];
+  const extra = [];
+  for (const l of OPTION_LISTS) {
+    if (l.cls !== classId) continue;
+    if (l.src === "tce" && !tceOptional) continue;
+    if (l.subclass && l.subclass !== subclassId) continue;
+    extra.push([l.level, l.name, l.text]);
+  }
+  if (tceOptional) extra.push(...(TCE_CLASS_FEATURES[classId] || []));
+  return [...base, ...extra.map(([lvl, name, text]) =>
+    [lvl, name, text, OPTIONAL_ACTION_TAGS[name]].filter((x, i) => i < 3 || x != null))]
+    .sort((a, b) => a[0] - b[0]);
+}

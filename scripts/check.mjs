@@ -120,24 +120,30 @@ if (orphanDef.length) console.log(`  · ${orphanDef.length} unused rule(s): ${or
 console.log("Data");
 const counts = await (async () => {
   const [{ BASE_RACES }, { LINEAGES }, { CLASSES, ARMOR }, { ALL_SUBCLASSES },
-         { BACKGROUNDS }, { PHB_SPELLS }, { SCC_SPELLS }, { SPELLS }, { WEAPONS }] = await Promise.all([
+         { BACKGROUNDS }, { PHB_SPELLS }, { SCC_SPELLS }, { XGE_SPELLS }, { TCE_SPELLS },
+         { SPELLS }, { WEAPONS }, { FEATS }] = await Promise.all([
     import("../src/data/baseRaces.js"), import("../src/data/lineages.js"),
     import("../src/data/classes.js"), import("../src/data/subclasses.js"),
     import("../src/data/backgrounds.js"), import("../src/data/phbSpells.js"),
-    import("../src/data/sccSpells.js"),
+    import("../src/data/sccSpells.js"), import("../src/data/xgeSpells.js"),
+    import("../src/data/tceSpells.js"),
     import("../src/data/islandSpells.js"), import("../src/data/weapons.js"),
+    import("../src/data/feats.js"),
   ]);
   return {
     "base races": [Object.keys(BASE_RACES).length, 9],
     "lineages": [LINEAGES.length, 22],
     "classes": [Object.keys(CLASSES).length, 14],
     "armor rows": [ARMOR.length, 19],
-    "subclasses": [ALL_SUBCLASSES.length, 58],
+    "subclasses": [ALL_SUBCLASSES.length, 115],
     "backgrounds": [BACKGROUNDS.length, 6],
     "island spells": [SPELLS.length, 14],
     "phb spells": [PHB_SPELLS.length, 198],
     "strixhaven spells": [SCC_SPELLS.length, 5],
+    "xanathar spells": [XGE_SPELLS.length, 46],
+    "tasha spells": [TCE_SPELLS.length, 13],
     "weapons": [WEAPONS.length, 55],
+    "feats": [FEATS.length, 71],
   };
 })();
 for (const [k, [got, want]] of Object.entries(counts)) {

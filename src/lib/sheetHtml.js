@@ -1,5 +1,6 @@
 import { ABILITIES } from '../data/progression.js';
-import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS } from './derive.js';
+import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
+  spellMark, spellMarkNotes, spellHitDC as hitDC, spellEffect, ABIL_LABEL } from './derive.js';
 
 /* Builds a standalone, printable HTML document for the character.
    Everything it needs is passed in explicitly.
@@ -12,7 +13,7 @@ import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORD
 export function buildSheetHTML(ctx, { interactive = true } = {}) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore,
-    attackRows, masteryEnabled, carriedWeapons, actions, ancestrySpells,
+    attackRows, masteryEnabled, carriedWeapons, actions, ancestrySpells, chosenFeats, classFeatures,
   } = ctx;
 
     const esc = (x) => String(x ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -54,7 +55,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
       ? `<p class="mut">Replaced by this lineage: ${resolved.droppedTraits.map((t) => esc(t.name)).join(", ")}.</p>` : "";
 
     const classFeats = klass
-      ? (klass.features || []).filter((f) => f[0] <= level)
+      ? (classFeatures || []).filter((f) => f[0] <= level)
           .map((f) => `<p><b>${esc(f[1])}.</b> ${esc(f[2])}</p>`).join("")
       : "";
 
@@ -73,13 +74,30 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
     /* Actions / Bonus Actions / Reactions granted by ancestry, class, and
        subclass — name only, grouped by bucket, each pointing at the
        exact section further down ("Abayan — See Babaylan features.")
-       that carries the full text, rather than repeating it up here. */
+       that carries the full text, rather than repeating it up here.
+       Headed "Class + Ancestry Actions": it has always collected all
+       three sources, and plain "Actions" read as nothing next to the
+       Attacks table. */
     const actionsHtml = actions?.length
       ? ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => `
         <p class="mut">${esc(ACTION_LABELS[k])}</p>
         ${actions.filter((a) => a.action === k).map((a) => `<p><b>${esc(a.name)}</b> — See ${esc(a.section)}.</p>`).join("")}
       `).join("")
       : "";
+
+    /* Feats: the Variant Human 1st-level pick and the level-4 "a feat
+       instead of the ability increase" pick, whichever the character
+       took. Name and where it came from only, pointing at the Reference
+       section that carries the full text — the same treatment Other
+       Actions gets, and for the same reason: the words appear once.
+       The +1 is called out because it's already folded into the ability
+       strip at the top, which is otherwise impossible to tell. */
+    const featsHtml = (chosenFeats || []).map(({ feat, from, ability }) => {
+      const key = feat.ability?.fixed || ability;
+      const bonus = feat.ability && key
+        ? ` <span class="mut">+${feat.ability.amount} ${key.toUpperCase()}, already in your scores.</span>` : "";
+      return `<p><b>${esc(feat.name)}</b> — ${esc(from)}.${bonus} See Feats.</p>`;
+    }).join("");
 
     const bg = background ? [
       `<p><b>${esc(background.feature.name)}.</b> ${esc(background.feature.text)}</p>`,
@@ -108,18 +126,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
        Name/Time/Range/Hit-DC/Effect/Notes, no prose. Full descriptions are
        island/PHB text already carried into the Reference section below,
        not repeated here. */
-    const ABIL_LABEL = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis: "WIS", cha: "CHA" };
-    const spellHitDC = (sp) => {
-      if (sp.atk) return fmt(casting.attack);
-      if (sp.save) return `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()} ${casting.saveDC}`;
-      return "—";
-    };
-    const spellEffect = (sp) => {
-      if (sp.heal) return sp.heal;
-      if (sp.dmg) return `${sp.dmg}${sp.dmgType ? ` ${sp.dmgType}` : ""}`;
-      if (sp.cond) return sp.cond[0].toUpperCase() + sp.cond.slice(1);
-      return "—";
-    };
+    const spellHitDC = (sp) => hitDC(sp, casting);
 
     /* Legend for the Lvl column, assembled from what the character actually
        took — no note about cantrips for a paladin, none about upcasting for
@@ -170,7 +177,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
       </div>
       ${chosenSpells.length ? `
       <table class="atk"><thead><tr><th>Name</th><th>Lvl</th><th>Time</th><th>Range</th><th>Hit/DC</th><th>Effect</th><th>Notes</th></tr></thead>
-      <tbody>${chosenSpells.map((sp) => `<tr><td>${esc(sp.name)}${sp.src ? "" : " *"}${sp.src === "scc" ? " \u2020" : ""}</td>` +
+      <tbody>${chosenSpells.map((sp) => `<tr><td>${esc(sp.name)}${spellMark(sp) ? ` ${spellMark(sp)}` : ""}</td>` +
         `<td>${sp.level === 0 ? "C" : sp.level}${sp.higher ? "+" : ""}</td>` +
         `<td>${esc(splitCastingTime(sp.time).head)}</td><td>${esc(sp.range)}</td><td>${esc(spellHitDC(sp))}</td>` +
         `<td>${esc(spellEffect(sp))}</td><td>${[sp.ritual && "ritual", sp.conc && "conc",
@@ -178,8 +185,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
         ].filter(Boolean).map(esc).join(", ") || "—"}</td></tr>`).join("")}</tbody></table>` : ""}
       ${otherSpells.trim() ? `<p><b>Other.</b> ${otherSpells.split("\n").map((x) => esc(x.trim())).filter(Boolean).join(", ")}</p>` : ""}
       ${spellLegend}
-      ${chosenSpells.some((x) => !x.src) ? `<p class="mut">* island spell — full text in the reference below.</p>` : ""}
-      ${chosenSpells.some((x) => x.src === "scc") ? `<p class="mut">\u2020 Strixhaven spell — full text in the reference below.</p>` : ""}
+      ${spellMarkNotes(chosenSpells).map((n) => `<p class="mut">${esc(n)}</p>`).join("")}
       </section>` : "";
 
     const groups = [...new Set(appendix.map((a) => a.group))];
@@ -230,8 +236,15 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
   /* Drawn, not typed: Windows renders ●/○ from a fallback face at a
      noticeably smaller size than macOS does. */
   .dot{width:7px;height:7px;flex:none!important;box-sizing:border-box;border-radius:50%;
-    border:1px solid #bbb;align-self:center}
-  .ln.p .dot{border-color:#111;background:#111}
+    border:1px solid #bbb;align-self:center;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* Filled by a border thick enough to close the circle, not by a
+     background. Print engines drop background colours unless the user
+     ticks "Background graphics", which turned every proficiency dot
+     hollow on paper — the ring printed, the fill didn't. Borders always
+     print. The background stays as well for the raster and screen
+     routes, where it costs nothing. */
+  .ln.p .dot{border:3.5px solid #111;background:#111}
   /* Grid, not column-count: CSS multi-column doesn't survive the
      rasteriser the iOS export runs the sheet through. */
   .sk{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}
@@ -269,12 +282,13 @@ ${interactive ? `<div class="bar"><p>Choose <b>Save as PDF</b> as the destinatio
 <section><h4>Saving throws</h4>${saves}</section></div>
 <section><h4>Skills</h4><div class="sk">${skills}</div></section>
 ${attacksHtml ? `<section><h4>Attacks</h4>${attacksHtml}</section>` : ""}
-${actionsHtml ? `<section><h4>Other Actions</h4>${actionsHtml}</section>` : ""}
+${actionsHtml ? `<section><h4>Class + Ancestry Actions</h4>${actionsHtml}</section>` : ""}
 ${castBlock}
 ${ancestrySpellBlock}
 <section><h4>Ancestry traits — ${esc(ancestry.name)}</h4>${traits}${dropped}</section>
 ${classFeats ? `<section><h4>${esc(klass.name)} features</h4>${classFeats}</section>` : ""}
 ${feats ? `<section><h4>${esc(subclass.name)} — ${esc(subclass.group)}</h4>${feats}</section>` : ""}
+${featsHtml ? `<section><h4>Feats</h4>${featsHtml}</section>` : ""}
 ${bg ? `<section><h4>Background — ${esc(background.name)}</h4>${bg}</section>` : ""}
 ${inventoryHtml ? `<section><h4>Inventory</h4>${inventoryHtml}</section>` : ""}
 ${appx}

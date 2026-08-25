@@ -67,6 +67,11 @@ public/_headers              Cloudflare Pages cache rules — copied into dist/ 
 scripts/check.mjs          static checks — run `npm run check` after every edit
 scripts/check-exports.mjs  headless-browser check of the iOS raster export — `npm run check:export`
 scripts/build-pdf-fonts.sh regenerates src/pdf/vfsFonts.js (needs python3 + fonttools)
+scripts/lib/fivetools.mjs  shared 5etools extraction helpers (tag stripping, entry flattening)
+scripts/extract-spells.mjs           regenerates src/data/{xge,tce}Spells.js
+scripts/extract-subclasses.mjs       regenerates expandedSubclasses.js + phbSubclassText.js
+scripts/extract-feats.mjs            regenerates src/data/feats.js
+scripts/extract-optional-features.mjs  regenerates src/data/optionalFeatures.js
 src/
   main.jsx                 entry point
   SinaUnaCreator.jsx       root component: state, derivation, step rendering (~1700 lines)
@@ -75,7 +80,7 @@ src/
     Rule.jsx               group divider — hairline + batok chevron
     SpellTableRow.jsx      one selectable spell, table-row layout (name/time/range/hit-DC/effect/notes)
   lib/
-    derive.js              mod, fmt, attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold, recommendedSpread, resolveLineage
+    derive.js              mod, fmt, attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold, recommendedSpread, resolveLineage, spellHitDC, spellEffect, spellMark(Notes), SOURCE_LABEL, CONTENT_SOURCES
     steps.js               step list, buildSteps, profBonus, SLOTS_THIRD
     sheetHtml.js           buildSheetHTML(ctx, {interactive}) — standalone A4 HTML sheet
   pdf/
@@ -95,6 +100,8 @@ src/
     islandSpells.js        SPELLS, SPIRIT_TABLE, SPELL_LISTS
     phbSpells.js           198 PHB spells, levels 0-3
     sccSpells.js           5 Strixhaven (SCC) spells, levels 0-3 — the book's whole set
+    xgeSpells.js           GENERATED — 46 Xanathar's (XGE) spells, levels 0-3
+    tceSpells.js           GENERATED — 13 Tasha's (TCE) spells, levels 0-3
     progression.js         ABILITIES, point buy, slots, CASTING, SKILL_ABILITY
 ```
 
@@ -169,13 +176,20 @@ after reading its text and confirming what it costs to use. Powers the "Actions"
 app's Defenses step, grouped by bucket. Currently populated for all 14 core classes and the 18
 Sina Una subclasses (both have full text); PHB subclasses don't have feature text yet (see
 Outstanding work) so aren't tagged. The printable sheet carries a compact version too, titled
-"Other Actions" — name only, grouped by bucket, each entry pointing at the section further down
+"Class + Ancestry Actions" — name only, grouped by bucket, each entry pointing at the section further down
 that has the full text ("Abayan — See Babaylan features.") rather than repeating it up top,
 which is why an earlier pass removed a fuller excerpt from here. It was headed "Class Actions"
 until a Volcano Dwarf's Molten Armor turned up in it, which is an ancestry trait, not a class
 feature — the panel has always collected all three sources. Plain "Actions" replaced that
 briefly and was too general to mean anything next to the "Actions in Combat" panel; both the
-panel and the printed section read "Other Actions" now.
+panel and the printed section were headed "Other Actions" for a while, and are
+"Class + Ancestry Actions" now — it collects class features, ancestry traits and subclass
+features, and says so.
+
+**Feats print once.** The sheet's Feats section is name + where it came from + "See Feats.",
+pointing at the Reference appendix that carries the rules text — the same pattern as the actions
+panel above, and for the same reason. The half-feat's +1 is called out on that line because it
+is already folded into the ability strip at the top of the sheet, which nothing else reveals.
 
 **Attack table.** The Actions panel also carries a weapon attack table, sitting above the
 action-economy list. It's driven by `CLASSES[id].startingEquipment` (weapon choice groups +
@@ -234,6 +248,103 @@ Note that `availableSpells.phb` and `.scc` are deliberately separate lists rathe
 merged pool — the picker needs to head them separately. `BOOK_SPELLS` (top of
 `SinaUnaCreator.jsx`) is the merged lookup list used by name-resolution helpers only.
 
+**Xanathar's and Tasha's.** Both books are 2014 content — they predate the 2024 revision — so
+they are ordinary content adds sitting on the same chassis as the Handbook, **not** opt-in
+exceptions like Weapon Mastery. Magic items from both are deliberately absent: this is a
+character builder. Everything is pulled from 5etools-src by the four `scripts/extract-*.mjs`
+scripts, which share `scripts/lib/fivetools.mjs` (tag stripping, entry flattening, spell field
+formatting). Those scripts are the source of truth for the generated files; hand-editing a
+generated file is a mistake that survives exactly until the next run.
+
+- **Spells** (`xgeSpells.js`, `tceSpells.js`) — same shape as `phbSpells.js`, `src: "xge"` /
+  `"tce"`, class eligibility from `sources.json`'s 2014 `PHB`-source class entries. Neither
+  book's spells are on the babaylan list (p.224 lists only Handbook and island spells), so none
+  carries the `y` code.
+- **Subclasses** (`expandedSubclasses.js`) — 57 records, each with the book's full feature text.
+  `effects` is *not* in that file: it lives in `subclasses.js` as `EXPANDED_EFFECTS`, hand-
+  authored and merged on, so regenerating never clobbers it. Only grants that map cleanly onto
+  an existing effect type are modelled; fixed bonus cantrips, expanded spell lists, tool
+  proficiencies, swim speeds and extra save proficiencies stay in the feature text, which is
+  what the PHB subclasses already do with their own expanded spell lists.
+- **PHB subclass text** (`phbSubclassText.js`) — the same pull, filling the gap that made
+  picking Champion tell you nothing. Keyed `"level|Feature Name"` and merged onto `PHB_RAW` in
+  `subclasses.js`, again so the hand-authored `effects` arrays are never in the script's way.
+  Where 5etools files an option under a parent (Sacred Weapon under Channel Divinity) the
+  extractor falls back to a flat index; warlock Expanded Spell Lists have no text in 5etools at
+  all and are rebuilt from the structured `additionalSpells` field.
+
+**Feats and the level-4 improvement.** `src/data/feats.js` holds 71 feats. The Handbook's 42 are
+in alongside Xanathar's 15 and Tasha's 14 — a "feat instead of an ability score improvement"
+choice offering only the two new books would be a stranger thing than having no feats at all.
+Artificer Initiate is dropped (no artificer, same call the SCC pull made about artificer class
+tags).
+
+Prerequisites are **structured, not prose**, so the picker filters rather than warns — an
+elf-only feat is never rendered for a dwarf, per the non-negotiable above. `prereq` carries
+`abilities` (any one satisfies), `races` (`{ base, lineage }`, lineage null meaning any lineage
+of that base), `small`, `spellcasting`, `armor`, `weapon`. A half-feat's +1 is the `ability`
+field, either fixed or a choice; the choice is a hard block on advancing, since an unassigned
++1 would silently vanish.
+
+Two slots feed it, and **both live on the Class step**: the 1st-level feat from Variant Human or
+Custom Lineage, and the level-4 Ability Score Improvement (`asiMode` = `"focus"` / `"split"` /
+`"feat"`, with `classAsi` holding the +2 or +1/+1). The Class step is the wrong-looking home for
+an ability-score decision and the right one anyway: half the feats in the books have a
+prerequisite only the class can answer — spellcasting, heavy armour, martial weapons — so a
+picker on the Ancestry or Abilities step could not filter honestly. `plans/ability-score-
+improvement.md` proposed the Abilities step back when feats were out of scope; that's why this
+differs from it.
+
+All of it flows through `scoreAdj`, which `finalScore` adds on top of ancestry, capped at 20 by
+the feature's own wording. `prereqScore` is the same sum *without* the feat's own bonus, so a
+half-feat can never qualify itself.
+
+**Tasha's optional class features.** `optionalFeatures.js` carries two things: `OPTION_LISTS`
+(extra options for a feature that already says "choose one of the following" — invocations,
+metamagic, fighting styles, maneuvers, pact boons) and `TCE_CLASS_FEATURES` (whole extra
+features: Deft Explorer, Favored Foe, Steady Aim, Wild Companion, Harness Divine Power…).
+`classFeaturesFor(classId, { tceOptional, subclassId })` in `classes.js` merges them into the
+class's own features in level order; everything downstream reads that, not `klass.features`, so
+one toggle reaches the app, the appendix and all three export routes at once.
+
+Anything sourced `tce` is gated on the toggle (`tceOptional` state, off by default) because
+Tasha's itself frames these as a variant a table adopts, and several replace a feature the class
+already has. Xanathar's additions are **not** gated — XGE is an ordinary content book. Nor are
+the Handbook's eldritch invocations, which are in there because the warlock's feature text
+points at a list the app never carried at all. Action-economy tags for these features are
+hand-authored in `classes.js` (`OPTIONAL_ACTION_TAGS`), by the same read-the-text rule as every
+other `action` tag.
+
+**Custom Lineage is commented out** — built, then held back. Don't re-add it without reading
+this. It genuinely is its own race, not a modifier on one: TCE p.8 opens with "Instead of
+choosing one of the game's races for your character at 1st level" and closes with "Your race is
+considered to be a Custom Lineage for any game feature that requires a certain race", and
+5etools files it in `races.json` as a race. So it was modelled as a base race —
+`BASE_RACES["custom-lineage"]` — with the book's one variable trait (darkvision, or a skill
+proficiency) split into the two lineage records under it, which keeps the two-stage ancestry UI
+intact and makes an illegal Custom Lineage unrepresentable.
+
+The confusion it caused is the point of this note: what people usually mean by "the Tasha's
+race option" is **Customizing Your Origin** (TCE pp.7-8), a different and separate variant rule
+that applies to *any* race. That one is not implemented — see Outstanding work. The commented-out
+blocks live in `baseRaces.js` and `lineages.js`, with a restore checklist in the former.
+
+Because a saved character can outlive the content it was built on, `baseRace` resolves to `null`
+rather than `undefined` for an unknown `baseId`, and the lineage panel keys off `baseRace` rather
+than `baseId`. Anything else removed from `BASE_RACES` gets the same protection for free.
+
+**Effects that finally have consumers.** Three effect types were documented and read by nothing:
+`weaponProf` and `shieldProf` (declared by College of Valor since it was written, and now by
+Hexblade, Twilight Domain and College of Swords) and `bonusSkills` (College of Lore's three,
+Knowledge Domain's two, and one each from Order, Peace, Cavalier, Samurai, Arcane Archer, Fey
+Wanderer — plus Variant Human's and Half-Elf's, which were prose-only traits). `bonusSkills`
+reads from **both** lineage and subclass effects and has its own picker on the Class step.
+`spellMark` / `spellMarkNotes` (`derive.js`) own the printed sheet's provenance footnotes —
+`*` island, `‡` Xanathar's, `§` Tasha's, `†` Strixhaven, nothing for the Handbook — shared by
+`sheetHtml.js` and `sheetPdf.js`. `SOURCE_LABEL` / `CONTENT_SOURCES` in the same file are what
+every picker heads its groups with; don't reintroduce inline `src === "sinauna" ? … : …`
+ternaries.
+
 **Reaction triggers live outside the Time column.** Seven spells (PHB's Shield, Counterspell,
 Feather Fall, Hellish Rebuke; Silvery Barbs; the island Apolaki's Light and False Self) carry
 their trigger inside the casting-time string — "1 reaction, which you take when you are hit by
@@ -244,6 +355,31 @@ printed sheet folds it into the Notes cell beside ritual/conc. It splits only on
 a "reaction" head — Plant Growth's "1 action, 8 hours" is two genuine casting times and stays
 whole — and drops the PHB's "which you take " filler lead-in. The underlying `time` data is
 untouched, so the Reference appendix still prints the full string.
+
+**The Sheet step shows the whole sheet on screen.** `components/SheetSummary.jsx` renders every
+section the printed sheet carries — vitals, core, saves, skills, attacks, actions, spellcasting,
+traits, class and subclass features, feats, background, inventory, reference — from the same
+`sheetCtx` object the three export routes read. That shared input is the point: a field missing
+from the summary is a field missing from the file, so the two can't drift.
+
+It is deliberately **not** an iframe of `buildSheetHTML()`. That sheet is a light-ground A4
+document; dropping one into the dark UI would be unreadable on a phone at a table, which is the
+reason the app is dark at all. Two things it does not repeat: the ability strip (the app's own
+live `su-sum` bar is pinned above the step content from the Abilities step onward and shows the
+same six numbers) and the print-width column layout (it reuses `su-atk-row`, overriding
+`gridTemplateColumns` inline the way `SpellTableRow` does).
+
+`spellHitDC` / `spellEffect` moved to `derive.js` when this landed — they existed as three
+identical copies in `sheetHtml.js`, `sheetPdf.js` and here. `SpellTableRow` keeps its own, since
+the picker's version also returns an icon flag.
+
+**"Start over" sits in the footer nav as well as on the Sheet step.** Both open the same
+`showResetConfirm` modal — one reset path, so the wording can't drift. It anchors the **left**
+end of the bar (`.su-nav .su-btn-danger{margin-right:auto}`) with Back and Next paired at the
+right, so the destructive button is nowhere near the two step-moves. That pairing needs
+`.su-nav .su-btn-go{margin-left:0}`: the class carries `margin-left:auto` for other rows, and
+leaving it on split Back and Next 150px apart on a wide screen. Three buttons overflow a phone
+row at the default padding, hence the `@media(max-width:430px)` block in `styles.js`.
 
 **The printable sheet has no fixed page count.** It flows to however many pages the character
 needs — don't reintroduce "Page 1 / Page 2" framing in the UI or docs (a "two pages, then an
@@ -256,6 +392,12 @@ Built by `buildSteps(hasSpellStep)`. The Spells step **only appears for casters*
 indices shift. Always compare against `here` (the step name), never a numeric index.
 
 `Ancestry → Abilities → Class → Background → Defenses → [Spells] → Inventory → Sheet`
+
+**The Class step carries more than the class.** Below the subclass picker it holds the class
+skill picks, any extra skill picks a subclass or ancestry grants (`bonusSkills`), the Tasha's
+optional-features toggle, the 1st-level feat slot for Variant Human / Custom Lineage, and the
+level-4 Ability Score Improvement. The last two are there because feat prerequisites need the
+class — see the feats section above.
 
 **Inventory step.** Consolidated "what do I own" view — weapons (`groupWeapons()`, dedupes
 `carriedWeapons` into `{ weapon, qty }` rows), current armor/shield, gear (class
@@ -277,7 +419,8 @@ Sina Una defines no standalone races. Every option modifies a PHB base race:
   entirely and replaces Hellish Resistance and Infernal Legacy.
 - **standard** — the base race unmodified.
 
-Two-stage UI: pick base race, then pick lineage from a merged pool with Sina Una listed above PHB.
+Two-stage UI: pick base race, then pick lineage from a merged pool, headed by book in
+`CONTENT_SOURCES` order — Sina Una, Handbook, Xanathar's, Tasha's, Strixhaven.
 
 ### Export
 
@@ -377,11 +520,14 @@ Static build, no server, no API — `npm run build` outputs `dist/` and that's t
 |---|---|---|
 | Classes | 14 | 12 PHB, 2 Sina Una (Babaylan, Headhunter) |
 | Lineages | 22 | 7 Sina Una, 15 PHB, across 9 base races |
-| Subclasses | 58 | 18 Sina Una, 40 PHB |
+| Subclasses | 115 | 18 Sina Una, 40 PHB, 31 XGE, 26 TCE |
 | Backgrounds | 6 | Sina Una only |
 | Island spells | 14 in app | levels 0–3; 24 total in `spells.json` |
 | PHB spells | 198 | levels 0–3 |
+| Xanathar's spells | 46 | levels 0–3; 95 in the book |
+| Tasha's spells | 13 | levels 0–3; 21 in the book |
 | Strixhaven spells | 5 | levels 0–3; whole book |
+| Feats | 71 | 42 PHB, 15 XGE, 14 TCE |
 | Weapons | 55 | 37 PHB + 18 Sina Una, simple + martial |
 | Armor rows | 19 | 13 PHB + 6 Sina Una |
 
@@ -409,16 +555,17 @@ the in-app appendix (`SinaUnaCreator.jsx`) and the printable sheet (`sheetHtml.j
 the old "Full text on p.N of the source" placeholder. Two new `errata` fields recorded along
 the way, matching the two Circle of Tides / Diwata Bloodline rows already in the table above.
 
-Two gaps remain, deliberately out of scope for this pass:
-- **Core class features are entirely absent** — no Rage, Second Wind, Sneak Attack, Extra
+Two of the three gaps below are now closed — PHB subclass text was pulled in the
+Xanathar's/Tasha's pass (`scripts/extract-subclasses.mjs`, `src/data/phbSubclassText.js`), and
+core class features were filled in when the babaylan/headhunter work landed. What remains:
+- ~~**Core class features are entirely absent**~~ — no Rage, Second Wind, Sneak Attack, Extra
   Attack, Fighting Style, etc. for any of the 12 PHB classes. Not documented anywhere before
   now; found while wiring subclass text. `5etools-src/data/class/class-<name>.json` has full
   text for all of it (`classFeature` array, `source: "PHB"`, `level <= 5`) — scriptable the
   same way the PHB spells were.
-- **PHB subclass features (40 subclasses) are still names-only.** Same 5etools files carry
-  `subclassFeature` entries with full text — also scriptable, but `refOptionalfeature` /
-  `refSubclassFeature` links (e.g. Fighting Style's options) need resolving against
-  `data/optionalfeatures.json` first.
+- ~~**PHB subclass features (40 subclasses) are still names-only.**~~ Done — all 198 feature
+  names matched, with `refOptionalfeature` / `refSubclassFeature` links resolved against
+  `data/optionalfeatures.json` as this predicted.
 - Mooneater Patron's page 195 ("Mooneater Eldritch Invocations" — 5 patron-flavored eldritch
   invocation options) was read but not transcribed in — the app doesn't track invocation picks
   at all yet, PHB or Sina Una.
@@ -449,12 +596,50 @@ effect type — no other subclass needs that shape yet, and almost none of the e
 features feed derived stats either. And the "Memoriam"-only omen (Strife) 18th-level gap is
 recorded in the errata table above, not invented.
 
-### 3. Persistence
+### 3. ~~Persistence~~ — DONE
 
-No `localStorage` yet — it's blocked in artifacts, not out of the sandbox. Open question:
-device-local blob, or an ID shareable with the DM.
+The whole character mirrors to `localStorage` under `sina-una-character` and restores on load;
+the Sheet step has a confirmed "Create new character" reset. A shareable-with-the-DM ID is still
+an open idea, but nothing depends on it.
 
-### 4. Smaller items
+### 4. Carried forward from the Xanathar's / Tasha's pass
+
+- **Expanded spell lists aren't modelled.** Oath Spells, Circle Spells, Gloom Stalker Magic,
+  Psionic Spells and the warlock patrons' Expanded Spell List all arrive as feature *text* with
+  their table flattened into prose. Nothing marks them always-prepared or adds them to the
+  picker. The `preparedBonus` effect type has existed unused since the effects layer was
+  written and is the obvious hook. Doing it for the new books alone would have been worse than
+  not doing it, since PHB domain spells have always been prose too — so it's all or nothing.
+- **Invocations, metamagic, fighting styles and maneuvers are lists, not picks.** They render as
+  feature text you read and choose from at the table; the app doesn't track which ones you took.
+  Same for Arcane Shot options and Rune Knight's runes, which are folded into their parent
+  feature's prose.
+- **Customizing Your Origin (TCE pp.7-8) is not implemented.** The variant that lets any race
+  reassign the increases from its Ability Score Increase trait, plus the same freedom over the
+  Languages trait and certain proficiencies. It is 2014-era and explicitly optional in the book,
+  so it belongs behind a toggle on the Ancestry step alongside the Tasha's optional class
+  features — not as a chassis change, which the first non-negotiable rules out. The reassignable
+  pool would reuse the `choicePicks` machinery that already handles Variant Human's and
+  Half-Elf's floating +1s; the proficiency swap touches tools, which the app doesn't model, so
+  that part stays prose.
+- **Custom Lineage is built but commented out.** See the note above. Restoring it is uncommenting
+  two data blocks and putting two counts back in `scripts/check.mjs`.
+- **Feats can't grant anything mechanical.** A feat's `ability` half-point feeds `finalScore`,
+  and that's the whole of it — Skill Expert's proficiency and expertise, Fey Touched's and
+  Shadow Touched's spells, Moderately Armored's armour proficiency, Resilient's save
+  proficiency all exist only as text. The effects layer is the right home if this ever matters;
+  a feat would carry an `effects` array like a subclass does.
+- **PHB feats came along uninvited.** The ask was Xanathar's and Tasha's; the Handbook's 42 are
+  in because a feat picker without them is a stranger artifact than no feat picker. Worth a
+  second opinion at the table.
+- **The main bundle is ~990 kB (267 kB gzipped)**, up from roughly two thirds of that — 97
+  subclasses' worth of feature text and 71 feats' worth of rules prose now ship on first load.
+  If that starts to matter, feature/appendix text is the natural thing to split out behind an
+  `import()`, the way both PDF routes already are.
+- **Only one ASI.** Level 4 is the only improvement in a 1–5 game, so `classAsi` is a single
+  slot, not a per-level record. Raising the level ceiling would need that to change.
+
+### 5. Smaller items
 
 - Ancestry spellcasting abilities: Balat-Kayo says Charisma, Umalagad says Wisdom, but Balete
   Elf's *entangle*/*barkskin* and Mangrove Halfling's *mending* specify none. May be a book

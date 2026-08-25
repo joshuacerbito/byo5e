@@ -1,5 +1,6 @@
 import { ABILITIES } from '../data/progression.js';
-import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS } from '../lib/derive.js';
+import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
+  spellMark, spellMarkNotes, spellHitDC as hitDC, spellEffect, ABIL_LABEL } from '../lib/derive.js';
 import { saveFile, sheetFileName } from './saveFile.js';
 
 /* Real vector PDF, built in the browser from the same sheetCtx that feeds
@@ -100,14 +101,13 @@ const line = (label, value, opts = {}) => {
   return { columns: cells, columnGap: 4, fontSize: 8.2, margin: [0, 1, 0, 1], color: dot === false ? '#333333' : INK };
 };
 
-const ABIL_LABEL = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
 
 export function buildSheetDocDefinition(ctx) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
     savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, ancestrySpells,
-    finalScore, attackRows, masteryEnabled, carriedWeapons, actions,
+    finalScore, attackRows, masteryEnabled, carriedWeapons, actions, chosenFeats, classFeatures,
   } = ctx;
 
   const charName = name.trim() || 'Unnamed';
@@ -229,7 +229,7 @@ export function buildSheetDocDefinition(ctx) {
 
   /* ---- class actions: name only, pointing at the full text further down ---- */
   if (actions?.length) {
-    content.push(...heading('Class actions'));
+    content.push(...heading('Class + Ancestry Actions'));
     ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).forEach((k) => {
       content.push({ text: ACTION_LABELS[k], style: 'actg' });
       actions.filter((a) => a.action === k).forEach((a) => {
@@ -240,11 +240,7 @@ export function buildSheetDocDefinition(ctx) {
 
   /* ---- spellcasting ---- */
   if (casting && !casting.pending) {
-    const spellHitDC = (sp) => (sp.atk ? fmt(casting.attack)
-      : sp.save ? `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()} ${casting.saveDC}` : '—');
-    const spellEffect = (sp) => (sp.heal ? sp.heal
-      : sp.dmg ? `${sp.dmg}${sp.dmgType ? ` ${sp.dmgType}` : ''}`
-      : sp.cond ? sp.cond[0].toUpperCase() + sp.cond.slice(1) : '—');
+    const spellHitDC = (sp) => hitDC(sp, casting);
 
     content.push(...heading(`Spellcasting — ${casting.label}`));
     const stats = [['Save DC', casting.saveDC], ['Attack', fmt(casting.attack)], ['Ability', casting.ability.toUpperCase()],
@@ -268,7 +264,7 @@ export function buildSheetDocDefinition(ctx) {
             ...chosenSpells.map((sp) => {
               const { head, trigger } = splitCastingTime(sp.time);
               return [
-                sp.name + (sp.src ? '' : ' *') + (sp.src === 'scc' ? ' \u2020' : ''),
+                sp.name + (spellMark(sp) ? ` ${spellMark(sp)}` : ''),
                 `${sp.level === 0 ? 'C' : sp.level}${sp.higher ? '+' : ''}`,
                 head, sp.range, spellHitDC(sp), spellEffect(sp),
                 [sp.ritual && 'ritual', sp.conc && 'conc',
@@ -290,11 +286,8 @@ export function buildSheetDocDefinition(ctx) {
         && 'a + means the spell does more cast with a higher slot — the reference below says what',
     ].filter(Boolean);
     if (legend.length) content.push({ text: `Lvl: ${legend.join('; ')}.`, style: 'mut' });
-    if (chosenSpells.some((x) => !x.src)) {
-      content.push({ text: '* island spell — full text in the reference below.', style: 'mut' });
-    }
-    if (chosenSpells.some((x) => x.src === 'scc')) {
-      content.push({ text: '\u2020 Strixhaven spell — full text in the reference below.', style: 'mut' });
+    for (const note of spellMarkNotes(chosenSpells)) {
+      content.push({ text: note, style: 'mut' });
     }
   }
 
@@ -343,7 +336,7 @@ export function buildSheetDocDefinition(ctx) {
   }
 
   if (klass) {
-    const feats = (klass.features || []).filter((f) => f[0] <= level);
+    const feats = (classFeatures || []).filter((f) => f[0] <= level);
     if (feats.length) {
       content.push(...heading(`${klass.name} features`));
       feats.forEach((f) => content.push(para(f[1], f[2])));
@@ -357,6 +350,18 @@ export function buildSheetDocDefinition(ctx) {
       feats.forEach((f) => content.push(para(f[1],
         f[2] || `Gained at level ${f[0]}.${subclass.page ? ` See p.${subclass.page}.` : ''}`)));
     }
+  }
+
+  /* Name and source only; the full text is in the Reference below, the
+     same way Class + Ancestry Actions points at the section that has it. */
+  if ((chosenFeats || []).length) {
+    content.push(...heading('Feats'));
+    chosenFeats.forEach(({ feat, from, ability }) => {
+      const key = feat.ability?.fixed || ability;
+      const bonus = feat.ability && key
+        ? ` +${feat.ability.amount} ${ABIL_LABEL[key]}, already in your scores.` : '';
+      content.push(para(feat.name, `${from}.${bonus} See Feats.`));
+    });
   }
 
   if (background) {

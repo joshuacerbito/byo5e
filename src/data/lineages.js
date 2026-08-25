@@ -154,14 +154,46 @@ export const LINEAGES = [
     asi: { fixed: {} }, replaces: [], traits: [] },
   { id: "human-variant", base: "human", name: "Variant Human", src: "phb", kind: "variant",
     replaces: ["Ability Score Increase"],
+    grantsFeat: true,
     asi: { fixed: {}, choice: { count: 2, amount: 1, from: ["str", "dex", "con", "int", "wis", "cha"] } },
+    effects: [{ type: "bonusSkills", count: 1 }],
     traits: [
       { name: "Skills", text: "Proficiency in one skill of your choice." },
-      { name: "Feat", text: "You gain one feat of your choice." }] },
+      { name: "Feat", text: "You gain one feat of your choice — picked on the Class step, since so many feats have a class prerequisite." }] },
   { id: "half-elf-standard", base: "half-elf", name: "Half-Elf", src: "phb", kind: "standard",
     blurb: "In the islands, half-elves are nature spirits from wild flowers rather than elf offspring — flavour only, no new mechanics.",
     asi: { fixed: { cha: 2 }, choice: { count: 2, amount: 1, from: ["str", "dex", "con", "int", "wis"] } },
-    replaces: [], traits: [] },
+    effects: [{ type: "bonusSkills", count: 2 }],
+    replaces: [],
+    traits: [{ name: "Skill Versatility", text: "Proficiency in two skills of your choice." }] },
+
+  /* ---- CUSTOM LINEAGE (TCE) — COMMENTED OUT ----
+     Held back with its base race in baseRaces.js; that block explains
+     why, and how to put it back. The two records differ only in the
+     book's one variable trait (darkvision, or a skill proficiency),
+     which is what makes an illegal Custom Lineage unrepresentable
+     rather than needing a third choice widget on the Ancestry step. */
+  // { id: "custom-lineage-darkvision", base: "custom-lineage",
+  //   name: "Custom Lineage · Darkvision", src: "tce", kind: "standard", page: 8,
+  //   blurb: "Build your own ancestry: +2 anywhere, a feat at 1st level, and darkvision out to 60 feet.",
+  //   grantsFeat: true,
+  //   asi: { fixed: {}, choice: { count: 1, amount: 2, from: ["str", "dex", "con", "int", "wis", "cha"] } },
+  //   replaces: [],
+  //   effects: [{ type: "darkvision", value: 60 }],
+  //   traits: [
+  //     { name: "Darkvision", text: "See in dim light within 60 feet as if bright light." },
+  //     { name: "Feat", text: "You gain one feat of your choice — picked on the Class step, since so many feats have a class prerequisite." }] },
+  // { id: "custom-lineage-skill", base: "custom-lineage",
+  //   name: "Custom Lineage · Skill", src: "tce", kind: "standard", page: 8,
+  //   blurb: "Build your own ancestry: +2 anywhere, a feat at 1st level, and proficiency in a skill of your choice.",
+  //   grantsFeat: true,
+  //   asi: { fixed: {}, choice: { count: 1, amount: 2, from: ["str", "dex", "con", "int", "wis", "cha"] } },
+  //   replaces: [],
+  //   effects: [{ type: "bonusSkills", count: 1 }],
+  //   traits: [
+  //     { name: "Skills", text: "Proficiency in one skill of your choice." },
+  //     { name: "Feat", text: "You gain one feat of your choice — picked on the Class step, since so many feats have a class prerequisite." }] },
 ];
 
-export const BASE_RACE_ORDER = ["dwarf", "elf", "gnome", "halfling", "half-orc", "dragonborn", "tiefling", "human", "half-elf"];
+export const BASE_RACE_ORDER = ["dwarf", "elf", "gnome", "halfling", "half-orc",
+  "dragonborn", "tiefling", "human", "half-elf"/*, "custom-lineage" */];

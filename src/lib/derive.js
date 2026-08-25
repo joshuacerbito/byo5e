@@ -50,6 +50,69 @@ export function parseStartingGold(background) {
   return { gp, items };
 }
 
+/* Which book a piece of content came from, and what to call it in a
+   heading. Every content record carries `src`; island content carries
+   "sinauna", and the three 2014-compatible imports carry their book's
+   own code. Kept here so the ancestry, class, subclass and spell
+   pickers all head their groups with the same words.
+
+   XGE and TCE are 2014 content — both predate the 2024 revision — so
+   they sit on the same chassis as the Handbook with no opt-in gate,
+   unlike Weapon Mastery (see CLAUDE.md). */
+export const SOURCE_LABEL = {
+  sinauna: "Sina Una",
+  phb: "Player's Handbook",
+  scc: "Strixhaven",
+  xge: "Xanathar's Guide",
+  tce: "Tasha's Cauldron",
+};
+
+/* Display order: the campaign's own book first, then the Handbook,
+   then the supplements in publication order. */
+export const CONTENT_SOURCES = ["sinauna", "phb", "xge", "tce", "scc"];
+
+export const ABIL_LABEL = { str: "STR", dex: "DEX", con: "CON",
+  int: "INT", wis: "WIS", cha: "CHA" };
+
+/* Hit/DC column: an attack spell shows the caster's flat spell attack
+   bonus, a save spell shows the target's save (ability + DC), and
+   anything that forces neither shows an em dash rather than a guess.
+   Shared by the app's Sheet summary and both printed routes — it lived
+   as three identical copies before. SpellTableRow keeps its own, since
+   the picker's version also returns an icon flag. */
+export const spellHitDC = (sp, casting) => {
+  if (sp.atk) return casting ? fmt(casting.attack) : "\u2014";
+  if (sp.save) return `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()} ${casting?.saveDC ?? ""}`.trim();
+  return "\u2014";
+};
+
+export const spellEffect = (sp) => {
+  if (sp.heal) return sp.heal;
+  if (sp.dmg) return `${sp.dmg}${sp.dmgType ? ` ${sp.dmgType}` : ""}`;
+  if (sp.cond) return sp.cond[0].toUpperCase() + sp.cond.slice(1);
+  return "\u2014";
+};
+
+/* The compact spell tables on the printed sheet have no room for a
+   source column, so provenance is a footnote mark instead. Handbook
+   spells carry none — they're the default — and island spells have no
+   `src` field at all, which is what the undefined entry matches.
+   Shared by sheetHtml.js and sheetPdf.js so the two agree. */
+export const SPELL_MARKS = [
+  { src: undefined, mark: "*", label: "island spell" },
+  { src: "xge", mark: "\u2021", label: "Xanathar's spell" },
+  { src: "tce", mark: "\u00a7", label: "Tasha's spell" },
+  { src: "scc", mark: "\u2020", label: "Strixhaven spell" },
+];
+
+export const spellMark = (sp) =>
+  SPELL_MARKS.find((m) => m.src === (sp.src || undefined))?.mark || "";
+
+/* One footnote line per book the character actually drew from. */
+export const spellMarkNotes = (spells) => SPELL_MARKS
+  .filter((m) => spells.some((sp) => (sp.src || undefined) === m.src))
+  .map((m) => `${m.mark} ${m.label} — full text in the reference below.`);
+
 /* Action-economy buckets, in the order a turn actually goes. Shared by
    the app (SinaUnaCreator.jsx) and the printable sheet (sheetHtml.js). */
 export const ACTION_ORDER = ["action", "bonus", "reaction", "free"];

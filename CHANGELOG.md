@@ -7,6 +7,84 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-25 (later)
+
+Xanathar's Guide to Everything and Tasha's Cauldron of Everything, folded in. Both books
+predate the 2024 revision, so all of this sits on the same 2014 chassis as the rest of the app —
+none of it is an opt-in exception the way Weapon Mastery is. Magic items from both books are
+deliberately out: this is a character builder.
+
+### Added
+
+- **59 more spells** — 46 from Xanathar's and 13 from Tasha's, levels 0–3. Every spell list now
+  heads its groups by book, and the printed sheet marks island spells `*`, Xanathar's `‡`,
+  Tasha's `§` and Strixhaven `†`.
+- **57 more subclasses** — 31 from Xanathar's, 26 from Tasha's. Artificer's four are left out;
+  there's no artificer here. Every one arrives with its full feature text.
+- **Feature text for the 40 Player's Handbook subclasses.** They were names-only since the app
+  was written — pick Champion and it told you nothing. Now every subclass in the app, all 115,
+  carries the book's own words.
+- **Feats, and the level-4 ability score improvement that was never wired up.** Every class gets
+  one improvement at 4th level, the only one inside this campaign's range, and until now it was
+  printed rules text that did nothing to your scores. You can now spend it as +2 to one ability,
+  +1 to two, or a feat. 71 feats: the Handbook's 42, Xanathar's 15 racial ones, and 14 of
+  Tasha's. Prerequisites filter the list rather than warning about it — an elf-only feat is
+  simply not shown to a dwarf.
+- **Variant Human's feat and free skill actually work now**, as does Half-Elf's Skill
+  Versatility. All three were prose the app never acted on.
+- **Tasha's optional class features**, behind a toggle on the Class step, off by default. Deft
+  Explorer, Favored Foe, Steady Aim, Wild Companion, Harness Divine Power and the rest, plus
+  Tasha's added fighting styles, metamagic, invocations and Battle Master maneuvers. The book
+  calls these optional and several replace a feature you already have, hence the toggle.
+- **The warlock's eldritch invocation list.** The feature text pointed at a list the app never
+  carried. All of them are there now — the Handbook's and Xanathar's always, Tasha's with the
+  toggle.
+- **Extra skill picks from a subclass or ancestry are pickable.** College of Lore's three,
+  Knowledge Domain's two, and one each from Order, Peace, Cavalier, Samurai, Arcane Archer and
+  Fey Wanderer. The data for this existed; nothing ever read it.
+
+### Changed
+
+- **The Sheet step now shows the whole character**, not just a description of what the export
+  will contain — every section the printed sheet has, in the app's own styling, with a rule
+  before the plain-text box.
+- **"Start over" is in the footer bar** on every step, anchored to the left with Back and Next
+  paired on the right, so the destructive button isn't sitting among the step moves. Same
+  confirmation as the one on the Sheet step.
+- **The action list is called "Class + Ancestry Actions"** in the app and on the sheet, up from
+  "Other Actions" — it collects class features, ancestry traits and subclass features, and now
+  says so.
+
+### Not included
+
+- **Tasha's Custom Lineage** was built and then commented out before landing. It's in the data
+  files behind comments if it's ever wanted. Note it is a standalone race in the book ("Instead
+  of choosing one of the game's races…"), not a customisation applied to an existing one.
+- **Customizing Your Origin** (Tasha's pp.7–8) — the variant that lets *any* race move its
+  ability score increases around — isn't in. That's the rule most people mean by "the Tasha's
+  race option", and it's a separate job.
+
+### Fixed
+
+- **Proficiency dots printed hollow.** Every filled dot on the sheet — saves and skills you're
+  proficient in — was drawn with a background colour, and printers drop background colours
+  unless you tick "Background graphics". They're drawn a different way now and print solid
+  whatever that setting says.
+- **Feats printed twice**, once in full on the sheet and again in the reference. The sheet now
+  names the feat and points at the reference, the way the actions list already did.
+- **Proficiencies a subclass grants now count.** A Hexblade's martial weapons and shields, a
+  College of Valor bard's, Twilight Domain's — all of them were declared in the data and read by
+  nothing, so the attack table gave you no proficiency bonus for them and the shield toggle
+  never appeared.
+- **A saved character built on content that later goes away no longer breaks the app.** It falls
+  back to the first step instead of a blank screen.
+- The printed vector PDF's action list was headed "Class actions" where every other route says
+  "Other Actions" — the panel has always collected ancestry traits too.
+- A subclass with no page number printed "p.undefined" in the text sheet.
+- The text sheet's skill list left out skills picked from a subclass or ancestry grant.
+
+---
+
 ## 2026-08-25
 
 ### Added

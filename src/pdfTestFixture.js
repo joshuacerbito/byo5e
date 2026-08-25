@@ -1,9 +1,12 @@
 /* Fixture used by the headless export check (scripts/check-exports.mjs).
    Not imported by the app. */
-import { CLASSES, ARMOR } from "./data/classes.js";
+import { CLASSES, ARMOR, classFeaturesFor } from "./data/classes.js";
 import { BACKGROUNDS } from "./data/backgrounds.js";
 import { PHB_SPELLS } from "./data/phbSpells.js";
 import { WEAPONS } from "./data/weapons.js";
+import { XGE_SPELLS } from "./data/xgeSpells.js";
+import { TCE_SPELLS } from "./data/tceSpells.js";
+import { FEATS } from "./data/feats.js";
 
 const scores = { str: 10, dex: 14, con: 14, int: 16, wis: 12, cha: 8 };
 
@@ -26,13 +29,37 @@ export const FIXTURE = {
   skillTable: ["Acrobatics", "Arcana", "Deception", "History", "Insight", "Investigation", "Medicine", "Nature", "Perception", "Stealth"]
     .map((n, i) => ({ name: n, ability: "int", value: i % 3, proficient: i % 2 === 0 })),
   casting: { label: "Wizard", saveDC: 14, attack: 6, ability: "int", slots: [4, 3, 2], prepared: 8, pending: false },
-  chosenSpells: PHB_SPELLS.slice(0, 10).map((s) => ({ ...s, src: "phb" })),
+  /* One spell from each book, so the footnote marks on the compact
+     spell table are all exercised, plus an island-style entry with no
+     `src` at all. */
+  chosenSpells: [...PHB_SPELLS.slice(0, 8).map((s) => ({ ...s, src: "phb" })),
+    XGE_SPELLS[0], TCE_SPELLS[0],
+    { ...PHB_SPELLS[0], name: "Lava Plume", src: undefined }],
   otherSpells: "",
-  appendix: PHB_SPELLS.slice(0, 4).map((s) => ({ group: "Spells", name: s.name, text: s.text })),
+  /* Mirrors what the app's appendix memo builds: spells, plus a Feats
+     group carrying the rules text the sheet's own Feats section only
+     points at. Both are here so the export check catches it if the
+     text ever gets printed in both places again. */
+  appendix: [
+    ...PHB_SPELLS.slice(0, 4).map((s) => ({ group: "Spells", name: s.name, text: s.text })),
+    ...["alert", "telekinetic"].map((id) => {
+      const f = FEATS.find((x) => x.id === id);
+      return { group: "Feats", name: f.name, text: `Variant Human. ${f.text}` };
+    }),
+  ],
   bgChoice: "",
   finalScore: (k) => scores[k],
   attackRows: [{ name: "Quarterstaff", proficient: true, range: "Melee 5 ft", hitOrDC: "+3", damage: "1d6", dmgType: "bludgeoning", notes: "versatile (1d8)" }],
   masteryEnabled: false,
+  /* Tasha's optional features on, so the extra class features and the
+     invocation/metamagic option lists land in the sheet too. */
+  classFeatures: classFeaturesFor("wizard", { tceOptional: true }),
+  /* One full feat and one half-feat, the two shapes the sheet has to
+     print differently. */
+  chosenFeats: [
+    { id: "alert", ability: null, from: "Variant Human", feat: FEATS.find((f) => f.id === "alert") },
+    { id: "telekinetic", ability: "int", from: "Level 4 improvement", feat: FEATS.find((f) => f.id === "telekinetic") },
+  ],
   carriedWeapons: [WEAPONS[0], WEAPONS[0]],
   actions: [{ action: "action", name: "Dash", section: "Wizard features" }],
   /* Balete Elf's real grants, ability included — the book names none for this

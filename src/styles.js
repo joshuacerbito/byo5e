@@ -121,6 +121,23 @@ export const STYLES = `
 .su-linkbtn:hover{color:var(--gold);}
 .su-linkbtn:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 
+/* Start over holds the left end and everything else is pushed right, so
+   Back and Next end up adjacent as a pair. Scoped to the nav: the same
+   button class is used on the Sheet step, where it must not stretch. */
+.su-nav .su-btn-danger{margin-right:auto;}
+/* .su-btn-go carries margin-left:auto so it can push itself right in
+   other rows; here Start over already owns the free space, and leaving
+   it on split Back and Next apart by 150px on a wide screen. */
+.su-nav .su-btn-go{margin-left:0;}
+
+/* Three buttons now live in the footer — Back, Start over, Next — and at
+   phone widths the default 22px side padding overflows the row. */
+@media(max-width:430px){
+  .su-nav{padding:11px 12px;}
+  .su-nav-in{gap:6px;}
+  .su-nav .su-btn{padding:11px 12px;font-size:13px;}
+}
+
 .su-btn-danger{border-color:var(--coral);color:var(--coral);}
 .su-btn-danger:hover:not(:disabled){background:var(--coral);border-color:var(--coral);color:var(--bone);}
 

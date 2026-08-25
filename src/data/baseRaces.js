@@ -96,4 +96,32 @@ export const BASE_RACES = {
     ],
     languages: ["Common", "Elvish", "+1 of your choice"],
   },
+  /* ------------------------------------------------------------------
+     COMMENTED OUT — Tasha's Custom Lineage (TCE p.8).
+
+     Held back on purpose, not abandoned. It is genuinely its own race:
+     the book opens it with "Instead of choosing one of the game's races
+     for your character at 1st level", and closes it with "Your race is
+     considered to be a Custom Lineage for any game feature that
+     requires a certain race" — so modelling it as a base race with its
+     variable trait split across two lineages beneath it was right.
+
+     What it is NOT is Tasha's *Customizing Your Origin* (TCE pp.7-8),
+     the separate variant rule that lets any race reassign the ability
+     increases from its Ability Score Increase trait. That rule is the
+     one people usually mean by "the Tasha's race option", and it isn't
+     implemented — see Outstanding work in CLAUDE.md.
+
+     To restore: uncomment this block, the two lineage records and the
+     BASE_RACE_ORDER entry in lineages.js, and put the base-race count
+     back to 10 and the lineage count to 24 in scripts/check.mjs.
+  ------------------------------------------------------------------- */
+  // "custom-lineage": {
+  //   name: "Custom Lineage", speed: 30, size: "Medium", darkvision: 0,
+  //   asi: {},
+  //   traits: [
+  //     { name: "Creature Type", text: "You are a humanoid. You choose whether you are Small or Medium at character creation." },
+  //   ],
+  //   languages: ["Common", "One other of your choice"],
+  // },
 };

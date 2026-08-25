@@ -2,32 +2,42 @@ import React, { useState, useMemo, useEffect } from "react";
 
 import { BASE_RACES } from "./data/baseRaces.js";
 import { LINEAGES, BASE_RACE_ORDER } from "./data/lineages.js";
-import { CLASSES, ARMOR, ALL_SKILLS } from "./data/classes.js";
+import { CLASSES, ARMOR, ALL_SKILLS, classFeaturesFor } from "./data/classes.js";
 import { WEAPONS, PROPERTY_LABELS, DMG_TYPE_LABELS, WEAPON_MASTERY_2024, MASTERY_PROPERTY_TEXT } from "./data/weapons.js";
 import { ALL_SUBCLASSES } from "./data/subclasses.js";
 import { BACKGROUNDS } from "./data/backgrounds.js";
 import { PHB_SPELLS, CLS_CODE } from "./data/phbSpells.js";
 import { SCC_SPELLS } from "./data/sccSpells.js";
+import { XGE_SPELLS } from "./data/xgeSpells.js";
+import { TCE_SPELLS } from "./data/tceSpells.js";
 import { SPELLS, SPIRIT_TABLE, SPELL_LISTS } from "./data/islandSpells.js";
+import { FEATS } from "./data/feats.js";
 import {
   ABILITIES, POINT_COST, POINT_BUDGET, STANDARD_ARRAY,
   SKILL_ABILITY, SLOTS_FULL, SLOTS_HALF, PACT, CASTING,
 } from "./data/progression.js";
 import { SLOTS_THIRD, buildSteps, profBonus } from "./lib/steps.js";
 import { mod, fmt, recommendedSpread, resolveLineage, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
-  attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold } from "./lib/derive.js";
+  attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold,
+  SOURCE_LABEL, CONTENT_SOURCES } from "./lib/derive.js";
 import { buildSheetHTML } from "./lib/sheetHtml.js";
 import { saveSheetPDF } from "./pdf/sheetPdf.js";
 import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
 import { STYLES } from "./styles.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
+import SheetSummary from "./components/SheetSummary.jsx";
 
-/* Both non-island pools in one list. Strixhaven's five spells sit on the
-   ordinary 2014 class lists, so they're offered wherever a class code
-   matches — the app never needs to treat them as a separate pool, only
-   to label where they came from (`src: "scc"`). */
-const BOOK_SPELLS = [...PHB_SPELLS, ...SCC_SPELLS];
+/* Every non-island pool in one list. The Strixhaven, Xanathar's and
+   Tasha's spells all sit on the ordinary 2014 class lists, so they're
+   offered wherever a class code matches — the app never needs to treat
+   them as separate pools, only to label where they came from (`src`).
+   This merged list is for name resolution only; the picker keeps them
+   apart so it can head each group with its book. */
+const BOOK_SPELLS = [...PHB_SPELLS, ...SCC_SPELLS, ...XGE_SPELLS, ...TCE_SPELLS];
+
+/* Book code -> pool, in the order the picker lists them. */
+const SPELL_POOLS = { phb: PHB_SPELLS, xge: XGE_SPELLS, tce: TCE_SPELLS, scc: SCC_SPELLS };
 
 const STORAGE_KEY = "sina-una-character";
 
@@ -47,8 +57,8 @@ const DEFAULTS = {
   step: 0, baseId: null, lineageId: null, choicePicks: [], mode: "pointbuy",
   scores: { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 }, arrayAssign: {},
   name: "", classId: null, level: 1, subclassId: null, curse: null, skillPicks: [],
-  bgId: null, bgSkillPicks: [], bgChoice: null, armorId: "none", hasShield: false,
-  equipmentChoices: {}, masteryEnabled: false, pickedSpells: [], otherSpells: "",
+  bonusSkillPicks: [], asiMode: "focus", classAsi: {}, asiFeat: null, lineageFeat: null, bgId: null, bgSkillPicks: [], bgChoice: null, armorId: "none", hasShield: false,
+  equipmentChoices: {}, masteryEnabled: false, tceOptional: false, pickedSpells: [], otherSpells: "",
 };
 
 export default function SinaUnaCreator() {
@@ -65,13 +75,26 @@ export default function SinaUnaCreator() {
   const [subclassId, setSubclassId] = useState(saved?.subclassId ?? DEFAULTS.subclassId);
   const [curse, setCurse] = useState(saved?.curse ?? DEFAULTS.curse);
   const [skillPicks, setSkillPicks] = useState(saved?.skillPicks ?? DEFAULTS.skillPicks);
+  /* Level-4 Ability Score Improvement. `asiMode` picks which of the
+     three shapes the feature takes; only the matching state is read. */
+  const [asiMode, setAsiMode] = useState(saved?.asiMode ?? DEFAULTS.asiMode);
+  const [classAsi, setClassAsi] = useState(saved?.classAsi ?? DEFAULTS.classAsi);
+  const [asiFeat, setAsiFeat] = useState(saved?.asiFeat ?? DEFAULTS.asiFeat);
+  /* Variant Human and Tasha's Custom Lineage both hand out a feat at
+     1st level. Picked here rather than on the Ancestry step because
+     half the feats' prerequisites are class-dependent. */
+  const [lineageFeat, setLineageFeat] = useState(saved?.lineageFeat ?? DEFAULTS.lineageFeat);
+  const [bonusSkillPicks, setBonusSkillPicks] = useState(saved?.bonusSkillPicks ?? DEFAULTS.bonusSkillPicks);
   const [bgId, setBgId] = useState(saved?.bgId ?? DEFAULTS.bgId);
   const [bgSkillPicks, setBgSkillPicks] = useState(saved?.bgSkillPicks ?? DEFAULTS.bgSkillPicks);
   const [bgChoice, setBgChoice] = useState(saved?.bgChoice ?? DEFAULTS.bgChoice);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const ancestry = LINEAGES.find((a) => a.id === lineageId) || null;
-  const baseRace = baseId ? BASE_RACES[baseId] : null;
+  /* Falls back to null rather than undefined when `baseId` names a race
+     the data no longer has — a saved character can outlive its content,
+     e.g. one built on Custom Lineage while that option was in. */
+  const baseRace = (baseId && BASE_RACES[baseId]) || null;
   const baseLineages = LINEAGES.filter((l) => l.base === baseId);
   const resolved = useMemo(() => resolveLineage(ancestry, choicePicks), [ancestry, choicePicks]);
 
@@ -84,7 +107,35 @@ export default function SinaUnaCreator() {
   const baseScoreFor = (k) =>
     mode === "pointbuy" ? scores[k] : (arrayAssign[k] ?? 8);
 
-  const finalScore = (k) => baseScoreFor(k) + (resolved?.asi[k] || 0);
+  /* A half-feat's +1 lands on the score exactly like the ASI does. */
+  const featAbility = (pick) => {
+    const f = pick && FEATS.find((x) => x.id === pick.id);
+    if (!f?.ability) return null;
+    const key = f.ability.fixed || pick.ability;
+    return key ? { key, amount: f.ability.amount } : null;
+  };
+
+  /* Everything the character adds to their rolled/bought scores after
+     ancestry: the level-4 improvement and any half-feat bonuses. */
+  const scoreAdj = useMemo(() => {
+    const out = {};
+    if (asiMode !== "feat") for (const [k, v] of Object.entries(classAsi)) out[k] = (out[k] || 0) + v;
+    for (const pick of [asiMode === "feat" ? asiFeat : null, lineageFeat]) {
+      const a = featAbility(pick);
+      if (a) out[a.key] = (out[a.key] || 0) + a.amount;
+    }
+    return out;
+  }, [asiMode, classAsi, asiFeat, lineageFeat]);
+
+  /* The feature's own wording caps this at 20. */
+  const finalScore = (k) =>
+    Math.min(20, baseScoreFor(k) + (resolved?.asi[k] || 0) + (scoreAdj[k] || 0));
+
+  /* Prerequisites are tested against the score BEFORE the feat's own
+     bonus, so a half-feat can never qualify itself. */
+  const prereqScore = (k) =>
+    Math.min(20, baseScoreFor(k) + (resolved?.asi[k] || 0)
+      + (asiMode === "feat" ? 0 : (classAsi[k] || 0)));
 
   const needsChoice = !!ancestry?.asi.choice;
   const choiceCount = ancestry?.asi.choice?.count ?? 0;
@@ -104,6 +155,11 @@ export default function SinaUnaCreator() {
     if (here === "Class") {
       if (!klass) return false;
       if (skillPicks.length !== klass.skillCount) return false;
+      if (bonusSkillsLeft > 0) return false;
+      /* A half-feat with its +1 unassigned would silently drop the
+         bonus, so that one is a hard block; an unspent ASI is only
+         nagged, since dumping it into a maxed score is a real choice. */
+      if (featIncomplete(lineageFeat) || featIncomplete(asiFeat)) return false;
       if (subclassReady && !subclass) return false;
       if (subclass?.choice && level >= subclass.choice.atLevel && !curse) return false;
       return true;
@@ -166,11 +222,55 @@ export default function SinaUnaCreator() {
       : p.length < klass.skillCount ? [...p, s] : p);
   };
 
+  /* Some subclasses hand out extra skill proficiencies to choose rather
+     than fixed ones: College of Lore's three, Knowledge Domain's two,
+     and a run of Xanathar's/Tasha's subclasses that offer one from a
+     short list. The `bonusSkills { count, from? }` effect has been in
+     the docs since the effects layer was written but had no consumer
+     until now — a missing `from` means any skill. */
+  const bonusSkillGrants = useMemo(() => {
+    const out = (resolved?.effects || [])
+      .filter((e) => e.type === "bonusSkills" && level >= (e.atLevel ?? 1))
+      .map((e) => ({ ...e, from: e.from, source: ancestry?.name }));
+    if (subclass && subclassReady) {
+      out.push(...(subclass.effects || [])
+        .filter((e) => e.type === "bonusSkills" && level >= (e.atLevel ?? subclass.unlock))
+        .map((e) => ({ ...e, source: subclass.name })));
+    }
+    return out;
+  }, [resolved, ancestry, subclass, subclassReady, level]);
+
+  const bonusSkillCount = bonusSkillGrants.reduce((a, e) => a + e.count, 0);
+
+  const bonusSkillPool = useMemo(() => {
+    const pool = new Set();
+    for (const e of bonusSkillGrants) (e.from || ALL_SKILLS).forEach((x) => pool.add(x));
+    return [...pool].sort()
+      .filter((x) => !freeSkills.has(x) && !skillPicks.includes(x));
+  }, [bonusSkillGrants, freeSkills, skillPicks]);
+
+  /* Drop picks that stopped being legal — the class skill list and the
+     subclass can both change under them. */
+  useEffect(() => {
+    setBonusSkillPicks((p) => {
+      const kept = p.filter((x) => bonusSkillPool.includes(x)).slice(0, bonusSkillCount);
+      return kept.length === p.length ? p : kept;
+    });
+  }, [bonusSkillPool, bonusSkillCount]);
+
+  const bonusSkillsLeft = bonusSkillCount - bonusSkillPicks.length;
+
+  const toggleBonusSkill = (x) => {
+    setBonusSkillPicks((p) => p.includes(x) ? p.filter((y) => y !== x)
+      : p.length < bonusSkillCount ? [...p, x] : p);
+  };
+
   const pickClass = (id) => {
     setClassId(id);
     setSubclassId(null);
     setCurse(null);
     setSkillPicks([]);
+    setBonusSkillPicks([]);
     setArmorId("none");
     setHasShield(false);
     setEquipmentChoices({});
@@ -182,8 +282,8 @@ export default function SinaUnaCreator() {
 
   /* Skills already locked in before the background is applied. */
   const priorSkills = useMemo(
-    () => new Set([...freeSkills, ...skillPicks]),
-    [freeSkills, skillPicks]
+    () => new Set([...freeSkills, ...skillPicks, ...bonusSkillPicks]),
+    [freeSkills, skillPicks, bonusSkillPicks]
   );
 
   /* For "choose N from" backgrounds, drop anything already held. */
@@ -223,6 +323,10 @@ export default function SinaUnaCreator() {
   const [hasShield, setHasShield] = useState(saved?.hasShield ?? DEFAULTS.hasShield);
   const [equipmentChoices, setEquipmentChoices] = useState(saved?.equipmentChoices ?? DEFAULTS.equipmentChoices);
   const [masteryEnabled, setMasteryEnabled] = useState(saved?.masteryEnabled ?? DEFAULTS.masteryEnabled);
+  /* Tasha's optional class features. Off by default: the book itself
+     presents them as a variant a table chooses to adopt, and half of
+     them replace a feature the class already has. */
+  const [tceOptional, setTceOptional] = useState(saved?.tceOptional ?? DEFAULTS.tceOptional);
   const [pickedSpells, setPickedSpells] = useState(saved?.pickedSpells ?? DEFAULTS.pickedSpells);
   const [otherSpells, setOtherSpells] = useState(saved?.otherSpells ?? DEFAULTS.otherSpells);
 
@@ -230,7 +334,8 @@ export default function SinaUnaCreator() {
   useEffect(() => {
     const snapshot = {
       step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
-      classId, level, subclassId, curse, skillPicks, bgId, bgSkillPicks, bgChoice,
+      classId, level, subclassId, curse, skillPicks, bonusSkillPicks, tceOptional,
+      asiMode, classAsi, asiFeat, lineageFeat, bgId, bgSkillPicks, bgChoice,
       armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells,
     };
     try {
@@ -239,7 +344,8 @@ export default function SinaUnaCreator() {
       /* storage full or unavailable — silently skip, nothing else depends on it */
     }
   }, [step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
-      classId, level, subclassId, curse, skillPicks, bgId, bgSkillPicks, bgChoice,
+      classId, level, subclassId, curse, skillPicks, bonusSkillPicks, tceOptional,
+      asiMode, classAsi, asiFeat, lineageFeat, bgId, bgSkillPicks, bgChoice,
       armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells]);
 
   /* Wipes the saved character and every field back to its default, then
@@ -263,6 +369,11 @@ export default function SinaUnaCreator() {
     setSubclassId(DEFAULTS.subclassId);
     setCurse(DEFAULTS.curse);
     setSkillPicks(DEFAULTS.skillPicks);
+    setBonusSkillPicks(DEFAULTS.bonusSkillPicks);
+    setAsiMode(DEFAULTS.asiMode);
+    setClassAsi(DEFAULTS.classAsi);
+    setAsiFeat(DEFAULTS.asiFeat);
+    setLineageFeat(DEFAULTS.lineageFeat);
     setBgId(DEFAULTS.bgId);
     setBgSkillPicks(DEFAULTS.bgSkillPicks);
     setBgChoice(DEFAULTS.bgChoice);
@@ -270,6 +381,7 @@ export default function SinaUnaCreator() {
     setHasShield(DEFAULTS.hasShield);
     setEquipmentChoices(DEFAULTS.equipmentChoices);
     setMasteryEnabled(DEFAULTS.masteryEnabled);
+    setTceOptional(DEFAULTS.tceOptional);
     setPickedSpells(DEFAULTS.pickedSpells);
     setOtherSpells(DEFAULTS.otherSpells);
     setShowResetConfirm(false);
@@ -306,7 +418,9 @@ export default function SinaUnaCreator() {
   }, [klass, effects]);
 
   const armor = armorOptions.find((a) => a.id === armorId) || ARMOR[0];
-  const shieldAllowed = !!klass?.shield;
+  /* A subclass can grant shield use the class doesn't have — the
+     Hexblade's Hex Warrior, College of Valor's Bonus Proficiencies. */
+  const shieldAllowed = !!klass?.shield || fx("shieldProf").length > 0;
   const shieldOn = shieldAllowed && hasShield;
 
   /* Every AC formula that could apply, so we can show the reasoning
@@ -351,7 +465,7 @@ export default function SinaUnaCreator() {
       });
     }
     return out;
-  }, [resolved, armor, klass, subclass, subclassReady, level, shieldOn, effects, scores, arrayAssign, mode]);
+  }, [resolved, armor, klass, subclass, subclassReady, level, shieldOn, effects, scores, arrayAssign, mode, scoreAdj]);
 
   const bestAC = acCandidates.reduce((a, b) => (b.value > a.value ? b : a), acCandidates[0] || { value: 10 });
   const armorClass = (bestAC?.value ?? 10) + (shieldOn ? 2 : 0);
@@ -388,16 +502,32 @@ export default function SinaUnaCreator() {
   const groupedWeapons = useMemo(() => groupWeapons(carriedWeapons), [carriedWeapons]);
   const startingGold = useMemo(() => parseStartingGold(background), [background]);
 
-  /* Attack table: proficiency (klass.weaponProf) drives whether pb
-     applies; finesse/ranged weapons use the better of Str/Dex. Unarmed
-     Strike (1 + Str mod, 2014 rule — not the 2024 d4) is always listed. */
+  /* Class weapon proficiency plus anything a subclass grants on top —
+     the Hexblade and Twilight Domain add martial weapons, College of
+     Swords adds the scimitar specifically. The class's own
+     { categories, specific } shape is what isWeaponProficient reads,
+     so the merge produces the same shape. */
+  const weaponProf = useMemo(() => {
+    if (!klass) return null;
+    const categories = new Set(klass.weaponProf?.categories || []);
+    const specific = new Set(klass.weaponProf?.specific || []);
+    for (const e of fx("weaponProf")) {
+      (e.value || []).forEach((c) => categories.add(c));
+      (e.specific || []).forEach((w) => specific.add(w));
+    }
+    return { categories: [...categories], specific: [...specific] };
+  }, [klass, effects]);
+
+  /* Attack table: proficiency drives whether pb applies; finesse/ranged
+     weapons use the better of Str/Dex. Unarmed Strike (1 + Str mod,
+     2014 rule — not the 2024 d4) is always listed. */
   const attackRows = useMemo(() => {
     if (!resolved || !klass) return [];
     const str = mod(finalScore("str"));
     const dex = mod(finalScore("dex"));
     const rows = [];
     carriedWeapons.forEach((w, i) => {
-      const proficient = isWeaponProficient(w, klass.weaponProf);
+      const proficient = isWeaponProficient(w, weaponProf);
       const finesse = w.properties.includes("F");
       const ranged = w.kind === "ranged";
       const abilityMod = finesse ? Math.max(str, dex) : ranged ? dex : str;
@@ -419,7 +549,18 @@ export default function SinaUnaCreator() {
       damage: `${1 + str}`, dmgType: "bludgeoning", notes: "", proficient: true,
     });
     return rows;
-  }, [resolved, klass, carriedWeapons, pb, masteryEnabled, scores, arrayAssign, mode]);
+  }, [resolved, klass, weaponProf, carriedWeapons, pb, masteryEnabled, scores, arrayAssign, mode, scoreAdj]);
+
+  /* The class's features for this character: its own, plus whatever
+     the extra books add. Tasha's optional features only join in when
+     the toggle is on; the Handbook's and Xanathar's option lists are
+     always there. Everything downstream — the actions panel, the
+     appendix, all three export routes — reads this rather than
+     klass.features, so the toggle reaches all of them at once. */
+  const classFeatures = useMemo(
+    () => (klass ? classFeaturesFor(classId, { tceOptional, subclassId }) : []),
+    [klass, classId, tceOptional, subclassId]
+  );
 
   /* Spells granted by ancestry, not chosen on the Spells step — Blessing of
      Haliya's rituals, Drow Magic, Infernal Legacy and the rest. They hang off
@@ -452,11 +593,12 @@ export default function SinaUnaCreator() {
       }
     }
     return rows.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
-  }, [resolved, level, pb, scores, arrayAssign, mode]);
+  }, [resolved, level, pb, scores, arrayAssign, mode, scoreAdj]);
 
   const allSkills = useMemo(
-    () => [...new Set([...(resolved?.skills || []), ...skillPicks, ...bgSkills])].sort(),
-    [resolved, skillPicks, bgSkills]
+    () => [...new Set([...(resolved?.skills || []), ...skillPicks,
+      ...bonusSkillPicks, ...bgSkills])].sort(),
+    [resolved, skillPicks, bonusSkillPicks, bgSkills]
   );
 
   const savingThrows = useMemo(() => {
@@ -465,7 +607,7 @@ export default function SinaUnaCreator() {
       const proficient = !!klass?.saves.includes(label);
       return { key, label, proficient, value: mod(finalScore(key)) + (proficient ? pb : 0) };
     });
-  }, [resolved, klass, pb, scores, arrayAssign, mode]);
+  }, [resolved, klass, pb, scores, arrayAssign, mode, scoreAdj]);
 
   const initiative = resolved ? mod(finalScore("dex")) : 0;
 
@@ -477,7 +619,7 @@ export default function SinaUnaCreator() {
       return { name: s, ability: ab, proficient,
         value: mod(finalScore(ab)) + (proficient ? pb : 0) };
     });
-  }, [resolved, allSkills, pb, scores, arrayAssign, mode]);
+  }, [resolved, allSkills, pb, scores, arrayAssign, mode, scoreAdj]);
 
   /* The three passives a table actually leans on mid-scene. */
   const PASSIVE_SKILLS = ["Perception", "Investigation", "Insight"];
@@ -540,7 +682,7 @@ export default function SinaUnaCreator() {
       if (cls.spellbook) out.spellbook = 6 + (level - 1) * 2;
     }
     return out;
-  }, [resolved, klass, classId, subclass, subclassReady, level, pb, effects, scores, arrayAssign, mode]);
+  }, [resolved, klass, classId, subclass, subclassReady, level, pb, effects, scores, arrayAssign, mode, scoreAdj]);
 
   /* Sina Una spells this character can reach: on their list, and at or
      below the highest slot level they have. Cantrips always count. */
@@ -548,24 +690,116 @@ export default function SinaUnaCreator() {
     if (!casting || casting.pending) return null;
     const key = casting.cantripsFrom || classId;
     const maxLvl = casting.pact ? casting.pact.lvl : (casting.slots?.length || 0);
+    const reachable = (sp) => sp.level === 0 || sp.level <= maxLvl;
 
     /* Island spells with full detail. */
     const island = (SPELL_LISTS[key] || []).length
-      ? SPELLS.filter((sp) => SPELL_LISTS[key].includes(sp.name) && (sp.level === 0 || sp.level <= maxLvl))
+      ? SPELLS.filter((sp) => SPELL_LISTS[key].includes(sp.name) && reachable(sp))
       : [];
 
-    /* Handbook spells, then Strixhaven's — kept in separate lists so the
-       picker can head each with the book it came from, the same way the
-       island rows are headed. Both are filtered by the same class code. */
+    /* One pool per book, kept apart so the picker can head each with
+       where it came from, the same way the island rows are headed.
+       All of them are filtered by the same class code. */
     const code = CLS_CODE[key];
-    const byCode = (pool) => (code
-      ? pool.filter((sp) => sp.cls.includes(code) && (sp.level === 0 || sp.level <= maxLvl))
-      : []);
-    const phb = byCode(PHB_SPELLS);
-    const scc = byCode(SCC_SPELLS);
+    const pools = [{ src: "sinauna", label: SOURCE_LABEL.sinauna, spells: island }];
+    for (const src of CONTENT_SOURCES) {
+      const pool = SPELL_POOLS[src];
+      if (!pool) continue;
+      pools.push({ src, label: SOURCE_LABEL[src],
+        spells: code ? pool.filter((sp) => sp.cls.includes(code) && reachable(sp)) : [] });
+    }
 
-    return { key, maxLvl, rows: island, phb, scc, all: [...island, ...phb, ...scc] };
+    const all = pools.flatMap((p) => p.spells);
+    return { key, maxLvl, rows: island, pools, all };
   }, [casting, classId]);
+
+  /* ------------------------------------------------------------------
+     Feats. Prerequisites are structured data (src/data/feats.js), and
+     the picker filters on them rather than warning about them — an
+     ineligible feat is simply never rendered, the same rule the skill
+     and spell lists follow.
+  ------------------------------------------------------------------- */
+  const armorProfSet = useMemo(
+    () => new Set([...(klass?.armorProf || []), ...fx("armorProf").flatMap((e) => e.value)]),
+    [klass, effects]
+  );
+
+  const featEligible = (f) => {
+    const p = f.prereq;
+    if (!p) return true;
+    if (p.abilities && !p.abilities.some((a) => prereqScore(a.key) >= a.min)) return false;
+    if (p.races && !p.races.some((r) => r.base === baseId && (!r.lineage || r.lineage === lineageId))) return false;
+    if (p.small && resolved?.size !== "Small") return false;
+    if (p.spellcasting && !(casting && !casting.pending)) return false;
+    if (p.armor && !armorProfSet.has(p.armor)) return false;
+    if (p.weapon && !weaponProf?.categories?.includes(p.weapon)) return false;
+    return true;
+  };
+
+  /* Both feat slots draw on the same list, minus whatever the other
+     slot already took — you can't have the same feat twice. */
+  const featPool = (slot) => {
+    const taken = slot === "asi" ? lineageFeat?.id : asiFeat?.id;
+    return FEATS.filter((f) => f.id !== taken && featEligible(f));
+  };
+
+  /* Variant Human and Custom Lineage. */
+  const lineageFeatSlot = !!ancestry?.grantsFeat;
+
+  const asiAvailable = !!klass && level >= 4;
+
+  /* Picks stop being legal when the thing that qualified them changes:
+     a class swap can take spellcasting or heavy armor away, a lineage
+     swap invalidates every racial feat. */
+  useEffect(() => {
+    if (!asiAvailable) { if (asiFeat) setAsiFeat(null); return; }
+    if (asiFeat && !featEligible(FEATS.find((f) => f.id === asiFeat.id) || {})) setAsiFeat(null);
+  });
+  useEffect(() => {
+    if (!lineageFeatSlot) { if (lineageFeat) setLineageFeat(null); return; }
+    if (lineageFeat && !featEligible(FEATS.find((f) => f.id === lineageFeat.id) || {})) setLineageFeat(null);
+  });
+  useEffect(() => {
+    if (level < 4 && Object.keys(classAsi).length) setClassAsi({});
+  }, [level]);
+
+  const asiSpent = Object.values(classAsi).reduce((a, b) => a + b, 0);
+  const asiLeft = asiMode === "feat" ? (asiFeat ? 0 : 1) : 2 - asiSpent;
+
+  /* "+2 to one" and "+1 to two" differ only in how many abilities the
+     same two points land on, so one handler covers both. */
+  const applyAsi = (k) => {
+    const step = asiMode === "focus" ? 2 : 1;
+    setClassAsi((cur) => {
+      if (cur[k]) { const { [k]: _drop, ...rest } = cur; return rest; }
+      const spent = Object.values(cur).reduce((a, b) => a + b, 0);
+      if (spent + step > 2) return cur;
+      if (prereqScore(k) + step > 20) return cur;
+      return { ...cur, [k]: step };
+    });
+  };
+
+  const pickFeat = (slot, id) => {
+    const setter = slot === "asi" ? setAsiFeat : setLineageFeat;
+    setter((cur) => (cur?.id === id ? null : { id, ability: null }));
+  };
+  const pickFeatAbility = (slot, key) => {
+    const setter = slot === "asi" ? setAsiFeat : setLineageFeat;
+    setter((cur) => (cur ? { ...cur, ability: key } : cur));
+  };
+
+  /* A half-feat whose +1 is a choice isn't finished until it's made. */
+  const featIncomplete = (pick) => {
+    const f = pick && FEATS.find((x) => x.id === pick.id);
+    return !!(f?.ability?.from && !pick.ability);
+  };
+
+  const chosenFeats = useMemo(() => [
+    ...(lineageFeatSlot && lineageFeat ? [{ ...lineageFeat, from: ancestry?.name }] : []),
+    ...(asiMode === "feat" && asiFeat ? [{ ...asiFeat, from: "Level 4 improvement" }] : []),
+  ].map((pick) => ({ ...pick, feat: FEATS.find((f) => f.id === pick.id) }))
+   .filter((x) => x.feat),
+  [lineageFeatSlot, lineageFeat, asiFeat, asiMode, ancestry]);
 
   const hasSpellStep = !!(casting && !casting.pending);
   const STEPS = useMemo(() => buildSteps(hasSpellStep), [hasSpellStep]);
@@ -602,6 +836,68 @@ export default function SinaUnaCreator() {
     [pickedSpells]
   );
 
+  /* One picker, two slots. Feats are listed by book, as names only —
+     71 of them don't fit as cards on a phone — with the full text of
+     whichever one is selected shown underneath. */
+  const renderFeatPicker = (slot, title, note) => {
+    const pick = slot === "asi" ? asiFeat : lineageFeat;
+    const pool = featPool(slot);
+    const chosen = pick && FEATS.find((f) => f.id === pick.id);
+    return (
+      <>
+        <p className="su-note" style={{ marginBottom: 10 }}>{note}</p>
+        {CONTENT_SOURCES.map((source) => {
+          const list = pool.filter((f) => f.src === source);
+          if (!list.length) return null;
+          return (
+            <React.Fragment key={source}>
+              <div className="su-src">{SOURCE_LABEL[source]}
+                <span className="su-src-n">{list.length}</span></div>
+              <div className="su-skills">
+                {list.map((f) => (
+                  <button key={f.id} className={`su-skill ${pick?.id === f.id ? "is-sel" : ""}`}
+                          onClick={() => pickFeat(slot, f.id)}
+                          aria-pressed={pick?.id === f.id}>{f.name}</button>
+                ))}
+              </div>
+            </React.Fragment>
+          );
+        })}
+        {chosen && (
+          <div style={{ marginTop: 12 }}>
+            <div className="su-row"><span className="su-row-label">{chosen.name}</span>
+              <span className="su-mod" style={{ width: "auto" }}>p.{chosen.page}</span></div>
+            {chosen.prereqText && (
+              <p className="su-note" style={{ marginBottom: 6 }}>Prerequisite: {chosen.prereqText}.</p>
+            )}
+            <p className="su-note">{chosen.text}</p>
+            {chosen.ability?.from && (
+              <>
+                <p className="su-note" style={{ margin: "10px 0 6px" }}>
+                  This feat also raises one ability by 1. Which one?
+                </p>
+                <div className="su-choice">
+                  {chosen.ability.from.map((k) => {
+                    const label = ABILITIES.find((a) => a.key === k)?.label || k;
+                    const maxed = prereqScore(k) >= 20;
+                    return (
+                      <button key={k} className={`su-opt ${pick.ability === k ? "is-sel" : ""}`}
+                              onClick={() => pickFeatAbility(slot, k)} disabled={maxed}
+                              aria-pressed={pick.ability === k}>
+                        {label}{maxed ? " · at 20" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {!pool.length && <p className="su-note">Nothing you qualify for yet.</p>}
+      </>
+    );
+  };
+
   const here = STEPS[step] || STEPS[STEPS.length - 1];
   const at = (nm) => STEPS.indexOf(nm);
 
@@ -617,14 +913,31 @@ export default function SinaUnaCreator() {
       out.push({ group: "Subclass choice", name: subclass.choice.name,
         text: `${o.name} — ${o.sub}. ${subclass.choice.note}` });
     }
-    const SPELL_GROUP = { phb: "Handbook spells", scc: "Strixhaven spells" };
+    /* The level-4 improvement prints as what was actually chosen, not
+       the generic rules paragraph the class feature already carries. */
+    if (asiAvailable && asiMode !== "feat" && Object.keys(classAsi).length) {
+      out.push({ group: "Ability Score Improvement", name: "Level 4",
+        text: `You put ${Object.entries(classAsi)
+          .map(([k, v]) => `+${v} into ${ABILITIES.find((a) => a.key === k)?.label || k}`)
+          .join(" and ")}.` });
+    }
+    for (const { feat, from, ability } of chosenFeats) {
+      const bonus = feat.ability
+        ? ` (+${feat.ability.amount} ${ABILITIES.find((a) => a.key === (feat.ability.fixed || ability))?.label || ""})`
+        : "";
+      out.push({ group: "Feats", name: `${feat.name}${bonus}`,
+        text: `${from}. ${feat.text}` });
+    }
+    const SPELL_GROUP = { phb: "Handbook spells", xge: "Xanathar's spells",
+      tce: "Tasha's spells", scc: "Strixhaven spells" };
     const spellEntry = (sp) => ({ group: SPELL_GROUP[sp.src] || "Island spells", name: sp.name,
       text: `${sp.level === 0 ? "Cantrip" : `Level ${sp.level}`} ${sp.school}. ` +
         `Casting time ${sp.time}. Range ${sp.range}. Components ${sp.comp}. Duration ${sp.dur}.` +
         `${sp.ritual ? " Ritual." : ""}${sp.conc ? " Concentration." : ""} ${sp.text}` +
         `${sp.higher ? ` At Higher Levels. ${sp.higher}` : ""}` });
-    /* Island spells first, then Handbook, then Strixhaven. */
-    for (const src of [undefined, "phb", "scc"])
+    /* Island spells first, then the books in CONTENT_SOURCES order.
+       Island spells carry no `src` at all, hence the leading undefined. */
+    for (const src of [undefined, ...CONTENT_SOURCES.filter((x) => x !== "sinauna")])
       chosenSpells.filter((sp) => sp.src === src).forEach((sp) => out.push(spellEntry(sp)));
     /* Ancestry spells are never in chosenSpells — nobody picked them — so
        their text would otherwise be missing from the reference entirely. */
@@ -632,7 +945,7 @@ export default function SinaUnaCreator() {
       .filter((sp) => !chosenSpells.some((c) => c.name === sp.name))
       .forEach((sp) => out.push({ ...spellEntry(sp), group: "Ancestry spells" }));
     return out;
-  }, [subclass, curse, chosenSpells, ancestrySpells]);
+  }, [subclass, curse, chosenSpells, ancestrySpells, chosenFeats, classAsi, asiMode, asiAvailable]);
 
   /* Actions / Bonus Actions / Reactions granted by ancestry, class, and
      subclass — the mid-turn "what can I press" list, kept separate from
@@ -648,7 +961,7 @@ export default function SinaUnaCreator() {
       });
     }
     if (klass) {
-      (klass.features || []).filter((f) => f[0] <= level && f[3]).forEach((f) =>
+      classFeatures.filter((f) => f[0] <= level && f[3]).forEach((f) =>
         out.push({ name: f[1], source: klass.name, action: f[3], text: f[2],
           section: `${klass.name} features` }));
     }
@@ -658,7 +971,7 @@ export default function SinaUnaCreator() {
           section: `${subclass.name} — ${subclass.group}` }));
     }
     return out;
-  }, [resolved, ancestry, klass, subclass, subclassReady, level]);
+  }, [resolved, ancestry, klass, classFeatures, subclass, subclassReady, level]);
 
   const usedArrayVals = Object.values(arrayAssign);
 
@@ -669,7 +982,7 @@ export default function SinaUnaCreator() {
     const perLevel = Math.floor(klass.hitDie / 2) + 1;
     const bonus = fx("hpPerLevel").reduce((a, e) => a + e.value, 0) * level;
     return klass.hitDie + conMod + (level - 1) * (perLevel + conMod) + bonus;
-  }, [klass, resolved, level, effects, scores, arrayAssign, mode]);
+  }, [klass, resolved, level, effects, scores, arrayAssign, mode, scoreAdj]);
 
   /* Artifacts run in a sandboxed iframe, so window.print() targets the
      host page rather than this sheet. Instead we build a standalone
@@ -679,7 +992,8 @@ export default function SinaUnaCreator() {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passivePerception, passiveSkills, actions, pb, armor, shieldOn,
     savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice,
-    finalScore, attackRows, carriedWeapons, masteryEnabled, ancestrySpells,
+    finalScore, attackRows, carriedWeapons, masteryEnabled, ancestrySpells, chosenFeats,
+    classFeatures,
   };
 
   const downloadSheet = () => {
@@ -762,7 +1076,7 @@ export default function SinaUnaCreator() {
     const L = [];
     const head = klass ? `${ancestry.name} ${klass.name} ${level}` : `${ancestry.name}`;
     L.push(`${name || "Unnamed"} — ${head}${background ? ` · ${background.name}` : ""}`);
-    if (subclass && subclassReady) L.push(`${subclass.group}: ${subclass.name} (p.${subclass.page})`);
+    if (subclass && subclassReady) L.push(`${subclass.group}: ${subclass.name}${subclass.page ? ` (p.${subclass.page})` : ""}`);
     L.push("");
     L.push(ABILITIES.map(({ key }) =>
       `${key.toUpperCase()} ${finalScore(key)} (${fmt(mod(finalScore(key)))})`).join("   "));
@@ -780,8 +1094,7 @@ export default function SinaUnaCreator() {
       (resolved.darkvision ? `   Darkvision ${resolved.darkvision}` : "") +
       (resolved.blindsight ? `   Blindsight ${resolved.blindsight}` : ""));
     L.push(`Languages: ${resolved.languages.join(", ")}`);
-    const allSk = [...new Set([...freeSkills, ...skillPicks, ...bgSkills])].sort();
-    if (allSk.length) L.push(`Skills: ${allSk.join(", ")}`);
+    if (allSkills.length) L.push(`Skills: ${allSkills.join(", ")}`);
     if (skillTable.length) {
       L.push("");
       L.push("SKILL MODIFIERS");
@@ -821,6 +1134,18 @@ export default function SinaUnaCreator() {
       L.push(`${subclass.choice.name}: ${o.name} (${o.sub})`);
     }
     if (bgChoice && background?.choice) L.push(`${background.choice.name}: ${bgChoice}`);
+    if (asiAvailable && asiMode !== "feat" && Object.keys(classAsi).length) {
+      L.push(`Level 4 improvement: ${Object.entries(classAsi)
+        .map(([k, v]) => `+${v} ${k.toUpperCase()}`).join(", ")}`);
+    }
+    if (chosenFeats.length) {
+      L.push("");
+      L.push("FEATS");
+      chosenFeats.forEach(({ feat, from, ability }) => {
+        const key = feat.ability?.fixed || ability;
+        L.push(`• ${feat.name}${feat.ability && key ? ` (+${feat.ability.amount} ${key.toUpperCase()})` : ""} — ${from}`);
+      });
+    }
     L.push("");
     L.push("ANCESTRY TRAITS");
     resolved.traits.forEach((t) => L.push(`• ${t.name}`));
@@ -843,10 +1168,10 @@ export default function SinaUnaCreator() {
     L.push("");
     L.push("Still to choose: weapons and gear.");
     return L.join("\n");
-  }, [resolved, ancestry, name, scores, arrayAssign, mode, klass, level, subclass,
+  }, [resolved, ancestry, name, scores, arrayAssign, mode, scoreAdj, klass, level, subclass,
       subclassReady, skillPicks, freeSkills, curse, hitPoints, background, bgSkills, bgChoice,
       armorClass, bestAC, shieldOn, savingThrows, initiative, passiveSkills, speed, pb,
-      skillTable, casting, availableSpells]);
+      skillTable, casting, availableSpells, allSkills, chosenFeats, classAsi, asiMode, asiAvailable]);
 
   return (
     <div className="su-root">
@@ -944,7 +1269,7 @@ export default function SinaUnaCreator() {
               );
             })}
 
-            {baseId && (
+            {baseRace && (
               <>
                 <Rule />
 
@@ -956,13 +1281,13 @@ export default function SinaUnaCreator() {
                     Island options modify the {baseRace.name.toLowerCase()} rather than replacing it —
                     subraces add to it, variants swap specific traits out.
                   </p>
-                  {["sinauna", "phb"].map((source) => {
+                  {CONTENT_SOURCES.map((source) => {
                     const list = baseLineages.filter((l) => l.src === source);
                     if (!list.length) return null;
                     return (
                       <div key={source}>
                         <div className="su-src">
-                          {source === "sinauna" ? "Sina Una" : "Player's Handbook"}
+                          {SOURCE_LABEL[source]}
                           <span className="su-src-n">{list.length}</span>
                         </div>
                         {list.map((l) => {
@@ -1141,13 +1466,13 @@ export default function SinaUnaCreator() {
               </div>
             </div>
 
-            {["sinauna", "phb"].map((source) => {
+            {CONTENT_SOURCES.map((source) => {
               const list = Object.entries(CLASSES).filter(([, c]) => c.src === source);
               if (!list.length) return null;
               return (
                 <div key={source}>
                   <div className="su-src">
-                    {source === "sinauna" ? "Sina Una" : "Player's Handbook"}
+                    {SOURCE_LABEL[source]}
                     <span className="su-src-n">{list.length}</span>
                   </div>
                   {list.map(([id, c]) => {
@@ -1186,13 +1511,13 @@ export default function SinaUnaCreator() {
                     </p>
                   ) : (
                     <>
-                      {["sinauna", "phb"].map((source) => {
+                      {CONTENT_SOURCES.map((source) => {
                         const list = classSubclasses.filter((s) => s.src === source);
                         if (!list.length) return null;
                         return (
                           <div key={source}>
                             <div className="su-src">
-                              {source === "sinauna" ? "Sina Una" : "Player's Handbook"}
+                              {SOURCE_LABEL[source]}
                               <span className="su-src-n">{list.length}</span>
                             </div>
                             {list.map((s) => {
@@ -1201,7 +1526,7 @@ export default function SinaUnaCreator() {
                               return (
                                 <button key={s.id} className={`su-card ${sel ? "is-sel" : ""}`}
                                         style={{ marginTop: 8 }}
-                                        onClick={() => { setSubclassId(s.id); setCurse(null); }}
+                                        onClick={() => { setSubclassId(s.id); setCurse(null); setBonusSkillPicks([]); }}
                                         aria-pressed={sel}>
                                   <div className="su-card-top">
                                     <span className="su-card-name">{s.name}</span>
@@ -1259,6 +1584,30 @@ export default function SinaUnaCreator() {
                   </div>
                 </div>
 
+                {bonusSkillCount > 0 && (
+                  <div className="su-panel">
+                    <h3>Extra skills
+                      <span className="su-count">{bonusSkillsLeft > 0 ? `${bonusSkillsLeft} to go` : "done"}</span></h3>
+                    <p className="su-note" style={{ marginBottom: 10 }}>
+                      {[...new Set(bonusSkillGrants.map((e) => e.source))].filter(Boolean).join(" and ")}{" "}
+                      grant{bonusSkillGrants.length > 1 ? "" : "s"}{" "}
+                      {bonusSkillCount === 1 ? "one extra skill" : `${bonusSkillCount} extra skills`}
+                      {bonusSkillGrants.every((e) => !e.from) ? " — any skill you like." : ", from a short list."}
+                    </p>
+                    <div className="su-skills">
+                      {bonusSkillPool.map((x) => {
+                        const on = bonusSkillPicks.includes(x);
+                        const full = !on && bonusSkillPicks.length >= bonusSkillCount;
+                        return (
+                          <button key={x} className={`su-skill ${on ? "is-sel" : ""}`}
+                                  onClick={() => toggleBonusSkill(x)} disabled={full}
+                                  aria-pressed={on}>{x}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="su-panel">
                   <h3>Proficiencies</h3>
                   <div className="su-row"><span className="su-row-label">Armor</span>
@@ -1268,6 +1617,89 @@ export default function SinaUnaCreator() {
                   <div className="su-row"><span className="su-row-label">Saving throws</span>
                     <span className="su-mod" style={{ width: "auto" }}>{klass.saves.join(", ")}</span></div>
                 </div>
+
+                {/* Tasha's optional class features. Unlike Weapon
+                    Mastery this is still 2014 content, so it feeds the
+                    features list, the appendix and all three exports
+                    like anything else — the toggle is here because
+                    Tasha's itself calls them optional, and several of
+                    them replace a feature the class already has. */}
+                <div className="su-panel">
+                  <div className="su-row">
+                    <span className="su-row-label">Tasha's optional class features
+                      <span className="su-count">optional</span></span>
+                    <button className={`su-opt ${tceOptional ? "is-sel" : ""}`}
+                            onClick={() => setTceOptional((v) => !v)} aria-pressed={tceOptional}>
+                      {tceOptional ? "On" : "Off"}
+                    </button>
+                  </div>
+                  <p className="su-note">
+                    {tceOptional
+                      ? "Tasha's extra features and its added fighting styles, metamagic, invocations and maneuvers are listed with your class features. Several replace a feature you already have — the text says which."
+                      : "Off. Tasha's Cauldron offers extra class features, and more fighting styles, metamagic, invocations and maneuvers. Ask your DM before switching this on."}
+                  </p>
+                </div>
+
+                {/* Feats and the level-4 improvement. Both live here
+                    rather than on the Ancestry or Abilities step: half
+                    the feats in the books have a prerequisite that only
+                    the class answers — spellcasting, heavy armour,
+                    martial weapons. */}
+                {lineageFeatSlot && (
+                  <>
+                    <Rule />
+                    <div className="su-panel">
+                      <h3>{ancestry.name} feat
+                        <span className="su-count">{lineageFeat && !featIncomplete(lineageFeat) ? "done" : "1 to pick"}</span></h3>
+                      {renderFeatPicker("lineage", null,
+                        `${ancestry.name} grants one feat at 1st level. Only feats you qualify for are listed.`)}
+                    </div>
+                  </>
+                )}
+
+                {asiAvailable && (
+                  <>
+                    <Rule />
+                    <div className="su-panel">
+                      <h3>Ability Score Improvement
+                        <span className="su-count">{asiLeft > 0 ? `${asiLeft} to spend` : "done"}</span></h3>
+                      <p className="su-note" style={{ marginBottom: 10 }}>
+                        Every class gets this at 4th level — the only one inside this campaign's range.
+                        Nothing can go above 20.
+                      </p>
+                      <div className="su-choice">
+                        {[["focus", "+2 to one score"], ["split", "+1 to two scores"], ["feat", "Take a feat"]]
+                          .map(([m, label]) => (
+                            <button key={m} className={`su-opt ${asiMode === m ? "is-sel" : ""}`}
+                                    onClick={() => { setAsiMode(m); setClassAsi({}); }}
+                                    aria-pressed={asiMode === m}>{label}</button>
+                          ))}
+                      </div>
+                      {asiMode === "feat" ? (
+                        <div style={{ marginTop: 12 }}>
+                          {renderFeatPicker("asi", null,
+                            "Taking a feat instead of the ability increase is a variant rule — check your DM allows it.")}
+                        </div>
+                      ) : (
+                        <div className="su-choice" style={{ marginTop: 12 }}>
+                          {ABILITIES.map(({ key, label }) => {
+                            const on = !!classAsi[key];
+                            const step = asiMode === "focus" ? 2 : 1;
+                            const maxed = !on && prereqScore(key) + step > 20;
+                            const full = !on && asiSpent + step > 2;
+                            return (
+                              <button key={key} className={`su-opt ${on ? "is-sel" : ""}`}
+                                      onClick={() => applyAsi(key)} disabled={maxed || full}
+                                      aria-pressed={on}>
+                                {label}{on ? ` +${classAsi[key]}` : maxed ? " · at 20" : ""}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </>
@@ -1637,7 +2069,7 @@ export default function SinaUnaCreator() {
 
                 {actions.length > 0 && (
                   <div className="su-panel">
-                    <h3>Other Actions</h3>
+                    <h3>Class + Ancestry Actions</h3>
                     {ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => (
                       <div key={k}>
                         <div className="su-actgroup-l">{ACTION_LABELS[k]}</div>
@@ -1675,6 +2107,26 @@ export default function SinaUnaCreator() {
                         DC to show — ask your DM which ability it uses.
                       </p>
                     )}
+                  </div>
+                )}
+
+                {chosenFeats.length > 0 && (
+                  <div className="su-panel">
+                    <h3>Feats</h3>
+                    {chosenFeats.map(({ feat, from, ability }) => {
+                      const key = feat.ability?.fixed || ability;
+                      return (
+                        <div key={feat.id} style={{ marginBottom: 10 }}>
+                          <div className="su-row">
+                            <span className="su-row-label">{feat.name}</span>
+                            <span className="su-mod" style={{ width: "auto" }}>
+                              {feat.ability && key ? `+${feat.ability.amount} ${key.toUpperCase()}` : from}
+                            </span>
+                          </div>
+                          <p className="su-note">{feat.text}</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -1733,45 +2185,27 @@ export default function SinaUnaCreator() {
                 <div className="su-panel">
                   <h3>Cantrips
                     <span className="su-count">{pickedCantrips.length}/{cantripBudget}</span></h3>
-                  {availableSpells?.rows.filter((x) => x.level === 0).length ? (
-                    <>
-                      <p className="su-note" style={{ marginBottom: 10 }}>
-                        Island cantrips open to you. Anything from your usual list goes in the box below.
-                      </p>
-                      <div className="su-src">Sina Una
-                        <span className="su-src-n">{availableSpells.rows.filter((x) => x.level === 0).length}</span></div>
-                      {availableSpells.rows.filter((x) => x.level === 0).map((sp) => (
-                        <SpellTableRow key={sp.name} sp={sp} casting={casting}
-                                  on={pickedSpells.includes(sp.name)}
-                                  full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
-                                  onToggle={() => toggleSpell(sp.name)} />
-                      ))}
-                    </>
-                  ) : null}
-                  {availableSpells?.phb.filter((x) => x.level === 0).length > 0 && (
-                    <>
-                      <div className="su-src">Player's Handbook
-                        <span className="su-src-n">{availableSpells.phb.filter((x) => x.level === 0).length}</span></div>
-                      {availableSpells.phb.filter((x) => x.level === 0).map((sp) => (
-                        <SpellTableRow key={sp.name} sp={sp} casting={casting}
-                                  on={pickedSpells.includes(sp.name)}
-                                  full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
-                                  onToggle={() => toggleSpell(sp.name)} />
-                      ))}
-                    </>
+                  {availableSpells?.rows.some((x) => x.level === 0) && (
+                    <p className="su-note" style={{ marginBottom: 10 }}>
+                      Island cantrips open to you. Anything from your usual list goes in the box below.
+                    </p>
                   )}
-                  {availableSpells?.scc.filter((x) => x.level === 0).length > 0 && (
-                    <>
-                      <div className="su-src">Strixhaven
-                        <span className="su-src-n">{availableSpells.scc.filter((x) => x.level === 0).length}</span></div>
-                      {availableSpells.scc.filter((x) => x.level === 0).map((sp) => (
-                        <SpellTableRow key={sp.name} sp={sp} casting={casting}
-                                  on={pickedSpells.includes(sp.name)}
-                                  full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
-                                  onToggle={() => toggleSpell(sp.name)} />
-                      ))}
-                    </>
-                  )}
+                  {availableSpells?.pools.map(({ src, label, spells }) => {
+                    const rows = spells.filter((x) => x.level === 0);
+                    if (!rows.length) return null;
+                    return (
+                      <React.Fragment key={src}>
+                        <div className="su-src">{label}
+                          <span className="su-src-n">{rows.length}</span></div>
+                        {rows.map((sp) => (
+                          <SpellTableRow key={sp.name} sp={sp} casting={casting}
+                                    on={pickedSpells.includes(sp.name)}
+                                    full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
+                                    onToggle={() => toggleSpell(sp.name)} />
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
                 <Rule />
               </>
@@ -1782,67 +2216,39 @@ export default function SinaUnaCreator() {
                 <div className="su-panel">
                   <h3>{casting.prepared != null ? "Prepared spells" : "Spells known"}
                     <span className="su-count">{pickedLeveled.length}/{spellBudget}</span></h3>
-                  {availableSpells?.rows.filter((x) => x.level > 0).length ? (
-                    <>
-                      <p className="su-note" style={{ marginBottom: 10 }}>
-                        {casting.prepared != null
-                          ? "You can swap these after a long rest."
-                          : "These are locked in until you level up."}{" "}
-                        Only spells at or below your highest slot level appear.
-                      </p>
-                      {[1, 2, 3].map((lvl) => {
-                        const rows = availableSpells.rows.filter((x) => x.level === lvl);
-                        const phb = availableSpells.phb.filter((x) => x.level === lvl);
-                        const scc = availableSpells.scc.filter((x) => x.level === lvl);
-                        if (!rows.length && !phb.length && !scc.length) return null;
-                        return (
-                          <div key={lvl}>
-                            <div className="su-lvlh">Level {lvl}
-                              {casting.slots?.[lvl - 1] != null && (
-                                <span className="su-count">{casting.slots[lvl - 1]} slot{casting.slots[lvl - 1] === 1 ? "" : "s"}</span>
-                              )}
-                            </div>
-                            {rows.length > 0 && (
-                              <>
-                                <div className="su-src">Sina Una
-                                  <span className="su-src-n">{rows.length}</span></div>
-                                {rows.map((sp) => (
-                                  <SpellTableRow key={sp.name} sp={sp} casting={casting}
-                                            on={pickedSpells.includes(sp.name)}
-                                            full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
-                                            onToggle={() => toggleSpell(sp.name)} />
-                                ))}
-                              </>
-                            )}
-                            {phb.length > 0 && (
-                              <>
-                                <div className="su-src">Player's Handbook
-                                  <span className="su-src-n">{phb.length}</span></div>
-                                {phb.map((sp) => (
-                                  <SpellTableRow key={sp.name} sp={sp} casting={casting}
-                                            on={pickedSpells.includes(sp.name)}
-                                            full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
-                                            onToggle={() => toggleSpell(sp.name)} />
-                                ))}
-                              </>
-                            )}
-                            {scc.length > 0 && (
-                              <>
-                                <div className="su-src">Strixhaven
-                                  <span className="su-src-n">{scc.length}</span></div>
-                                {scc.map((sp) => (
-                                  <SpellTableRow key={sp.name} sp={sp} casting={casting}
-                                            on={pickedSpells.includes(sp.name)}
-                                            full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
-                                            onToggle={() => toggleSpell(sp.name)} />
-                                ))}
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </>
-                  ) : null}
+                  <p className="su-note" style={{ marginBottom: 10 }}>
+                    {casting.prepared != null
+                      ? "You can swap these after a long rest."
+                      : "These are locked in until you level up."}{" "}
+                    Only spells at or below your highest slot level appear.
+                  </p>
+                  {[1, 2, 3].map((lvl) => {
+                    const byPool = (availableSpells?.pools || [])
+                      .map((p) => ({ ...p, spells: p.spells.filter((x) => x.level === lvl) }))
+                      .filter((p) => p.spells.length);
+                    if (!byPool.length) return null;
+                    return (
+                      <div key={lvl}>
+                        <div className="su-lvlh">Level {lvl}
+                          {casting.slots?.[lvl - 1] != null && (
+                            <span className="su-count">{casting.slots[lvl - 1]} slot{casting.slots[lvl - 1] === 1 ? "" : "s"}</span>
+                          )}
+                        </div>
+                        {byPool.map(({ src, label, spells }) => (
+                          <React.Fragment key={src}>
+                            <div className="su-src">{label}
+                              <span className="su-src-n">{spells.length}</span></div>
+                            {spells.map((sp) => (
+                              <SpellTableRow key={sp.name} sp={sp} casting={casting}
+                                        on={pickedSpells.includes(sp.name)}
+                                        full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
+                                        onToggle={() => toggleSpell(sp.name)} />
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
                 <Rule />
               </>
@@ -1851,7 +2257,7 @@ export default function SinaUnaCreator() {
             <div className="su-panel">
               <h3>Anything else</h3>
               <p className="su-note" style={{ marginBottom: 10 }}>
-                Everything from the Handbook, Strixhaven, and the islands is listed above. If your table uses spells
+                Everything from the Handbook, Xanathar's, Tasha's, Strixhaven and the islands is listed above. If your table uses spells
                 from another book, add them here — one per line.
               </p>
               <textarea className="su-out" rows={4} value={otherSpells}
@@ -1959,21 +2365,17 @@ export default function SinaUnaCreator() {
 
             <Rule />
 
-            <div className="su-panel">
-              <h3>What goes in the file</h3>
-              <p className="su-note" style={{ marginBottom: 10 }}>
-                Length isn't fixed to a page count — it flows to however many pages the
-                character actually needs.
-              </p>
-              <div className="su-row"><span className="su-row-label">Sheet</span>
-                <span className="su-mod" style={{ width: "auto" }}>
-                  Abilities, saves, skills, defenses, traits, features, attacks, spells
-                </span></div>
-              <div className="su-row"><span className="su-row-label">Appendix</span>
-                <span className="su-mod" style={{ width: "auto" }}>
-                  {appendix.length} full description{appendix.length === 1 ? "" : "s"}
-                </span></div>
-            </div>
+            <p className="su-note" style={{ marginBottom: 12 }}>
+              Everything below is what the file contains. Length isn't fixed to a page
+              count — it flows to however many pages the character actually needs.
+            </p>
+
+            {/* The same `sheetCtx` the three export routes read, rendered
+                in the app's own styling. If a field is missing here it's
+                missing from the file too. */}
+            <SheetSummary ctx={sheetCtx} />
+
+            <Rule />
 
             <div className="su-panel">
               <h3>Plain text</h3>
@@ -2015,7 +2417,13 @@ export default function SinaUnaCreator() {
       {/* nav */}
       <div className="su-nav">
         <div className="su-nav-in">
-          <button className="su-btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>
+          {/* Anchors the left end, away from the two step-moves that pair
+              up on the right — it isn't a step move and shouldn't sit in
+              the same group as one. Same confirmation as the Sheet step's
+              own button: one reset path, so the wording can't drift. */}
+          <button className="su-btn su-btn-danger" onClick={() => setShowResetConfirm(true)}>
+            Start over
+          </button>
           {here === "Ancestry" && ancestry && needsChoice && !choiceMade && (
             <span className="su-hint">
               {choiceCount - choicePicks.length} more increase{choiceCount - choicePicks.length > 1 ? "s" : ""}
@@ -2033,6 +2441,12 @@ export default function SinaUnaCreator() {
           {here === "Class" && klass && subclass?.choice && level >= subclass.choice.atLevel && !curse && (
             <span className="su-hint">Pick how your curse manifests</span>
           )}
+          {here === "Class" && klass && skillsLeft <= 0 && bonusSkillsLeft > 0 && (
+            <span className="su-hint">{bonusSkillsLeft} more subclass skill{bonusSkillsLeft > 1 ? "s" : ""}</span>
+          )}
+          {here === "Class" && asiAvailable && asiLeft > 0 && skillsLeft <= 0 && bonusSkillsLeft <= 0 && (
+            <span className="su-hint">{asiMode === "feat" ? "pick a feat" : `${asiLeft} ability point${asiLeft > 1 ? "s" : ""} unspent`}</span>
+          )}
           {here === "Class" && klass && skillsLeft > 0 && (
             <span className="su-hint">{skillsLeft} more skill{skillsLeft > 1 ? "s" : ""}</span>
           )}
@@ -2046,6 +2460,7 @@ export default function SinaUnaCreator() {
           {here === "Spells" && cantripBudget > 0 && pickedCantrips.length === 0 && (
             <span className="su-hint">Pick your cantrips</span>
           )}
+          <button className="su-btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>
           <button className="su-btn su-btn-go" onClick={() => {
                     setStep((s) => Math.min(STEPS.length - 1, s + 1));
                     window.scrollTo({ top: 0, behavior: "smooth" });
