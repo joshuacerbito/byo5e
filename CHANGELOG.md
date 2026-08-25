@@ -1,73 +1,126 @@
 # Changelog
 
-All notable changes to the Sina Una Character Creator, newest first. No formal versioning yet —
-this is a personal-use tool, not a release.
+Notable changes to the **Sina Una Character Creator**, newest first.
+
+No formal versioning — this is a personal-use tool for one table, not a released product.
+Dates are the day the work landed.
+
+---
+
+## 2026-08-25
+
+### Added
+
+- **Save your character.** The builder now remembers everything you've picked, on this device,
+  and restores it when you come back. The Sheet step has a "Create new character" button
+  (with a confirmation) to start over.
+- **Three ways to save the sheet**, because no single one works everywhere:
+  - **Android / Mac / PC** — prints the sheet through your browser's Save-as-PDF. Best output.
+  - **iOS** — iOS can't print this sheet at all (Safari renders the preview, then blanks it,
+    and offers no Save-as-PDF destination), so this route photographs the sheet into a PDF
+    instead. Looks identical to the printed one; larger file, text is an image.
+  - **Other devices** — a small, selectable, searchable vector PDF as a fallback.
+
+  On iOS the file is handed to the share sheet, so "Save to Files" is one tap. Downloading the
+  raw HTML sheet is still there as a quieter fourth option.
+- **The five Strixhaven spells** — Silvery Barbs, Borrowed Knowledge, Kinetic Jaunt, Vortex
+  Warp, Wither and Bloom. The book's whole set, all level 1–2. Each spell list now says which
+  book a spell comes from, and the printed sheet marks Sina Una spells `*` and Strixhaven `†`.
+- **Spell level and upcasting in every spell table.** A `Lvl` column: `C` for a cantrip,
+  otherwise the number, with a `+` when a higher slot does more. The "At Higher Levels" text was
+  missing from all 198 Player's Handbook spells — it was never pulled in the original import —
+  and has been added for the 67 that have it.
+- **Ancestry spells now appear as spells.** Blessing of Haliya, Drow Magic, Infernal Legacy,
+  Spirit of Nature, Ancestral Protection, Natural Craftsmanship and Natural Illusionist granted
+  spells that existed only as buried trait prose. They get their own section with full stats,
+  including for characters with no spellcasting of their own — a Balat-Kayo fighter, say. Where
+  the book names no spellcasting ability (Balete Elf, Mangrove Halfling), the save DC prints
+  blank and says so, rather than guessing.
+
+### Fixed
+
+- **Hill Dwarf and Mountain Dwarf weren't getting their traits.** Hill Dwarf's +1 hit point per
+  level and Mountain Dwarf's medium-armour proficiency were silently dropped — the code that
+  applies these read subclasses only, never ancestries. Both work now.
+- **Drow was granting a spell too many** — its three fixed spells plus a free extra cantrip.
+- **Volcano Dwarf's Molten Armor** was missing from the Actions list. It costs a bonus action.
+- **Printing on mobile Safari.** The sheet is printed through a hidden, correctly sized frame
+  rather than a pop-up tab, which iOS wouldn't reliably print, and which printed a squished
+  layout when it did.
+- **The printed sheet is A4 end to end**, so the on-screen measure and the printed one match
+  and nothing reflows when you print.
+- **No more date/title/URL stamped across your printed sheet.** That's the browser's own
+  header — no page can switch it off, but Chromium drops it when the page margin is too small
+  to hold it, so the margin is now split between the page and the sheet body. Content width is
+  unchanged.
+- **Reaction spells no longer break the spell table.** Shield, Counterspell, Feather Fall,
+  Hellish Rebuke, Silvery Barbs, Apolaki's Light and False Self carry their trigger inside the
+  casting time ("1 reaction, which you take when…"), which wrapped to ten lines in a narrow
+  column. The column shows "1 reaction" and the trigger is shown beside the description.
+- **Proficiency circles rendered smaller on Windows.** They were text characters, drawn by
+  whatever font the OS fell back to. They're drawn shapes now, same size everywhere.
+- Cloudflare deployment config fixed after the dashboard picked the project up as a Workers
+  build rather than a Pages one.
+
+### Changed
+
+- **The desktop column is wider** — 660px to 800px. Narrow screens are unchanged.
+- **The three save buttons are stacked, full-width, one colour each** (gold, jade, slate), in
+  one box. Which platform you're on decides the route, so no one of them is "the" button.
+- **The action list is called "Other Actions"** in the app and on the sheet. It was "Class
+  Actions", which misled the moment an ancestry trait turned up in it, then plain "Actions",
+  which sat confusingly next to the "Actions in Combat" panel.
+- Ritual and concentration tags shortened to `R` and `C` in the app's spell list, so long spell
+  names stay on one line. The printed sheet keeps the full words.
+- The wizard scrolls to the top when you advance a step, so the step rail is visible on mobile.
+
+---
 
 ## 2026-08-24
 
 ### Added
 
-- **PHB spell descriptions.** All 198 PHB spells (levels 0-3) now carry full rules text —
-  school, casting time, range, components, duration, ritual/concentration flags, description —
-  sourced from `5etools-src/data/spells/spells-phb.json`. Previously `SpellRow` showed level
-  only, with a placeholder ("Description not loaded — see the Player's Handbook.") for every
-  PHB spell.
-- **Sina Una subclass feature text.** All 12 Sina Una subclasses (52 features across levels
-  1-20) now carry full rules text, transcribed by visual read of the source PDF (pp.176-196) —
-  no OCR shortcuts, per the project's accuracy rule. Previously these were names and levels
-  only; the appendix and printable sheet just said "Full text on p.N of the source."
-- **Core class features for all 12 PHB classes.** `classes.js` had zero core class features
-  before this — no Rage, Sneak Attack, Bardic Inspiration, Extra Attack, Fighting Style, any of
-  it, for any class. Added 65 features (levels 1-5) from `5etools-src`'s class data, with
-  Fighting Style / Metamagic / Pact Boon options resolved inline from `optionalfeatures.json`.
-- **Actions / Bonus Actions / Reactions panel.** Feature tuples can now carry an explicit 4th
-  "action" tag (`action` | `bonus` | `reaction` | `free`), hand-verified against each feature's
-  actual text rather than pattern-matched. Powers a new "Actions" panel in the app (Defenses
-  step) and a matching section in the printable sheet, grouped by bucket — the mid-turn
-  quick-reference list, separate from the full feature writeups. Tagged 18 core class features,
-  25 Sina Una subclass features, and 1 ancestry trait (Mangrove Halfling's Quick Thinker).
-- **Passive Investigation and Passive Insight**, alongside the existing Passive Perception —
-  generalized off the existing skill table so all three stay in sync with proficiency
-  automatically.
-- **One-click "Print / Save as PDF."** The app no longer runs inside an artifact's sandboxed
-  iframe, so `window.print()` works directly now. `printSheet()` opens the sheet in a new tab
-  and triggers the print dialog immediately — no more download-the-HTML-then-open-then-print
-  detour. The old download-a-file flow is kept as a secondary option for anyone who wants the
-  raw HTML (email to the DM, edit by hand, archive).
-- **`plans/ability-score-improvement.md`** — implementation plan for the still-missing level-4
-  ASI/feat picker (data model, UI placement, edge cases). Not implemented yet; every class's
-  "Ability Score Improvement" feature currently renders as text only.
-- Cloudflare Pages deployment scaffolding: `.node-version` (pins Node 20), `wrangler.toml`
-  (`pages_build_output_dir`), `public/_headers` (immutable caching on hashed assets,
-  must-revalidate on `index.html`), and a Deployment section in CLAUDE.md.
+- **The Babaylan and Headhunter classes.** Sina Una's own two classes, neither previously in
+  the app — full chassis for levels 1–5, plus all 6 subclasses (3 Babaylan Callings, 3
+  Headhunter Omens) with feature text through level 20, transcribed by reading the book.
+- **Sina Una's weapons and armour** — 18 weapons and 6 armour rows from the book's own tables,
+  which were missing even though backgrounds already referenced some by name.
+- **An attack table.** Every weapon you're carrying, with attack bonus, damage and properties,
+  plus Unarmed Strike. In the app and on the printed sheet.
+- **An Inventory step** — weapons, armour, gear, tools and starting gold in one place.
+- **A spell table** replacing the old plain list: Name / Time / Range / Hit-DC / Effect / Notes
+  per spell, with the full description underneath. The printed sheet gets a compact version.
+- **Weapon Mastery (2024), opt-in and off by default.** A toggle on the attack table that shows
+  each weapon's 2024 mastery property as an informational note. It never affects any derived
+  stat — the rest of the app is 2014 rules throughout.
+- **Full rules text for all 198 Player's Handbook spells** (levels 0–3), replacing a placeholder
+  that just said to look it up in the book.
+- **Full rules text for all 12 Sina Una subclasses** — 52 features across levels 1–20 — replacing
+  "Full text on p.N of the source."
+- **Core class features for all 12 PHB classes.** There were none at all before this: no Rage,
+  no Sneak Attack, no Bardic Inspiration, no Extra Attack, no Fighting Style. 65 features across
+  levels 1–5, with Fighting Style, Metamagic and Pact Boon options resolved inline.
+- **An Actions / Bonus Actions / Reactions panel** — the mid-turn quick-reference list, grouped
+  by what each thing costs to use, in the app and on the sheet. Each feature was tagged by
+  reading its text, not by pattern-matching.
+- **Passive Investigation and Passive Insight**, alongside Passive Perception.
+- **One-click Print / Save as PDF**, replacing a download-then-open-then-print detour.
+- Cloudflare Pages deployment setup: pinned Node version, asset caching rules, build config.
 
 ### Fixed
 
-- **White-screen crash on load** (`Cannot access 'hitPoints' before initialization`) — `sheetCtx`
-  was being built before the `hitPoints` `useMemo` it referenced was declared (a leftover from
-  the sheet-context refactor). Reordered the two blocks.
-- **PHB spells missing from the printed PDF's reference appendix.** The appendix builder still
-  had the pre-full-text placeholder branch ("Full text in the Player's Handbook") even after PHB
-  spell data grew full text — so the in-app spell list showed real descriptions but the exported
-  sheet didn't. Unified the PHB and island-spell appendix branches, since both now carry the
-  same fields.
-- **Name field CSS overflow.** `.su-input` was missing `box-sizing: border-box`; text `<input>`
-  elements default to `content-box` (unlike buttons), so its padding and border were adding on
-  top of `width: 100%` and overflowing the panel, showing as a stray line under the box. Fixed
-  the input directly and added a blanket `box-sizing: border-box` reset scoped to `.su-root *`
-  so the same class of bug can't resurface elsewhere.
-- Deleted stale `reference/phb_meta_1.js` / `phb_meta_2.js` (hand-written from model knowledge)
-  now that real spell data comes from `5etools-src`.
-- `.gitignore` now excludes `source/` (purchased-book PDFs + OCR passes, ~79MB) and `reference/`
-  (extraction scratch), which were previously untracked-but-not-ignored — one `git add .` away
-  from landing in a Cloudflare-connected repo. Also added `dist/` and `.DS_Store`.
+- **White screen on load** (`Cannot access 'hitPoints' before initialization`) — a block was
+  being built before something it depended on existed.
+- **PHB spells printed without descriptions** on the exported sheet even after the full text
+  landed in the app, because the export still had the old placeholder branch.
+- **Name field overflowed its panel**, showing a stray line underneath — a missing
+  `box-sizing: border-box`, now reset app-wide so it can't resurface.
+- The purchased-book PDFs and extraction scratch files are now properly gitignored — they were
+  untracked but not ignored, one `git add .` away from landing in a public repo.
 
 ### Changed
 
-- **Ability score display now emphasizes the modifier over the raw score** — the number you
-  actually add to rolls — in the sticky sidebar, the Abilities step, and the printable sheet's
-  ability boxes. Matches how a physical character sheet's ability box reads (mod first, raw
-  score small underneath).
-- **HP, AC, Initiative, and Speed promoted to a 4-tile "vitals" band**, matching the visual
-  weight AC alone used to get, in both the Defenses step and the printable sheet. Previously
-  three of the four were buried in a plain "Also derived" row list at the bottom of the step.
+- **Ability scores lead with the modifier**, the number you actually add to rolls, with the raw
+  score small underneath — the way a physical sheet's ability box reads.
+- **HP, AC, Initiative and Speed promoted to a four-tile band** in the Defenses step and on the
+  sheet. Three of the four used to be buried in a list at the bottom of the step.
