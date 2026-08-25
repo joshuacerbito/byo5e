@@ -13,10 +13,26 @@ import { sheetFileName } from "../pdf/saveFile.js";
    with the pack it came from, and a reader can only tell the two apart if
    today's files say which one they are. */
 
-export const STORAGE_KEY = "sina-una-character";
+export const STORAGE_KEY = "byo5e-character";
 export const SAVE_FORMAT = 1;
 
+/* TEMPORARY — the rebuild onto SRD content packs changes what every saved
+   id means, so a save written by yesterday's build would restore ids that
+   no longer resolve and crash somewhere far from here. Until the save
+   format is versioned against the loaded packs, every save is discarded and
+   cleared on load. Restoring this is deliberate work, not a matter of
+   deleting the flag: it needs the pack manifest in the envelope and the
+   missing-content handling that goes with it.
+
+   The `.json` export is unaffected — that is the way to keep a character
+   across the rebuild. */
+export const DISCARD_SAVES_ON_LOAD = true;
+
 export function loadSaved() {
+  if (DISCARD_SAVES_ON_LOAD) {
+    clearSaved();
+    return null;
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;

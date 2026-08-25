@@ -284,7 +284,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
 ${interactive ? `<div class="bar"><p>Choose <b>Save as PDF</b> as the destination to get a PDF file.</p>
 <button onclick="window.print()">Print / Save as PDF</button></div>` : ""}
 <header><div><div class="nm">${esc(name.trim() || "Unnamed")}</div>
-<div class="sb">${esc(head)}</div></div><div class="br">Sina Una</div></header>
+<div class="sb">${esc(head)}</div></div><div class="br">BYO5E</div></header>
 <div class="vits">${vitals}</div>
 <div class="abils">${abils}</div>
 <div class="cols"><section><h4>Core</h4>${core}</section>

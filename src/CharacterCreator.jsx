@@ -61,7 +61,7 @@ const DEFAULTS = {
   backstory: "",
 };
 
-export default function SinaUnaCreator() {
+export default function CharacterCreator() {
   const [step, setStep] = useState(saved?.step ?? DEFAULTS.step);
   const [baseId, setBaseId] = useState(saved?.baseId ?? DEFAULTS.baseId);
   const [lineageId, setLineageId] = useState(saved?.lineageId ?? DEFAULTS.lineageId);
@@ -683,7 +683,7 @@ export default function SinaUnaCreator() {
     return out;
   }, [resolved, klass, classId, subclass, subclassReady, level, pb, effects, scores, arrayAssign, mode, scoreAdj]);
 
-  /* Sina Una spells this character can reach: on their list, and at or
+  /* Island spells this character can reach: on their list, and at or
      below the highest slot level they have. Cantrips always count. */
   const availableSpells = useMemo(() => {
     if (!casting || casting.pending) return null;
@@ -844,17 +844,17 @@ export default function SinaUnaCreator() {
     const chosen = pick && FEATS.find((f) => f.id === pick.id);
     return (
       <>
-        <p className="su-note" style={{ marginBottom: 10 }}>{note}</p>
+        <p className="byo-note" style={{ marginBottom: 10 }}>{note}</p>
         {CONTENT_SOURCES.map((source) => {
           const list = pool.filter((f) => f.src === source);
           if (!list.length) return null;
           return (
             <React.Fragment key={source}>
-              <div className="su-src">{SOURCE_LABEL[source]}
-                <span className="su-src-n">{list.length}</span></div>
-              <div className="su-skills">
+              <div className="byo-src">{SOURCE_LABEL[source]}
+                <span className="byo-src-n">{list.length}</span></div>
+              <div className="byo-skills">
                 {list.map((f) => (
-                  <button key={f.id} className={`su-skill ${pick?.id === f.id ? "is-sel" : ""}`}
+                  <button key={f.id} className={`byo-skill ${pick?.id === f.id ? "is-sel" : ""}`}
                           onClick={() => pickFeat(slot, f.id)}
                           aria-pressed={pick?.id === f.id}>{f.name}</button>
                 ))}
@@ -864,23 +864,23 @@ export default function SinaUnaCreator() {
         })}
         {chosen && (
           <div style={{ marginTop: 12 }}>
-            <div className="su-row"><span className="su-row-label">{chosen.name}</span>
-              <span className="su-mod" style={{ width: "auto" }}>p.{chosen.page}</span></div>
+            <div className="byo-row"><span className="byo-row-label">{chosen.name}</span>
+              <span className="byo-mod" style={{ width: "auto" }}>p.{chosen.page}</span></div>
             {chosen.prereqText && (
-              <p className="su-note" style={{ marginBottom: 6 }}>Prerequisite: {chosen.prereqText}.</p>
+              <p className="byo-note" style={{ marginBottom: 6 }}>Prerequisite: {chosen.prereqText}.</p>
             )}
-            <p className="su-note">{chosen.text}</p>
+            <p className="byo-note">{chosen.text}</p>
             {chosen.ability?.from && (
               <>
-                <p className="su-note" style={{ margin: "10px 0 6px" }}>
+                <p className="byo-note" style={{ margin: "10px 0 6px" }}>
                   This feat also raises one ability by 1. Which one?
                 </p>
-                <div className="su-choice">
+                <div className="byo-choice">
                   {chosen.ability.from.map((k) => {
                     const label = ABILITIES.find((a) => a.key === k)?.label || k;
                     const maxed = prereqScore(k) >= 20;
                     return (
-                      <button key={k} className={`su-opt ${pick.ability === k ? "is-sel" : ""}`}
+                      <button key={k} className={`byo-opt ${pick.ability === k ? "is-sel" : ""}`}
                               onClick={() => pickFeatAbility(slot, k)} disabled={maxed}
                               aria-pressed={pick.ability === k}>
                         {label}{maxed ? " · at 20" : ""}
@@ -892,7 +892,7 @@ export default function SinaUnaCreator() {
             )}
           </div>
         )}
-        {!pool.length && <p className="su-note">Nothing you qualify for yet.</p>}
+        {!pool.length && <p className="byo-note">Nothing you qualify for yet.</p>}
       </>
     );
   };
@@ -1078,7 +1078,7 @@ export default function SinaUnaCreator() {
     /* The print dialog's "Save as PDF" filename comes from a document title,
        and which one depends on the browser: Chromium takes the printing
        iframe's, macOS Safari takes the top page's — which is how a saved
-       sheet came out as "Sina Una — Character Creator". Set the host page's
+       sheet came out named after the app, not the character. Set the host page's
        title to the character for the duration of the dialog so both engines
        arrive at the same name the PDF routes use, and put it back afterwards. */
     document.title = sheetFileBase(name);
@@ -1206,25 +1206,25 @@ export default function SinaUnaCreator() {
       backstory]);
 
   return (
-    <div className="su-root">
-      <div className="su-wrap">
-        <p className="su-eyebrow">The Islands of Sina Una</p>
-        <h1 className="su-h1">Make a character</h1>
-        <p className="su-sub">{STEPS.length} steps. Only legal options are shown.</p>
+    <div className="byo-root">
+      <div className="byo-wrap">
+        <p className="byo-eyebrow">Bring Your Own 5e</p>
+        <h1 className="byo-h1">Make a character</h1>
+        <p className="byo-sub">{STEPS.length} steps. Only legal options are shown.</p>
 
         {/* batok chevron rail */}
-        <div className="su-rail">
+        <div className="byo-rail">
           {STEPS.map((s, i) => {
             const state = i < step ? "is-done" : i === step ? "is-now" : "is-todo";
             const stroke = i < step ? "#3FA98A" : i === step ? "#D4A537" : "#4C6076";
             return (
-              <div key={s} className={`su-chev ${state}`}>
+              <div key={s} className={`byo-chev ${state}`}>
                 <svg width="13" height="15" viewBox="0 0 13 15" fill="none" aria-hidden="true">
                   <path d="M1 1.5L6.5 7.5L1 13.5" stroke={stroke} strokeWidth="1.6" />
                   <path d="M6 1.5L11.5 7.5L6 13.5" stroke={stroke} strokeWidth="1.6"
                         opacity={i <= step ? "1" : "0.4"} />
                 </svg>
-                {i === step && <span className="su-chev-label">{s}</span>}
+                {i === step && <span className="byo-chev-label">{s}</span>}
               </div>
             );
           })}
@@ -1232,38 +1232,38 @@ export default function SinaUnaCreator() {
 
         {/* what you've locked in so far — always reversible */}
         {ancestry && step >= at("Abilities") && (
-          <div className="su-chip">
-            <span className="su-chip-k">Ancestry</span>
-            <span className="su-chip-v">{ancestry.name}</span>
-            <button className="su-chip-b" onClick={() => setStep(0)}>Change</button>
+          <div className="byo-chip">
+            <span className="byo-chip-k">Ancestry</span>
+            <span className="byo-chip-v">{ancestry.name}</span>
+            <button className="byo-chip-b" onClick={() => setStep(0)}>Change</button>
           </div>
         )}
         {klass && step >= at("Background") && (
-          <div className="su-chip">
-            <span className="su-chip-k">Class</span>
-            <span className="su-chip-v">
+          <div className="byo-chip">
+            <span className="byo-chip-k">Class</span>
+            <span className="byo-chip-v">
               {klass.name} {level}{subclass && subclassReady ? ` · ${subclass.name}` : ""}
             </span>
-            <button className="su-chip-b" onClick={() => setStep(2)}>Change</button>
+            <button className="byo-chip-b" onClick={() => setStep(2)}>Change</button>
           </div>
         )}
 
         {background && step >= at("Defenses") && (
-          <div className="su-chip">
-            <span className="su-chip-k">Background</span>
-            <span className="su-chip-v">{background.name}</span>
-            <button className="su-chip-b" onClick={() => setStep(3)}>Change</button>
+          <div className="byo-chip">
+            <span className="byo-chip-k">Background</span>
+            <span className="byo-chip-v">{background.name}</span>
+            <button className="byo-chip-b" onClick={() => setStep(3)}>Change</button>
           </div>
         )}
 
         {/* live ability summary once an ancestry exists */}
         {resolved && step >= at("Abilities") && (
-          <div className="su-sum">
+          <div className="byo-sum">
             {ABILITIES.map(({ key }) => (
-              <div className="su-sum-c" key={key}>
-                <div className="su-sum-k">{key.toUpperCase()}</div>
-                <div className="su-sum-v">{fmt(mod(finalScore(key)))}</div>
-                <div className="su-sum-m">{finalScore(key)}</div>
+              <div className="byo-sum-c" key={key}>
+                <div className="byo-sum-k">{key.toUpperCase()}</div>
+                <div className="byo-sum-v">{fmt(mod(finalScore(key)))}</div>
+                <div className="byo-sum-m">{finalScore(key)}</div>
               </div>
             ))}
           </div>
@@ -1285,21 +1285,21 @@ export default function SinaUnaCreator() {
                 const sina = opts.filter((l) => l.src === "sinauna").length;
                 const asiStr = Object.entries(b.asi).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(" ");
                 return (
-                  <button key={id} className={`su-card ${sel ? "is-sel" : ""}`}
+                  <button key={id} className={`byo-card ${sel ? "is-sel" : ""}`}
                           onClick={() => pickBase(id)} aria-pressed={sel}>
-                    <div className="su-card-top">
-                      <span className="su-card-name">{b.name}</span>
-                      <span className="su-card-kind">
+                    <div className="byo-card-top">
+                      <span className="byo-card-name">{b.name}</span>
+                      <span className="byo-card-kind">
                         {opts.length} option{opts.length > 1 ? "s" : ""}
                         {sina > 0 ? ` · ${sina} island` : ""}
                       </span>
                     </div>
-                    <div className="su-pills" style={{ marginTop: 8 }}>
+                    <div className="byo-pills" style={{ marginTop: 8 }}>
                       {asiStr
-                        ? <span className="su-pill">{asiStr}</span>
-                        : <span className="su-pill alt">increases come from lineage</span>}
-                      <span className="su-pill alt">speed {b.speed}</span>
-                      {b.darkvision > 0 && <span className="su-pill alt">darkvision {b.darkvision}</span>}
+                        ? <span className="byo-pill">{asiStr}</span>
+                        : <span className="byo-pill alt">increases come from lineage</span>}
+                      <span className="byo-pill alt">speed {b.speed}</span>
+                      {b.darkvision > 0 && <span className="byo-pill alt">darkvision {b.darkvision}</span>}
                     </div>
                   </button>
                 );
@@ -1309,11 +1309,11 @@ export default function SinaUnaCreator() {
                 <>
                   <Rule />
 
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>
                       {baseLineages.some((l) => l.kind === "subrace") ? "Subrace" : "Lineage"}
                     </h3>
-                    <p className="su-note" style={{ marginBottom: 4 }}>
+                    <p className="byo-note" style={{ marginBottom: 4 }}>
                       Island options modify the {baseRace.name.toLowerCase()} rather than replacing it —
                       subraces add to it, variants swap specific traits out.
                     </p>
@@ -1322,9 +1322,9 @@ export default function SinaUnaCreator() {
                       if (!list.length) return null;
                       return (
                         <div key={source}>
-                          <div className="su-src">
+                          <div className="byo-src">
                             {SOURCE_LABEL[source]}
-                            <span className="su-src-n">{list.length}</span>
+                            <span className="byo-src-n">{list.length}</span>
                           </div>
                           {list.map((l) => {
                             const sel = l.id === lineageId;
@@ -1334,22 +1334,22 @@ export default function SinaUnaCreator() {
                                 (l.asi.choice.from.length > 4 ? "any" : l.asi.choice.from.map((x) => x.toUpperCase()).join("/")));
                             }
                             return (
-                              <button key={l.id} className={`su-card ${sel ? "is-sel" : ""}`}
+                              <button key={l.id} className={`byo-card ${sel ? "is-sel" : ""}`}
                                       style={{ marginTop: 8 }}
                                       onClick={() => pickLineage(l.id)} aria-pressed={sel}>
-                                <div className="su-card-top">
-                                  <span className="su-card-name">{l.name}</span>
-                                  <span className="su-card-kind">
+                                <div className="byo-card-top">
+                                  <span className="byo-card-name">{l.name}</span>
+                                  <span className="byo-card-kind">
                                     {l.kind}{l.page ? ` · p.${l.page}` : ""}
                                   </span>
                                 </div>
-                                {l.blurb && <p className="su-card-blurb">{l.blurb}</p>}
-                                <div className="su-pills" style={{ marginTop: l.blurb ? 0 : 8 }}>
+                                {l.blurb && <p className="byo-card-blurb">{l.blurb}</p>}
+                                <div className="byo-pills" style={{ marginTop: l.blurb ? 0 : 8 }}>
                                   {parts.length
-                                    ? parts.map((x) => <span className="su-pill" key={x}>{x}</span>)
-                                    : <span className="su-pill alt">no extra increases</span>}
+                                    ? parts.map((x) => <span className="byo-pill" key={x}>{x}</span>)
+                                    : <span className="byo-pill alt">no extra increases</span>}
                                   {(l.replaces || []).length > 0 &&
-                                    <span className="su-pill alt">replaces {l.replaces.length} traits</span>}
+                                    <span className="byo-pill alt">replaces {l.replaces.length} traits</span>}
                                 </div>
                               </button>
                             );
@@ -1364,23 +1364,23 @@ export default function SinaUnaCreator() {
               {needsChoice && (
                 <>
                   <Rule />
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>
                       Ability increases
-                      <span className="su-count">
+                      <span className="byo-count">
                         {choicePicks.length}/{choiceCount} chosen
                       </span>
                     </h3>
-                    <p className="su-note" style={{ marginBottom: 10 }}>
+                    <p className="byo-note" style={{ marginBottom: 10 }}>
                       {ancestry.name} gives {choiceCount === 1 ? "one more point" : `${choiceCount} more points`}.
                       Pick {choiceCount === 1 ? "where it goes" : "different abilities for each"}.
                     </p>
-                    <div className="su-skills">
+                    <div className="byo-skills">
                       {ancestry.asi.choice.from.map((k) => {
                         const on = choicePicks.includes(k);
                         const full = !on && choicePicks.length >= choiceCount;
                         return (
-                          <button key={k} className={`su-skill ${on ? "is-sel" : ""}`}
+                          <button key={k} className={`byo-skill ${on ? "is-sel" : ""}`}
                                   onClick={() => toggleChoice(k)} disabled={full}
                                   aria-pressed={on}>
                             {ABILITIES.find((a) => a.key === k).label} +{ancestry.asi.choice.amount}
@@ -1395,24 +1395,24 @@ export default function SinaUnaCreator() {
               {resolved && (
                 <>
                   <Rule />
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>What you get</h3>
                     {resolved.keptBase.map((t) => (
-                      <div className="su-trait" key={t.name}>
-                        <div className="su-trait-n">{t.name}<span className="src">{resolved.base.name}</span></div>
-                        <div className="su-trait-t">{t.text}</div>
+                      <div className="byo-trait" key={t.name}>
+                        <div className="byo-trait-n">{t.name}<span className="src">{resolved.base.name}</span></div>
+                        <div className="byo-trait-t">{t.text}</div>
                       </div>
                     ))}
                     {(ancestry.traits || []).map((t) => (
-                      <div className="su-trait" key={t.name}>
-                        <div className="su-trait-n">{t.name}
-                          <span className="src">{ancestry.src === "sinauna" ? "Sina Una" : ancestry.name}</span></div>
-                        <div className="su-trait-t">{t.text}</div>
+                      <div className="byo-trait" key={t.name}>
+                        <div className="byo-trait-n">{t.name}
+                          <span className="src">{SOURCE_LABEL[ancestry.src] || ancestry.name}</span></div>
+                        <div className="byo-trait-t">{t.text}</div>
                       </div>
                     ))}
                     {resolved.droppedTraits.map((t) => (
-                      <div className="su-trait su-struck" key={t.name}>
-                        <div className="su-trait-n">{t.name}<span className="src">Replaced</span></div>
+                      <div className="byo-trait byo-struck" key={t.name}>
+                        <div className="byo-trait-n">{t.name}<span className="src">Replaced</span></div>
                       </div>
                     ))}
                   </div>
@@ -1424,49 +1424,49 @@ export default function SinaUnaCreator() {
           {/* ---------------- STEP 1 — ABILITIES ---------------- */}
           {here === "Abilities" && resolved && (
             <>
-              <div className="su-choice" style={{ marginBottom: 14 }}>
-                <button className={`su-opt ${mode === "pointbuy" ? "is-sel" : ""}`} onClick={() => setMode("pointbuy")}>Point buy</button>
-                <button className={`su-opt ${mode === "array" ? "is-sel" : ""}`} onClick={() => setMode("array")}>Standard array</button>
+              <div className="byo-choice" style={{ marginBottom: 14 }}>
+                <button className={`byo-opt ${mode === "pointbuy" ? "is-sel" : ""}`} onClick={() => setMode("pointbuy")}>Point buy</button>
+                <button className={`byo-opt ${mode === "array" ? "is-sel" : ""}`} onClick={() => setMode("array")}>Standard array</button>
               </div>
 
               {mode === "pointbuy" && (
                 <>
-                  <div className={`su-budget`}>
-                    <span className="su-budget-l">Points left</span>
-                    <span className={`su-budget-n ${remaining === 0 ? "zero" : ""}`}>{remaining}</span>
+                  <div className={`byo-budget`}>
+                    <span className="byo-budget-l">Points left</span>
+                    <span className={`byo-budget-n ${remaining === 0 ? "zero" : ""}`}>{remaining}</span>
                   </div>
-                  <div className="su-suggest">
+                  <div className="byo-suggest">
                     <div>
-                      <div className="su-suggest-t">Not sure where to put these?</div>
-                      <div className="su-suggest-s">
+                      <div className="byo-suggest-t">Not sure where to put these?</div>
+                      <div className="byo-suggest-s">
                         Start with a spread that leans into what {ancestry.name} already boosts. You can change it after.
                       </div>
                     </div>
-                    <button className="su-opt" onClick={() => setScores(recommendedSpread(resolved.asi))}>
+                    <button className="byo-opt" onClick={() => setScores(recommendedSpread(resolved.asi))}>
                       Use it
                     </button>
                   </div>
                 </>
               )}
 
-              <div className="su-panel">
+              <div className="byo-panel">
                 {ABILITIES.map(({ key, label }) => {
                   const bonus = resolved.asi[key] || 0;
                   const base = baseScoreFor(key);
                   return (
-                    <div className="su-row" key={key}>
-                      <span className="su-row-label">{label}</span>
+                    <div className="byo-row" key={key}>
+                      <span className="byo-row-label">{label}</span>
                       {mode === "pointbuy" ? (
-                        <div className="su-step">
-                          <button className="su-btn-sq" onClick={() => setScore(key, base - 1)}
+                        <div className="byo-step">
+                          <button className="byo-btn-sq" onClick={() => setScore(key, base - 1)}
                                   disabled={base <= 8} aria-label={`Lower ${label}`}>−</button>
-                          <span className="su-num">{base}</span>
-                          <button className="su-btn-sq" onClick={() => setScore(key, base + 1)}
+                          <span className="byo-num">{base}</span>
+                          <button className="byo-btn-sq" onClick={() => setScore(key, base + 1)}
                                   disabled={base >= 15 || (POINT_COST[base + 1] - POINT_COST[base]) > remaining}
                                   aria-label={`Raise ${label}`}>+</button>
                         </div>
                       ) : (
-                        <select className="su-sel" value={arrayAssign[key] ?? ""}
+                        <select className="byo-sel" value={arrayAssign[key] ?? ""}
                                 onChange={(e) => assignArray(key, e.target.value)} aria-label={label}>
                           <option value="">—</option>
                           {STANDARD_ARRAY.map((v, i) => (
@@ -1475,28 +1475,28 @@ export default function SinaUnaCreator() {
                           ))}
                         </select>
                       )}
-                      <span className="su-arrow">{bonus ? `+${bonus} →` : "→"}</span>
-                      <span className="su-final">{fmt(mod(base + bonus))}</span>
-                      <span className="su-mod">{base + bonus}</span>
+                      <span className="byo-arrow">{bonus ? `+${bonus} →` : "→"}</span>
+                      <span className="byo-final">{fmt(mod(base + bonus))}</span>
+                      <span className="byo-mod">{base + bonus}</span>
                     </div>
                   );
                 })}
               </div>
-              <p className="su-note">Ancestry bonuses are already applied. Point buy caps each score at 15 before bonuses.</p>
+              <p className="byo-note">Ancestry bonuses are already applied. Point buy caps each score at 15 before bonuses.</p>
             </>
           )}
 
           {/* ---------------- STEP 2 — CLASS ---------------- */}
           {here === "Class" && (
             <>
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Level</h3>
-                <p className="su-note" style={{ marginBottom: 10 }}>
+                <p className="byo-note" style={{ marginBottom: 10 }}>
                   Sets which features you have and whether you pick a subclass yet.
                 </p>
-                <div className="su-lvl">
+                <div className="byo-lvl">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} className={`su-opt ${level === n ? "is-sel" : ""}`}
+                    <button key={n} className={`byo-opt ${level === n ? "is-sel" : ""}`}
                             onClick={() => setLevel(n)} aria-pressed={level === n}>{n}</button>
                   ))}
                 </div>
@@ -1507,24 +1507,24 @@ export default function SinaUnaCreator() {
                 if (!list.length) return null;
                 return (
                   <div key={source}>
-                    <div className="su-src">
+                    <div className="byo-src">
                       {SOURCE_LABEL[source]}
-                      <span className="su-src-n">{list.length}</span>
+                      <span className="byo-src-n">{list.length}</span>
                     </div>
                     {list.map(([id, c]) => {
                       const sel = id === classId;
                       const subs = ALL_SUBCLASSES.filter((s) => s.cls === id);
                       return (
-                        <button key={id} className={`su-card ${sel ? "is-sel" : ""}`}
+                        <button key={id} className={`byo-card ${sel ? "is-sel" : ""}`}
                                 style={{ marginTop: 8 }}
                                 onClick={() => pickClass(id)} aria-pressed={sel}>
-                          <div className="su-card-top">
-                            <span className="su-card-name">{c.name}</span>
-                            <span className="su-card-kind">d{c.hitDie} hit die</span>
+                          <div className="byo-card-top">
+                            <span className="byo-card-name">{c.name}</span>
+                            <span className="byo-card-kind">d{c.hitDie} hit die</span>
                           </div>
-                          <p className="su-card-blurb">
+                          <p className="byo-card-blurb">
                             Saves: {c.saves.join(", ")} · {c.skillCount} skills ·{" "}
-                            {subs.length ? `${subs[0].name} available at ${subs[0].unlock}` : "no Sina Una option"}
+                            {subs.length ? `${subs[0].name} available at ${subs[0].unlock}` : "no subclass yet"}
                           </p>
                         </button>
                       );
@@ -1538,10 +1538,10 @@ export default function SinaUnaCreator() {
                   <Rule />
 
                   {/* subclass — only once the level unlocks it */}
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>{classSubclasses[0]?.group || "Subclass"}</h3>
                     {!subclassReady ? (
-                      <p className="su-note">
+                      <p className="byo-note">
                         {klass.name}s choose at level {subclassUnlock}. You're level {level}, so this comes later —
                         nothing to decide now.
                       </p>
@@ -1552,26 +1552,26 @@ export default function SinaUnaCreator() {
                           if (!list.length) return null;
                           return (
                             <div key={source}>
-                              <div className="su-src">
+                              <div className="byo-src">
                                 {SOURCE_LABEL[source]}
-                                <span className="su-src-n">{list.length}</span>
+                                <span className="byo-src-n">{list.length}</span>
                               </div>
                               {list.map((s) => {
                                 const sel = s.id === subclassId;
                                 const now = s.features.filter((f) => f[0] <= level);
                                 return (
-                                  <button key={s.id} className={`su-card ${sel ? "is-sel" : ""}`}
+                                  <button key={s.id} className={`byo-card ${sel ? "is-sel" : ""}`}
                                           style={{ marginTop: 8 }}
                                           onClick={() => { setSubclassId(s.id); setCurse(null); setBonusSkillPicks([]); }}
                                           aria-pressed={sel}>
-                                    <div className="su-card-top">
-                                      <span className="su-card-name">{s.name}</span>
-                                      {s.page && <span className="su-card-kind">p.{s.page}</span>}
+                                    <div className="byo-card-top">
+                                      <span className="byo-card-name">{s.name}</span>
+                                      {s.page && <span className="byo-card-kind">p.{s.page}</span>}
                                     </div>
-                                    {s.blurb && <p className="su-card-blurb">{s.blurb}</p>}
-                                    <div className="su-pills" style={{ marginTop: s.blurb ? 0 : 8 }}>
-                                      {now.map((f, i) => <span className="su-pill" key={i}>{f[1]}</span>)}
-                                      {now.length === 0 && <span className="su-pill alt">no features yet</span>}
+                                    {s.blurb && <p className="byo-card-blurb">{s.blurb}</p>}
+                                    <div className="byo-pills" style={{ marginTop: s.blurb ? 0 : 8 }}>
+                                      {now.map((f, i) => <span className="byo-pill" key={i}>{f[1]}</span>)}
+                                      {now.length === 0 && <span className="byo-pill alt">no features yet</span>}
                                     </div>
                                   </button>
                                 );
@@ -1585,12 +1585,12 @@ export default function SinaUnaCreator() {
 
                   {/* subclass-specific choice, e.g. Graverobber's curse */}
                   {subclass?.choice && level >= subclass.choice.atLevel && (
-                    <div className="su-panel">
+                    <div className="byo-panel">
                       <h3>{subclass.choice.name}</h3>
-                      <p className="su-note">{subclass.choice.note}</p>
-                      <div className="su-choice">
+                      <p className="byo-note">{subclass.choice.note}</p>
+                      <div className="byo-choice">
                         {subclass.choice.options.map((o) => (
-                          <button key={o.id} className={`su-opt ${curse === o.id ? "is-sel" : ""}`}
+                          <button key={o.id} className={`byo-opt ${curse === o.id ? "is-sel" : ""}`}
                                   onClick={() => setCurse(o.id)} aria-pressed={curse === o.id}>
                             {o.name} · {o.sub}
                           </button>
@@ -1600,19 +1600,19 @@ export default function SinaUnaCreator() {
                   )}
 
                   {/* skills — anything already free is not in this list */}
-                  <div className="su-panel">
-                    <h3>Skills <span className="su-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
+                  <div className="byo-panel">
+                    <h3>Skills <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
                     {freeSkills.size > 0 && (
-                      <p className="su-note" style={{ marginBottom: 10 }}>
+                      <p className="byo-note" style={{ marginBottom: 10 }}>
                         You already have {[...freeSkills].join(" and ")} for free, so {freeSkills.size > 1 ? "they aren't" : "it isn't"} listed below.
                       </p>
                     )}
-                    <div className="su-skills">
+                    <div className="byo-skills">
                       {skillPool.map((s) => {
                         const on = skillPicks.includes(s);
                         const full = !on && skillPicks.length >= klass.skillCount;
                         return (
-                          <button key={s} className={`su-skill ${on ? "is-sel" : ""}`}
+                          <button key={s} className={`byo-skill ${on ? "is-sel" : ""}`}
                                   onClick={() => toggleSkill(s)} disabled={full}
                                   aria-pressed={on}>{s}</button>
                         );
@@ -1621,21 +1621,21 @@ export default function SinaUnaCreator() {
                   </div>
 
                   {bonusSkillCount > 0 && (
-                    <div className="su-panel">
+                    <div className="byo-panel">
                       <h3>Extra skills
-                        <span className="su-count">{bonusSkillsLeft > 0 ? `${bonusSkillsLeft} to go` : "done"}</span></h3>
-                      <p className="su-note" style={{ marginBottom: 10 }}>
+                        <span className="byo-count">{bonusSkillsLeft > 0 ? `${bonusSkillsLeft} to go` : "done"}</span></h3>
+                      <p className="byo-note" style={{ marginBottom: 10 }}>
                         {[...new Set(bonusSkillGrants.map((e) => e.source))].filter(Boolean).join(" and ")}{" "}
                         grant{bonusSkillGrants.length > 1 ? "" : "s"}{" "}
                         {bonusSkillCount === 1 ? "one extra skill" : `${bonusSkillCount} extra skills`}
                         {bonusSkillGrants.every((e) => !e.from) ? " — any skill you like." : ", from a short list."}
                       </p>
-                      <div className="su-skills">
+                      <div className="byo-skills">
                         {bonusSkillPool.map((x) => {
                           const on = bonusSkillPicks.includes(x);
                           const full = !on && bonusSkillPicks.length >= bonusSkillCount;
                           return (
-                            <button key={x} className={`su-skill ${on ? "is-sel" : ""}`}
+                            <button key={x} className={`byo-skill ${on ? "is-sel" : ""}`}
                                     onClick={() => toggleBonusSkill(x)} disabled={full}
                                     aria-pressed={on}>{x}</button>
                           );
@@ -1644,14 +1644,14 @@ export default function SinaUnaCreator() {
                     </div>
                   )}
 
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>Proficiencies</h3>
-                    <div className="su-row"><span className="su-row-label">Armor</span>
-                      <span className="su-mod" style={{ width: "auto" }}>{klass.armor}</span></div>
-                    <div className="su-row"><span className="su-row-label">Weapons</span>
-                      <span className="su-mod" style={{ width: "auto" }}>{klass.weapons}</span></div>
-                    <div className="su-row"><span className="su-row-label">Saving throws</span>
-                      <span className="su-mod" style={{ width: "auto" }}>{klass.saves.join(", ")}</span></div>
+                    <div className="byo-row"><span className="byo-row-label">Armor</span>
+                      <span className="byo-mod" style={{ width: "auto" }}>{klass.armor}</span></div>
+                    <div className="byo-row"><span className="byo-row-label">Weapons</span>
+                      <span className="byo-mod" style={{ width: "auto" }}>{klass.weapons}</span></div>
+                    <div className="byo-row"><span className="byo-row-label">Saving throws</span>
+                      <span className="byo-mod" style={{ width: "auto" }}>{klass.saves.join(", ")}</span></div>
                   </div>
 
                   {/* Tasha's optional class features. Unlike Weapon
@@ -1660,16 +1660,16 @@ export default function SinaUnaCreator() {
                       like anything else — the toggle is here because
                       Tasha's itself calls them optional, and several of
                       them replace a feature the class already has. */}
-                  <div className="su-panel">
-                    <div className="su-row">
-                      <span className="su-row-label">Tasha's optional class features
-                        <span className="su-count">optional</span></span>
-                      <button className={`su-opt ${tceOptional ? "is-sel" : ""}`}
+                  <div className="byo-panel">
+                    <div className="byo-row">
+                      <span className="byo-row-label">Tasha's optional class features
+                        <span className="byo-count">optional</span></span>
+                      <button className={`byo-opt ${tceOptional ? "is-sel" : ""}`}
                               onClick={() => setTceOptional((v) => !v)} aria-pressed={tceOptional}>
                         {tceOptional ? "On" : "Off"}
                       </button>
                     </div>
-                    <p className="su-note">
+                    <p className="byo-note">
                       {tceOptional
                         ? "Tasha's extra features and its added fighting styles, metamagic, invocations and maneuvers are listed with your class features. Several replace a feature you already have — the text says which."
                         : "Off. Tasha's Cauldron offers extra class features, and more fighting styles, metamagic, invocations and maneuvers. Ask your DM before switching this on."}
@@ -1684,9 +1684,9 @@ export default function SinaUnaCreator() {
                   {lineageFeatSlot && (
                     <>
                       <Rule />
-                      <div className="su-panel">
+                      <div className="byo-panel">
                         <h3>{ancestry.name} feat
-                          <span className="su-count">{lineageFeat && !featIncomplete(lineageFeat) ? "done" : "1 to pick"}</span></h3>
+                          <span className="byo-count">{lineageFeat && !featIncomplete(lineageFeat) ? "done" : "1 to pick"}</span></h3>
                         {renderFeatPicker("lineage", null,
                           `${ancestry.name} grants one feat at 1st level. Only feats you qualify for are listed.`)}
                       </div>
@@ -1696,17 +1696,17 @@ export default function SinaUnaCreator() {
                   {asiAvailable && (
                     <>
                       <Rule />
-                      <div className="su-panel">
+                      <div className="byo-panel">
                         <h3>Ability Score Improvement
-                          <span className="su-count">{asiLeft > 0 ? `${asiLeft} to spend` : "done"}</span></h3>
-                        <p className="su-note" style={{ marginBottom: 10 }}>
+                          <span className="byo-count">{asiLeft > 0 ? `${asiLeft} to spend` : "done"}</span></h3>
+                        <p className="byo-note" style={{ marginBottom: 10 }}>
                           Every class gets this at 4th level — the only one inside this campaign's range.
                           Nothing can go above 20.
                         </p>
-                        <div className="su-choice">
+                        <div className="byo-choice">
                           {[["focus", "+2 to one score"], ["split", "+1 to two scores"], ["feat", "Take a feat"]]
                             .map(([m, label]) => (
-                              <button key={m} className={`su-opt ${asiMode === m ? "is-sel" : ""}`}
+                              <button key={m} className={`byo-opt ${asiMode === m ? "is-sel" : ""}`}
                                       onClick={() => { setAsiMode(m); setClassAsi({}); }}
                                       aria-pressed={asiMode === m}>{label}</button>
                             ))}
@@ -1717,14 +1717,14 @@ export default function SinaUnaCreator() {
                               "Taking a feat instead of the ability increase is a variant rule — check your DM allows it.")}
                           </div>
                         ) : (
-                          <div className="su-choice" style={{ marginTop: 12 }}>
+                          <div className="byo-choice" style={{ marginTop: 12 }}>
                             {ABILITIES.map(({ key, label }) => {
                               const on = !!classAsi[key];
                               const step = asiMode === "focus" ? 2 : 1;
                               const maxed = !on && prereqScore(key) + step > 20;
                               const full = !on && asiSpent + step > 2;
                               return (
-                                <button key={key} className={`su-opt ${on ? "is-sel" : ""}`}
+                                <button key={key} className={`byo-opt ${on ? "is-sel" : ""}`}
                                         onClick={() => applyAsi(key)} disabled={maxed || full}
                                         aria-pressed={on}>
                                   {label}{on ? ` +${classAsi[key]}` : maxed ? " · at 20" : ""}
@@ -1750,16 +1750,16 @@ export default function SinaUnaCreator() {
                   ? b.skills.fixed.join(", ")
                   : `${b.skills.choose} from ${b.skills.from.join(", ")}`;
                 return (
-                  <button key={b.id} className={`su-card ${sel ? "is-sel" : ""}`}
+                  <button key={b.id} className={`byo-card ${sel ? "is-sel" : ""}`}
                           onClick={() => pickBackground(b.id)} aria-pressed={sel}>
-                    <div className="su-card-top">
-                      <span className="su-card-name">{b.name}</span>
-                      <span className="su-card-kind">p.{b.page}</span>
+                    <div className="byo-card-top">
+                      <span className="byo-card-name">{b.name}</span>
+                      <span className="byo-card-kind">p.{b.page}</span>
                     </div>
-                    <p className="su-card-blurb">{b.blurb}</p>
-                    <div className="su-pills">
-                      <span className="su-pill">{b.feature.name}</span>
-                      <span className="su-pill alt">{sk}</span>
+                    <p className="byo-card-blurb">{b.blurb}</p>
+                    <div className="byo-pills">
+                      <span className="byo-pill">{b.feature.name}</span>
+                      <span className="byo-pill alt">{sk}</span>
                     </div>
                   </button>
                 );
@@ -1769,37 +1769,37 @@ export default function SinaUnaCreator() {
                 <>
                   <Rule />
 
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>Feature: {background.feature.name}</h3>
-                    <p className="su-note">{background.feature.text}</p>
+                    <p className="byo-note">{background.feature.text}</p>
                   </div>
 
                   {/* choose-from backgrounds: pool already excludes held skills */}
                   {background.skills.choose && (
-                    <div className="su-panel">
-                      <h3>Skills <span className="su-count">
+                    <div className="byo-panel">
+                      <h3>Skills <span className="byo-count">
                         {bgPool.length < background.skills.choose ? "limited" :
                          bgSkillsLeft > 0 ? `${bgSkillsLeft} to go` : "done"}
                       </span></h3>
                       {bgPool.length < background.skills.from.length && (
-                        <p className="su-note" style={{ marginBottom: 10 }}>
+                        <p className="byo-note" style={{ marginBottom: 10 }}>
                           {background.skills.from.filter((s) => priorSkills.has(s)).join(" and ")} already
                           covered, so {background.skills.from.filter((s) => priorSkills.has(s)).length > 1 ? "they're" : "it's"} not
                           listed.
                         </p>
                       )}
                       {bgPool.length === 0 ? (
-                        <p className="su-note">
+                        <p className="byo-note">
                           You already have everything this background offers. Nothing to choose — worth
                           considering a different background, or different class skills.
                         </p>
                       ) : (
-                        <div className="su-skills">
+                        <div className="byo-skills">
                           {bgPool.map((s) => {
                             const on = bgSkillPicks.includes(s);
                             const full = !on && bgSkillPicks.length >= background.skills.choose;
                             return (
-                              <button key={s} className={`su-skill ${on ? "is-sel" : ""}`}
+                              <button key={s} className={`byo-skill ${on ? "is-sel" : ""}`}
                                       onClick={() => toggleBgSkill(s)} disabled={full}
                                       aria-pressed={on}>{s}</button>
                             );
@@ -1811,58 +1811,58 @@ export default function SinaUnaCreator() {
 
                   {/* fixed-skill backgrounds: flag collisions honestly */}
                   {background.skills.fixed && (
-                    <div className="su-panel">
+                    <div className="byo-panel">
                       <h3>Skills</h3>
-                      <div className="su-skills">
+                      <div className="byo-skills">
                         {background.skills.fixed.map((s) => (
-                          <span key={s} className={`su-skill is-given ${bgOverlap.includes(s) ? "is-dupe" : ""}`}>
+                          <span key={s} className={`byo-skill is-given ${bgOverlap.includes(s) ? "is-dupe" : ""}`}>
                             {s}{bgOverlap.includes(s) ? " · duplicate" : ""}
                           </span>
                         ))}
                       </div>
                       {bgOverlap.length > 0 && (
-                        <p className="su-warn">
+                        <p className="byo-warn">
                           You already have {bgOverlap.join(" and ")} from your class or ancestry. The 2014 rules
                           don't let you swap a duplicate for something else, so it's wasted — go back and pick
                           different class skills if you'd rather not lose {bgOverlap.length > 1 ? "them" : "it"}.
-                          <button className="su-chip-b" onClick={() => setStep(2)}>Change class skills</button>
+                          <button className="byo-chip-b" onClick={() => setStep(2)}>Change class skills</button>
                         </p>
                       )}
                     </div>
                   )}
 
                   {background.choice && (
-                    <div className="su-panel">
+                    <div className="byo-panel">
                       <h3>{background.choice.name}</h3>
-                      <p className="su-note">{background.choice.note}</p>
-                      <div className="su-skills" style={{ marginTop: 10 }}>
+                      <p className="byo-note">{background.choice.note}</p>
+                      <div className="byo-skills" style={{ marginTop: 10 }}>
                         {background.choice.options.map((o) => (
-                          <button key={o} className={`su-skill ${bgChoice === o ? "is-sel" : ""}`}
+                          <button key={o} className={`byo-skill ${bgChoice === o ? "is-sel" : ""}`}
                                   onClick={() => setBgChoice(o)} aria-pressed={bgChoice === o}>{o}</button>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>You start with</h3>
                     {background.equipment.map((e) => (
-                      <div className="su-row" key={e}><span className="su-row-label">{e}</span></div>
+                      <div className="byo-row" key={e}><span className="byo-row-label">{e}</span></div>
                     ))}
                     {background.tools.length > 0 && (
-                      <div className="su-row"><span className="su-row-label">Tools</span>
-                        <span className="su-mod" style={{ width: "auto" }}>{background.tools.join(", ")}</span></div>
+                      <div className="byo-row"><span className="byo-row-label">Tools</span>
+                        <span className="byo-mod" style={{ width: "auto" }}>{background.tools.join(", ")}</span></div>
                     )}
                     {(background.langs > 0 || background.fixedLangs) && (
-                      <div className="su-row"><span className="su-row-label">Languages</span>
-                        <span className="su-mod" style={{ width: "auto" }}>
+                      <div className="byo-row"><span className="byo-row-label">Languages</span>
+                        <span className="byo-mod" style={{ width: "auto" }}>
                           {background.fixedLangs ? background.fixedLangs.join(", ")
                             : `${background.langs} of your choice`}
                         </span></div>
                     )}
                   </div>
 
-                  <p className="su-note">
+                  <p className="byo-note">
                     Personality traits, ideals, bonds, and flaws are on p.{background.page} — roll or pick
                     those at the table.
                   </p>
@@ -1874,51 +1874,51 @@ export default function SinaUnaCreator() {
           {/* ---------------- STEP 4 — DEFENSES ---------------- */}
           {here === "Defenses" && resolved && (
             <>
-              <div className="su-vitals">
-                <div className="su-vital">
-                  <div className="su-vital-n">{armorClass}</div>
-                  <div className="su-vital-l">Armor Class</div>
-                  <div className="su-vital-s">{bestAC?.parts}{shieldOn ? " + 2 shield" : ""}</div>
+              <div className="byo-vitals">
+                <div className="byo-vital">
+                  <div className="byo-vital-n">{armorClass}</div>
+                  <div className="byo-vital-l">Armor Class</div>
+                  <div className="byo-vital-s">{bestAC?.parts}{shieldOn ? " + 2 shield" : ""}</div>
                 </div>
-                <div className="su-vital">
-                  <div className="su-vital-n">{klass ? hitPoints : "—"}</div>
-                  <div className="su-vital-l">Hit Points</div>
+                <div className="byo-vital">
+                  <div className="byo-vital-n">{klass ? hitPoints : "—"}</div>
+                  <div className="byo-vital-l">Hit Points</div>
                 </div>
-                <div className="su-vital">
-                  <div className="su-vital-n">{fmt(initiative)}</div>
-                  <div className="su-vital-l">Initiative</div>
+                <div className="byo-vital">
+                  <div className="byo-vital-n">{fmt(initiative)}</div>
+                  <div className="byo-vital-l">Initiative</div>
                 </div>
-                <div className="su-vital">
-                  <div className="su-vital-n">{speed}</div>
-                  <div className="su-vital-l">Speed</div>
+                <div className="byo-vital">
+                  <div className="byo-vital-n">{speed}</div>
+                  <div className="byo-vital-l">Speed</div>
                 </div>
               </div>
 
               {!klass ? (
-                <div className="su-stub">
-                  <p className="su-stub-t">Pick a class first</p>
-                  <p className="su-stub-s">Armor proficiency decides what you can wear.</p>
+                <div className="byo-stub">
+                  <p className="byo-stub-t">Pick a class first</p>
+                  <p className="byo-stub-s">Armor proficiency decides what you can wear.</p>
                 </div>
               ) : (
                 <>
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>Armor</h3>
                     {armorOptions.length === 1 ? (
-                      <p className="su-note">
+                      <p className="byo-note">
                         {klass.name}s aren't proficient with any armor
                         {klass.unarmored ? `, and don't need it — ${klass.unarmored.name} is usually better anyway.` : "."}
                       </p>
                     ) : (
                       <>
                         {klass.noMetal && (
-                          <p className="su-note" style={{ marginBottom: 10 }}>
+                          <p className="byo-note" style={{ marginBottom: 10 }}>
                             Metal armor is left out — druids won't wear it. Studded leather is included, though
                             whether its rivets count is a table-by-table call.
                           </p>
                         )}
-                        <div className="su-skills">
+                        <div className="byo-skills">
                           {armorOptions.map((a) => (
-                            <button key={a.id} className={`su-skill ${armor.id === a.id ? "is-sel" : ""}`}
+                            <button key={a.id} className={`byo-skill ${armor.id === a.id ? "is-sel" : ""}`}
                                     onClick={() => setArmorId(a.id)} aria-pressed={armor.id === a.id}>
                               {a.name}{a.cat !== "none" ? ` ${a.base}` : ""}
                             </button>
@@ -1927,86 +1927,86 @@ export default function SinaUnaCreator() {
                       </>
                     )}
                     {shieldAllowed && (
-                      <div className="su-row" style={{ marginTop: 12 }}>
-                        <span className="su-row-label">Shield <span className="su-count">+2 AC</span></span>
-                        <button className={`su-opt ${shieldOn ? "is-sel" : ""}`}
+                      <div className="byo-row" style={{ marginTop: 12 }}>
+                        <span className="byo-row-label">Shield <span className="byo-count">+2 AC</span></span>
+                        <button className={`byo-opt ${shieldOn ? "is-sel" : ""}`}
                                 onClick={() => setHasShield((v) => !v)} aria-pressed={shieldOn}>
                           {shieldOn ? "Carrying" : "No shield"}
                         </button>
                       </div>
                     )}
                     {strShortfall && (
-                      <p className="su-warn">
+                      <p className="byo-warn">
                         {armor.name} needs Strength {strShortfall} and you have {finalScore("str")}, so your
                         speed drops by 10 feet — {resolved.speed} down to {speed}.
                       </p>
                     )}
                     {armor.stealth && (
-                      <p className="su-warn">{armor.name} gives disadvantage on Stealth checks.</p>
+                      <p className="byo-warn">{armor.name} gives disadvantage on Stealth checks.</p>
                     )}
                     {klass.unarmored && armor.id !== "none" && (
-                      <p className="su-warn">
+                      <p className="byo-warn">
                         Wearing armor switches off {klass.unarmored.name}.
                       </p>
                     )}
                     {klass.unarmored?.noShield && shieldOn && armor.id === "none" && (
-                      <p className="su-warn">
+                      <p className="byo-warn">
                         {klass.name} Unarmored Defense doesn't work with a shield, so you're on plain 10 + Dex.
                       </p>
                     )}
                   </div>
 
                   {acCandidates.length > 1 && (
-                    <div className="su-panel">
+                    <div className="byo-panel">
                       <h3>Why that number</h3>
-                      <p className="su-note" style={{ marginBottom: 10 }}>
+                      <p className="byo-note" style={{ marginBottom: 10 }}>
                         More than one formula applies. You use the best one.
                       </p>
                       {acCandidates.map((c) => {
                         const best = c.value === bestAC.value;
                         return (
-                          <div className={`su-row ${best ? "" : "su-dim"}`} key={c.label}>
-                            <span className="su-row-label">{c.label}
-                              <span className="su-ac-parts">{c.parts}</span></span>
-                            <span className={best ? "su-final" : "su-mod"}>{c.value}</span>
+                          <div className={`byo-row ${best ? "" : "byo-dim"}`} key={c.label}>
+                            <span className="byo-row-label">{c.label}
+                              <span className="byo-ac-parts">{c.parts}</span></span>
+                            <span className={best ? "byo-final" : "byo-mod"}>{c.value}</span>
                           </div>
                         );
                       })}
                     </div>
                   )}
 
-                  <div className="su-panel">
-                    <h3>Saving throws <span className="su-count">proficiency {fmt(pb)}</span></h3>
+                  <div className="byo-panel">
+                    <h3>Saving throws <span className="byo-count">proficiency {fmt(pb)}</span></h3>
                     {savingThrows.map((s) => (
-                      <div className="su-row" key={s.key}>
-                        <span className={`su-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-                        <span className="su-row-label">{s.label}</span>
-                        <span className="su-final">{fmt(s.value)}</span>
+                      <div className="byo-row" key={s.key}>
+                        <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                        <span className="byo-row-label">{s.label}</span>
+                        <span className="byo-final">{fmt(s.value)}</span>
                       </div>
                     ))}
-                    <p className="su-note" style={{ marginTop: 10 }}>
+                    <p className="byo-note" style={{ marginTop: 10 }}>
                       Filled circles are the two your class is proficient in.
                     </p>
                   </div>
 
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>Passive skills</h3>
                     {passiveSkills.map((p) => (
-                      <div className="su-row" key={p.name}>
-                        <span className="su-row-label">Passive {p.name}</span>
-                        <span className="su-final">{p.value}</span>
+                      <div className="byo-row" key={p.name}>
+                        <span className="byo-row-label">Passive {p.name}</span>
+                        <span className="byo-final">{p.value}</span>
                       </div>
                     ))}
                   </div>
 
                   {weaponChoiceGroups.length > 0 && (
-                    <div className="su-panel">
-                      <h3>Starting Equipment <span className="su-count">weapons</span></h3>
-                      <p className="su-note" style={{ marginBottom: 10 }}>
+                    <div className="byo-panel">
+                      <h3>Starting Equipment <span className="byo-count">weapons</span></h3>
+                      <p className="byo-note" style={{ marginBottom: 10 }}>
                         {klass.name}'s starting gear. Background gear — packs, tools, trinkets — is on the Background step.
                       </p>
                       {weaponChoiceGroups.length > 1 && (
-                        <p className="su-note" style={{ marginBottom: 4 }}>
+                        <p className="byo-note" style={{ marginBottom: 4 }}>
                           You get one pick from <em>each</em> row below — {weaponChoiceGroups.length} weapons total, not one.
                         </p>
                       )}
@@ -2016,16 +2016,16 @@ export default function SinaUnaCreator() {
                         return (
                           <div key={gi} style={{ marginBottom: 10 }}>
                             {weaponChoiceGroups.length > 1 && (
-                              <span className="su-row-label" style={{ display: "block", marginBottom: 4 }}>
+                              <span className="byo-row-label" style={{ display: "block", marginBottom: 4 }}>
                                 {ordinal} weapon
                               </span>
                             )}
-                            <div className="su-skills">
+                            <div className="byo-skills">
                               {group.map((opt, oi) => {
                                 const sel = choice?.optIdx === oi;
                                 const label = opt.label || WEAPONS.find((w) => w.id === opt.weapon)?.name || opt.weapon;
                                 return (
-                                  <button key={oi} className={`su-skill ${sel ? "is-sel" : ""}`}
+                                  <button key={oi} className={`byo-skill ${sel ? "is-sel" : ""}`}
                                           onClick={() => setEquipmentChoices((prev) => ({ ...prev, [gi]: { optIdx: oi, weaponId: null } }))}
                                           aria-pressed={sel}>
                                     {label}
@@ -2038,18 +2038,18 @@ export default function SinaUnaCreator() {
                               return (
                                 <>
                                   {optQty > 1 && (
-                                    <p className="su-note" style={{ marginTop: 6, marginBottom: 4 }}>
+                                    <p className="byo-note" style={{ marginTop: 6, marginBottom: 4 }}>
                                       Pick one — you get {optQty} of it.
                                     </p>
                                   )}
-                                  <div className="su-skills" style={{ marginTop: 6 }}>
+                                  <div className="byo-skills" style={{ marginTop: 6 }}>
                                     {WEAPONS.filter((w) => {
                                       const f = group[choice.optIdx].filter;
                                       if (f.category && w.category !== f.category) return false;
                                       if (f.melee && w.kind !== "melee") return false;
                                       return true;
                                     }).map((w) => (
-                                      <button key={w.id} className={`su-skill ${choice.weaponId === w.id ? "is-sel" : ""}`}
+                                      <button key={w.id} className={`byo-skill ${choice.weaponId === w.id ? "is-sel" : ""}`}
                                               onClick={() => setEquipmentChoices((prev) => ({ ...prev, [gi]: { ...prev[gi], weaponId: w.id } }))}
                                               aria-pressed={choice.weaponId === w.id}>
                                         {w.name}{optQty > 1 ? ` ×${optQty}` : ""}
@@ -2063,39 +2063,39 @@ export default function SinaUnaCreator() {
                         );
                       })}
                       {klass.startingEquipment?.gear?.length > 0 && (
-                        <p className="su-note" style={{ marginTop: 4 }}>
+                        <p className="byo-note" style={{ marginTop: 4 }}>
                           Also: {klass.startingEquipment.gear.join(", ")}.
                         </p>
                       )}
                     </div>
                   )}
 
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>Attacks</h3>
-                    <div className="su-atk-table">
-                      <div className="su-atk-row su-atk-head">
+                    <div className="byo-atk-table">
+                      <div className="byo-atk-row byo-atk-head">
                         <span>Attack</span><span>Range</span><span>Hit / DC</span><span>Damage</span><span>Notes</span>
                       </div>
                       {attackRows.map((r) => (
-                        <div className="su-atk-row" key={r.key}>
-                          <span className="su-atk-name">{r.name}{!r.proficient && <span className="su-tag alt">not proficient</span>}</span>
+                        <div className="byo-atk-row" key={r.key}>
+                          <span className="byo-atk-name">{r.name}{!r.proficient && <span className="byo-tag alt">not proficient</span>}</span>
                           <span>{r.range}</span>
-                          <span className="su-atk-num">{r.hitOrDC}</span>
-                          <span className="su-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
-                          <span className="su-atk-notes">{r.notes || "—"}</span>
+                          <span className="byo-atk-num">{r.hitOrDC}</span>
+                          <span className="byo-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
+                          <span className="byo-atk-notes">{r.notes || "—"}</span>
                         </div>
                       ))}
                     </div>
-                    <div className="su-row" style={{ marginTop: 10 }}>
-                      <span className="su-row-label">Weapon Mastery <span className="su-count">2024, optional</span></span>
-                      <button className={`su-opt ${masteryEnabled ? "is-sel" : ""}`}
+                    <div className="byo-row" style={{ marginTop: 10 }}>
+                      <span className="byo-row-label">Weapon Mastery <span className="byo-count">2024, optional</span></span>
+                      <button className={`byo-opt ${masteryEnabled ? "is-sel" : ""}`}
                               onClick={() => setMasteryEnabled((v) => !v)} aria-pressed={masteryEnabled}>
                         {masteryEnabled ? "On" : "Off"}
                       </button>
                     </div>
                     {masteryEnabled && (
-                      <p className="su-warn">
-                        Off the 2014 chassis Sina Una uses — an informational tag only, in the Notes column above.
+                      <p className="byo-warn">
+                        Off the 2014 chassis — an informational tag only, in the Notes column above.
                         It doesn't change AC, attack bonus, or damage, and this app doesn't track which masteries
                         you'd actually know. {[...new Set(carriedWeapons.map((w) => WEAPON_MASTERY_2024[w.id]).filter(Boolean))]
                           .map((m) => `${m} — ${MASTERY_PROPERTY_TEXT[m]}`).join(" ")}
@@ -2104,15 +2104,15 @@ export default function SinaUnaCreator() {
                   </div>
 
                   {actions.length > 0 && (
-                    <div className="su-panel">
+                    <div className="byo-panel">
                       <h3>Class + Ancestry Actions</h3>
                       {ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => (
                         <div key={k}>
-                          <div className="su-actgroup-l">{ACTION_LABELS[k]}</div>
+                          <div className="byo-actgroup-l">{ACTION_LABELS[k]}</div>
                           {actions.filter((a) => a.action === k).map((a, i) => (
-                            <div className="su-trait" key={i}>
-                              <div className="su-trait-n">{a.name} <span className="src">{a.source}</span></div>
-                              <div className="su-trait-t">{a.text}</div>
+                            <div className="byo-trait" key={i}>
+                              <div className="byo-trait-n">{a.name} <span className="src">{a.source}</span></div>
+                              <div className="byo-trait-t">{a.text}</div>
                             </div>
                           ))}
                         </div>
@@ -2121,24 +2121,24 @@ export default function SinaUnaCreator() {
                   )}
 
                   {ancestrySpells.length > 0 && (
-                    <div className="su-panel">
+                    <div className="byo-panel">
                       <h3>Ancestry spells</h3>
-                      <p className="su-note" style={{ marginBottom: 10 }}>
+                      <p className="byo-note" style={{ marginBottom: 10 }}>
                         Granted by your lineage, not picked on the Spells step — and they don't
                         spend your slots.
                       </p>
                       {ancestrySpells.map((sp) => (
-                        <div className="su-trait" key={sp.key}>
-                          <div className="su-trait-n">{sp.name}
+                        <div className="byo-trait" key={sp.key}>
+                          <div className="byo-trait-n">{sp.name}
                             <span className="src">{sp.from}{sp.use ? ` — ${sp.use}` : ""}</span></div>
-                          <div className="su-trait-t">
+                          <div className="byo-trait-t">
                             {sp.level === 0 ? "Cantrip" : `Level ${sp.level}`}. {splitCastingTime(sp.time).head}, {sp.range}.
                             {sp.ability ? ` DC ${sp.saveDC}, attack ${fmt(sp.attack)} (${sp.ability.toUpperCase()}).` : ""} {sp.text}
                           </div>
                         </div>
                       ))}
                       {ancestrySpells.some((sp) => !sp.ability && (sp.atk || sp.save)) && (
-                        <p className="su-warn">
+                        <p className="byo-warn">
                           The book names no spellcasting ability for one of these traits, so there's no
                           DC to show — ask your DM which ability it uses.
                         </p>
@@ -2147,28 +2147,28 @@ export default function SinaUnaCreator() {
                   )}
 
                   {chosenFeats.length > 0 && (
-                    <div className="su-panel">
+                    <div className="byo-panel">
                       <h3>Feats</h3>
                       {chosenFeats.map(({ feat, from, ability }) => {
                         const key = feat.ability?.fixed || ability;
                         return (
                           <div key={feat.id} style={{ marginBottom: 10 }}>
-                            <div className="su-row">
-                              <span className="su-row-label">{feat.name}</span>
-                              <span className="su-mod" style={{ width: "auto" }}>
+                            <div className="byo-row">
+                              <span className="byo-row-label">{feat.name}</span>
+                              <span className="byo-mod" style={{ width: "auto" }}>
                                 {feat.ability && key ? `+${feat.ability.amount} ${key.toUpperCase()}` : from}
                               </span>
                             </div>
-                            <p className="su-note">{feat.text}</p>
+                            <p className="byo-note">{feat.text}</p>
                           </div>
                         );
                       })}
                     </div>
                   )}
 
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>Actions in Combat</h3>
-                    <p className="su-note">{BASIC_ACTIONS.join(", ")}.</p>
+                    <p className="byo-note">{BASIC_ACTIONS.join(", ")}.</p>
                   </div>
                 </>
               )}
@@ -2178,51 +2178,51 @@ export default function SinaUnaCreator() {
           {/* ---------------- SPELLS ---------------- */}
           {here === "Spells" && casting && !casting.pending && (
             <>
-              <div className="su-cast">
-                <div className="su-cast-c">
-                  <div className="su-cast-l">Save DC</div>
-                  <div className="su-cast-v">{casting.saveDC}</div>
+              <div className="byo-cast">
+                <div className="byo-cast-c">
+                  <div className="byo-cast-l">Save DC</div>
+                  <div className="byo-cast-v">{casting.saveDC}</div>
                 </div>
-                <div className="su-cast-c">
-                  <div className="su-cast-l">Attack</div>
-                  <div className="su-cast-v">{fmt(casting.attack)}</div>
+                <div className="byo-cast-c">
+                  <div className="byo-cast-l">Attack</div>
+                  <div className="byo-cast-v">{fmt(casting.attack)}</div>
                 </div>
-                <div className="su-cast-c">
-                  <div className="su-cast-l">{casting.ability.toUpperCase()}</div>
-                  <div className="su-cast-v">{fmt(casting.abMod)}</div>
+                <div className="byo-cast-c">
+                  <div className="byo-cast-l">{casting.ability.toUpperCase()}</div>
+                  <div className="byo-cast-v">{fmt(casting.abMod)}</div>
                 </div>
               </div>
 
               {casting.slots?.length > 0 && (
-                <div className="su-slots" style={{ marginBottom: 14 }}>
+                <div className="byo-slots" style={{ marginBottom: 14 }}>
                   {casting.slots.map((n, i) => (
-                    <div className="su-slot" key={i}>
-                      <div className="su-slot-l">{i + 1}{["st", "nd", "rd"][i] || "th"}</div>
-                      <div className="su-slot-n">{n}</div>
+                    <div className="byo-slot" key={i}>
+                      <div className="byo-slot-l">{i + 1}{["st", "nd", "rd"][i] || "th"}</div>
+                      <div className="byo-slot-n">{n}</div>
                     </div>
                   ))}
                 </div>
               )}
               {casting.pact && (
-                <div className="su-slots" style={{ marginBottom: 14 }}>
-                  <div className="su-slot">
-                    <div className="su-slot-l">Pact slots</div>
-                    <div className="su-slot-n">{casting.pact.n}</div>
+                <div className="byo-slots" style={{ marginBottom: 14 }}>
+                  <div className="byo-slot">
+                    <div className="byo-slot-l">Pact slots</div>
+                    <div className="byo-slot-n">{casting.pact.n}</div>
                   </div>
-                  <div className="su-slot">
-                    <div className="su-slot-l">at level</div>
-                    <div className="su-slot-n">{casting.pact.lvl}</div>
+                  <div className="byo-slot">
+                    <div className="byo-slot-l">at level</div>
+                    <div className="byo-slot-n">{casting.pact.lvl}</div>
                   </div>
                 </div>
               )}
 
               {cantripBudget > 0 && (
                 <>
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>Cantrips
-                      <span className="su-count">{pickedCantrips.length}/{cantripBudget}</span></h3>
+                      <span className="byo-count">{pickedCantrips.length}/{cantripBudget}</span></h3>
                     {availableSpells?.rows.some((x) => x.level === 0) && (
-                      <p className="su-note" style={{ marginBottom: 10 }}>
+                      <p className="byo-note" style={{ marginBottom: 10 }}>
                         Island cantrips open to you. Anything from your usual list goes in the box below.
                       </p>
                     )}
@@ -2231,8 +2231,8 @@ export default function SinaUnaCreator() {
                       if (!rows.length) return null;
                       return (
                         <React.Fragment key={src}>
-                          <div className="su-src">{label}
-                            <span className="su-src-n">{rows.length}</span></div>
+                          <div className="byo-src">{label}
+                            <span className="byo-src-n">{rows.length}</span></div>
                           {rows.map((sp) => (
                             <SpellTableRow key={sp.name} sp={sp} casting={casting}
                                       on={pickedSpells.includes(sp.name)}
@@ -2249,10 +2249,10 @@ export default function SinaUnaCreator() {
 
               {spellBudget > 0 && (
                 <>
-                  <div className="su-panel">
+                  <div className="byo-panel">
                     <h3>{casting.prepared != null ? "Prepared spells" : "Spells known"}
-                      <span className="su-count">{pickedLeveled.length}/{spellBudget}</span></h3>
-                    <p className="su-note" style={{ marginBottom: 10 }}>
+                      <span className="byo-count">{pickedLeveled.length}/{spellBudget}</span></h3>
+                    <p className="byo-note" style={{ marginBottom: 10 }}>
                       {casting.prepared != null
                         ? "You can swap these after a long rest."
                         : "These are locked in until you level up."}{" "}
@@ -2265,15 +2265,15 @@ export default function SinaUnaCreator() {
                       if (!byPool.length) return null;
                       return (
                         <div key={lvl}>
-                          <div className="su-lvlh">Level {lvl}
+                          <div className="byo-lvlh">Level {lvl}
                             {casting.slots?.[lvl - 1] != null && (
-                              <span className="su-count">{casting.slots[lvl - 1]} slot{casting.slots[lvl - 1] === 1 ? "" : "s"}</span>
+                              <span className="byo-count">{casting.slots[lvl - 1]} slot{casting.slots[lvl - 1] === 1 ? "" : "s"}</span>
                             )}
                           </div>
                           {byPool.map(({ src, label, spells }) => (
                             <React.Fragment key={src}>
-                              <div className="su-src">{label}
-                                <span className="su-src-n">{spells.length}</span></div>
+                              <div className="byo-src">{label}
+                                <span className="byo-src-n">{spells.length}</span></div>
                               {spells.map((sp) => (
                                 <SpellTableRow key={sp.name} sp={sp} casting={casting}
                                           on={pickedSpells.includes(sp.name)}
@@ -2290,13 +2290,13 @@ export default function SinaUnaCreator() {
                 </>
               )}
 
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Anything else</h3>
-                <p className="su-note" style={{ marginBottom: 10 }}>
+                <p className="byo-note" style={{ marginBottom: 10 }}>
                   Everything from the Handbook, Xanathar's, Tasha's, Strixhaven and the islands is listed above. If your table uses spells
                   from another book, add them here — one per line.
                 </p>
-                <textarea className="su-out" rows={4} value={otherSpells}
+                <textarea className="byo-out" rows={4} value={otherSpells}
                           onChange={(e) => setOtherSpells(e.target.value)}
                           placeholder={"Healing Spirit\nShadow Blade"}
                           aria-label="Other spells" />
@@ -2307,59 +2307,59 @@ export default function SinaUnaCreator() {
           {/* ---------------- INVENTORY ---------------- */}
           {here === "Inventory" && resolved && (
             <>
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Weapons</h3>
                 {groupedWeapons.length > 0 ? groupedWeapons.map(({ weapon, qty }) => (
-                  <div className="su-row" key={weapon.id}>
-                    <span className="su-row-label">{weapon.name}</span>
-                    {qty > 1 && <span className="su-mod" style={{ width: "auto" }}>×{qty}</span>}
+                  <div className="byo-row" key={weapon.id}>
+                    <span className="byo-row-label">{weapon.name}</span>
+                    {qty > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{qty}</span>}
                   </div>
                 )) : (
-                  <p className="su-note">
-                    Nothing picked yet. <button className="su-linkbtn" onClick={() => setStep(at("Defenses"))}>
+                  <p className="byo-note">
+                    Nothing picked yet. <button className="byo-linkbtn" onClick={() => setStep(at("Defenses"))}>
                       Choose starting weapons
                     </button> on the Defenses step.
                   </p>
                 )}
               </div>
 
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Armor</h3>
-                <div className="su-row">
-                  <span className="su-row-label">Worn</span>
-                  <span className="su-mod" style={{ width: "auto" }}>{armor.id === "none" ? "None" : armor.name}</span>
+                <div className="byo-row">
+                  <span className="byo-row-label">Worn</span>
+                  <span className="byo-mod" style={{ width: "auto" }}>{armor.id === "none" ? "None" : armor.name}</span>
                 </div>
-                <div className="su-row">
-                  <span className="su-row-label">Shield</span>
-                  <span className="su-mod" style={{ width: "auto" }}>{shieldOn ? "Carrying" : "None"}</span>
+                <div className="byo-row">
+                  <span className="byo-row-label">Shield</span>
+                  <span className="byo-mod" style={{ width: "auto" }}>{shieldOn ? "Carrying" : "None"}</span>
                 </div>
-                <p className="su-note" style={{ marginTop: 6 }}>
-                  <button className="su-linkbtn" onClick={() => setStep(at("Defenses"))}>Change armor</button> on the Defenses step.
+                <p className="byo-note" style={{ marginTop: 6 }}>
+                  <button className="byo-linkbtn" onClick={() => setStep(at("Defenses"))}>Change armor</button> on the Defenses step.
                 </p>
               </div>
 
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Gear</h3>
                 {[...(klass?.startingEquipment?.gear || []), ...startingGold.items,
                   ...(background?.tools || [])].map((g) => (
-                  <div className="su-row" key={g}><span className="su-row-label">{g}</span></div>
+                  <div className="byo-row" key={g}><span className="byo-row-label">{g}</span></div>
                 ))}
                 {!klass && !background && (
-                  <p className="su-note">Pick a class and background to see starting gear.</p>
+                  <p className="byo-note">Pick a class and background to see starting gear.</p>
                 )}
               </div>
 
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Currency</h3>
                 {background ? (
-                  <div className="su-vitals" style={{ gridTemplateColumns: "1fr" }}>
-                    <div className="su-vital">
-                      <div className="su-vital-n">{startingGold.gp} gp</div>
-                      <div className="su-vital-l">Starting gold — {background.name}</div>
+                  <div className="byo-vitals" style={{ gridTemplateColumns: "1fr" }}>
+                    <div className="byo-vital">
+                      <div className="byo-vital-n">{startingGold.gp} gp</div>
+                      <div className="byo-vital-l">Starting gold — {background.name}</div>
                     </div>
                   </div>
                 ) : (
-                  <p className="su-note">Pick a background to see starting gold.</p>
+                  <p className="byo-note">Pick a background to see starting gold.</p>
                 )}
               </div>
             </>
@@ -2368,16 +2368,16 @@ export default function SinaUnaCreator() {
           {/* ---------------- SHEET / EXPORT ---------------- */}
           {here === "Sheet" && resolved && (
             <>
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Character Name</h3>
-                <input className="su-input" value={name} onChange={(e) => setName(e.target.value)}
+                <input className="byo-input" value={name} onChange={(e) => setName(e.target.value)}
                        placeholder="Unnamed" aria-label="Character name" />
               </div>
 
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Backstory</h3>
-                <p className="su-note">Free text — who they are, where they come from, why they left. Prints with the sheet.</p>
-                <textarea className="su-out" rows={6} value={backstory}
+                <p className="byo-note">Free text — who they are, where they come from, why they left. Prints with the sheet.</p>
+                <textarea className="byo-out" rows={6} value={backstory}
                           onChange={(e) => setBackstory(e.target.value)}
                           placeholder="Optional." aria-label="Backstory" />
               </div>
@@ -2391,56 +2391,56 @@ export default function SinaUnaCreator() {
 
               <Rule />
 
-              <div className="su-export su-export-stack">
-                <div className="su-export-t">Character sheet</div>
-                <div className="su-export-alt">
-                  <button className="su-btn su-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
-                  <button className="su-btn su-btn-ios" onClick={saveForIOS} disabled={pdfState === "working"}>
+              <div className="byo-export byo-export-stack">
+                <div className="byo-export-t">Character sheet</div>
+                <div className="byo-export-alt">
+                  <button className="byo-btn byo-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
+                  <button className="byo-btn byo-btn-ios" onClick={saveForIOS} disabled={pdfState === "working"}>
                     {pdfState === "working" ? "Building…" : "Save on iOS"}
                   </button>
-                  <button className="su-btn su-btn-alt" onClick={saveVector} disabled={pdfState === "working"}>
+                  <button className="byo-btn byo-btn-alt" onClick={saveVector} disabled={pdfState === "working"}>
                     Save for other devices
                   </button>
                 </div>
               </div>
-              <p className="su-note" style={{ marginTop: -2 }}>
-                <button className="su-linkbtn" onClick={downloadSheet}>Download the raw HTML</button> instead.
+              <p className="byo-note" style={{ marginTop: -2 }}>
+                <button className="byo-linkbtn" onClick={downloadSheet}>Download the raw HTML</button> instead.
               </p>
 
-              <div className="su-export su-export-stack">
+              <div className="byo-export byo-export-stack">
                 <div>
-                  <div className="su-export-t">Character data</div>
-                  <div className="su-export-s">
+                  <div className="byo-export-t">Character data</div>
+                  <div className="byo-export-s">
                     A .json file of every choice you made — the character itself, not a
                     printout of it. Keep it somewhere the browser can't clear.
                   </div>
                 </div>
-                <button className="su-btn su-btn-alt" onClick={exportCharacter}>Export .json</button>
+                <button className="byo-btn byo-btn-alt" onClick={exportCharacter}>Export .json</button>
               </div>
               {pdfState === "error" && (
-                <p className="su-warn">That export failed. Try one of the other buttons.</p>
+                <p className="byo-warn">That export failed. Try one of the other buttons.</p>
               )}
 
               {!name.trim() && (
-                <p className="su-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>
+                <p className="byo-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>
               )}
 
               <Rule />
 
-              <div className="su-panel">
+              <div className="byo-panel">
                 <h3>Plain text</h3>
-                <textarea className="su-out" readOnly rows={10} value={sheetText}
+                <textarea className="byo-out" readOnly rows={10} value={sheetText}
                           onFocus={(e) => e.target.select()} aria-label="Character summary" />
               </div>
 
               <Rule />
 
-              <div className="su-export">
+              <div className="byo-export">
                 <div>
-                  <div className="su-export-t">Start over</div>
-                  <div className="su-export-s">Wipes this character and every saved field.</div>
+                  <div className="byo-export-t">Start over</div>
+                  <div className="byo-export-s">Wipes this character and every saved field.</div>
                 </div>
-                <button className="su-btn su-btn-danger" onClick={() => setShowResetConfirm(true)}>
+                <button className="byo-btn byo-btn-danger" onClick={() => setShowResetConfirm(true)}>
                   Create new character
                 </button>
               </div>
@@ -2450,69 +2450,69 @@ export default function SinaUnaCreator() {
       </div>
 
       {showResetConfirm && (
-        <div className="su-modal-bg" role="dialog" aria-modal="true" aria-label="Confirm new character">
-          <div className="su-modal">
-            <h3 className="su-modal-t">Create new character?</h3>
-            <p className="su-modal-s">
+        <div className="byo-modal-bg" role="dialog" aria-modal="true" aria-label="Confirm new character">
+          <div className="byo-modal">
+            <h3 className="byo-modal-t">Create new character?</h3>
+            <p className="byo-modal-s">
               This clears every field — ancestry, abilities, class, background, and spells —
               and starts a blank character from the first step. This can't be undone.
             </p>
-            <div className="su-modal-row">
-              <button className="su-btn" onClick={() => setShowResetConfirm(false)}>Cancel</button>
-              <button className="su-btn su-btn-danger" onClick={resetAll}>Create New</button>
+            <div className="byo-modal-row">
+              <button className="byo-btn" onClick={() => setShowResetConfirm(false)}>Cancel</button>
+              <button className="byo-btn byo-btn-danger" onClick={resetAll}>Create New</button>
             </div>
           </div>
         </div>
       )}
 
       {/* nav */}
-      <div className="su-nav">
-        <div className="su-nav-in">
+      <div className="byo-nav">
+        <div className="byo-nav-in">
           {/* Anchors the left end, away from the two step-moves that pair
               up on the right — it isn't a step move and shouldn't sit in
               the same group as one. Same confirmation as the Sheet step's
               own button: one reset path, so the wording can't drift. */}
-          <button className="su-btn su-btn-danger" onClick={() => setShowResetConfirm(true)}>
+          <button className="byo-btn byo-btn-danger" onClick={() => setShowResetConfirm(true)}>
             Start over
           </button>
           {here === "Ancestry" && ancestry && needsChoice && !choiceMade && (
-            <span className="su-hint">
+            <span className="byo-hint">
               {choiceCount - choicePicks.length} more increase{choiceCount - choicePicks.length > 1 ? "s" : ""}
             </span>
           )}
-          {here === "Ancestry" && !baseId && <span className="su-hint">Pick a race</span>}
-          {here === "Ancestry" && baseId && !ancestry && <span className="su-hint">Pick a lineage</span>}
+          {here === "Ancestry" && !baseId && <span className="byo-hint">Pick a race</span>}
+          {here === "Ancestry" && baseId && !ancestry && <span className="byo-hint">Pick a lineage</span>}
           {here === "Abilities" && mode === "array" && Object.keys(arrayAssign).length < 6 && (
-            <span className="su-hint">Assign all six</span>
+            <span className="byo-hint">Assign all six</span>
           )}
-          {here === "Class" && !klass && <span className="su-hint">Pick a class</span>}
+          {here === "Class" && !klass && <span className="byo-hint">Pick a class</span>}
           {here === "Class" && klass && subclassReady && !subclass && (
-            <span className="su-hint">Pick a {classSubclasses[0].group.toLowerCase()}</span>
+            <span className="byo-hint">Pick a {classSubclasses[0].group.toLowerCase()}</span>
           )}
           {here === "Class" && klass && subclass?.choice && level >= subclass.choice.atLevel && !curse && (
-            <span className="su-hint">Pick how your curse manifests</span>
+            <span className="byo-hint">Pick how your curse manifests</span>
           )}
           {here === "Class" && klass && skillsLeft <= 0 && bonusSkillsLeft > 0 && (
-            <span className="su-hint">{bonusSkillsLeft} more subclass skill{bonusSkillsLeft > 1 ? "s" : ""}</span>
+            <span className="byo-hint">{bonusSkillsLeft} more subclass skill{bonusSkillsLeft > 1 ? "s" : ""}</span>
           )}
           {here === "Class" && asiAvailable && asiLeft > 0 && skillsLeft <= 0 && bonusSkillsLeft <= 0 && (
-            <span className="su-hint">{asiMode === "feat" ? "pick a feat" : `${asiLeft} ability point${asiLeft > 1 ? "s" : ""} unspent`}</span>
+            <span className="byo-hint">{asiMode === "feat" ? "pick a feat" : `${asiLeft} ability point${asiLeft > 1 ? "s" : ""} unspent`}</span>
           )}
           {here === "Class" && klass && skillsLeft > 0 && (
-            <span className="su-hint">{skillsLeft} more skill{skillsLeft > 1 ? "s" : ""}</span>
+            <span className="byo-hint">{skillsLeft} more skill{skillsLeft > 1 ? "s" : ""}</span>
           )}
-          {here === "Background" && !background && <span className="su-hint">Pick a background</span>}
+          {here === "Background" && !background && <span className="byo-hint">Pick a background</span>}
           {here === "Background" && background?.skills.choose && bgSkillsLeft > 0 && bgPool.length >= background.skills.choose && (
-            <span className="su-hint">{bgSkillsLeft} more skill{bgSkillsLeft > 1 ? "s" : ""}</span>
+            <span className="byo-hint">{bgSkillsLeft} more skill{bgSkillsLeft > 1 ? "s" : ""}</span>
           )}
           {here === "Background" && background?.choice && !bgChoice && (
-            <span className="su-hint">Pick a {background.choice.name.toLowerCase()}</span>
+            <span className="byo-hint">Pick a {background.choice.name.toLowerCase()}</span>
           )}
           {here === "Spells" && cantripBudget > 0 && pickedCantrips.length === 0 && (
-            <span className="su-hint">Pick your cantrips</span>
+            <span className="byo-hint">Pick your cantrips</span>
           )}
-          <button className="su-btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>
-          <button className="su-btn su-btn-go" onClick={() => {
+          <button className="byo-btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>
+          <button className="byo-btn byo-btn-go" onClick={() => {
                     setStep((s) => Math.min(STEPS.length - 1, s + 1));
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}

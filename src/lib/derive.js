@@ -114,7 +114,7 @@ export const spellMarkNotes = (spells) => SPELL_MARKS
   .map((m) => `${m.mark} ${m.label} — full text in the reference below.`);
 
 /* Action-economy buckets, in the order a turn actually goes. Shared by
-   the app (SinaUnaCreator.jsx) and the printable sheet (sheetHtml.js). */
+   the app (CharacterCreator.jsx) and the printable sheet (sheetHtml.js). */
 export const ACTION_ORDER = ["action", "bonus", "reaction", "free"];
 export const ACTION_LABELS = { action: "Actions", bonus: "Bonus Actions",
   reaction: "Reactions", free: "No Action Required" };

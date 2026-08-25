@@ -17,7 +17,7 @@ import { fmt, groupWeapons, parseStartingGold, splitCastingTime,
 
    The one thing it does NOT reproduce is the sheet's compact spell
    and attack columns at print widths — it reuses the app's own
-   `su-atk-row` grid, overriding the column template inline the way
+   `byo-atk-row` grid, overriding the column template inline the way
    SpellTableRow already does.
 ------------------------------------------------------------------- */
 export default function SheetSummary({ ctx }) {
@@ -47,38 +47,38 @@ export default function SheetSummary({ ctx }) {
   const SPELL_COLS = "1.5fr .7fr .8fr .7fr .9fr .8fr";
 
   const Row = ({ label, value }) => (
-    <div className="su-row">
-      <span className="su-row-label">{label}</span>
-      <span className="su-mod" style={{ width: "auto" }}>{value}</span>
+    <div className="byo-row">
+      <span className="byo-row-label">{label}</span>
+      <span className="byo-mod" style={{ width: "auto" }}>{value}</span>
     </div>
   );
 
   return (
     <>
-      <div className="su-panel">
+      <div className="byo-panel">
         <h3>{name.trim() || "Unnamed"}</h3>
-        <p className="su-note">{head}</p>
+        <p className="byo-note">{head}</p>
       </div>
 
       {klass && (
-        <div className="su-vitals">
+        <div className="byo-vitals">
           {[["AC", armorClass], ["HP", hitPoints], ["Initiative", fmt(initiative)],
             ["Speed", speed]].map(([l, v]) => (
-            <div className="su-vital" key={l}>
-              <div className="su-vital-n">{v}</div>
-              <div className="su-vital-l">{l}</div>
+            <div className="byo-vital" key={l}>
+              <div className="byo-vital-n">{v}</div>
+              <div className="byo-vital-l">{l}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* No ability strip here: the app's own live one (SinaUnaCreator's
-          `su-sum` block) is pinned above the step content from the
+      {/* No ability strip here: the app's own live one (CharacterCreator's
+          `byo-sum` block) is pinned above the step content from the
           Abilities step onward and shows the identical six numbers. The
           printed sheet has its own because it has no such running
           header. */}
 
-      <div className="su-panel">
+      <div className="byo-panel">
         <h3>Core</h3>
         {klass && <Row label="Hit die" value={`d${klass.hitDie}`} />}
         <Row label="Proficiency" value={fmt(pb)} />
@@ -97,30 +97,30 @@ export default function SheetSummary({ ctx }) {
       </div>
 
       {savingThrows.length > 0 && (
-        <div className="su-panel">
+        <div className="byo-panel">
           <h3>Saving throws</h3>
           {savingThrows.map((s) => (
-            <div className="su-row" key={s.key}>
-              <span className={`su-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-              <span className="su-row-label">{s.label}</span>
-              <span className="su-final">{fmt(s.value)}</span>
+            <div className="byo-row" key={s.key}>
+              <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+              <span className="byo-row-label">{s.label}</span>
+              <span className="byo-final">{fmt(s.value)}</span>
             </div>
           ))}
         </div>
       )}
 
       {skillTable.length > 0 && (
-        <div className="su-panel">
+        <div className="byo-panel">
           <h3>Skills</h3>
           {/* Two tracks, the same shape the printed sheet's .sk grid uses —
               eighteen skills is a long single column to scan. */}
-          <div className="su-sk-grid">
+          <div className="byo-sk-grid">
             {skillTable.map((s) => (
-              <div className="su-row" key={s.name}>
-                <span className={`su-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-                <span className="su-row-label">{s.name}
-                  <span className="su-ac-parts">{s.ability}</span></span>
-                <span className="su-final">{fmt(s.value)}</span>
+              <div className="byo-row" key={s.name}>
+                <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                <span className="byo-row-label">{s.name}
+                  <span className="byo-ac-parts">{s.ability}</span></span>
+                <span className="byo-final">{fmt(s.value)}</span>
               </div>
             ))}
           </div>
@@ -128,20 +128,20 @@ export default function SheetSummary({ ctx }) {
       )}
 
       {attackRows?.length > 0 && (
-        <div className="su-panel">
+        <div className="byo-panel">
           <h3>Attacks</h3>
-          <div className="su-atk-table">
-            <div className="su-atk-row su-atk-head">
+          <div className="byo-atk-table">
+            <div className="byo-atk-row byo-atk-head">
               <span>Attack</span><span>Range</span><span>Hit / DC</span><span>Damage</span><span>Notes</span>
             </div>
             {attackRows.map((r) => (
-              <div className="su-atk-row" key={r.key}>
-                <span className="su-atk-name">{r.name}
-                  {!r.proficient && <span className="su-tag alt">not proficient</span>}</span>
+              <div className="byo-atk-row" key={r.key}>
+                <span className="byo-atk-name">{r.name}
+                  {!r.proficient && <span className="byo-tag alt">not proficient</span>}</span>
                 <span>{r.range}</span>
-                <span className="su-atk-num">{r.hitOrDC}</span>
-                <span className="su-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
-                <span className="su-atk-notes">{r.notes || "—"}</span>
+                <span className="byo-atk-num">{r.hitOrDC}</span>
+                <span className="byo-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
+                <span className="byo-atk-notes">{r.notes || "—"}</span>
               </div>
             ))}
           </div>
@@ -151,15 +151,15 @@ export default function SheetSummary({ ctx }) {
       {/* Name only, grouped by bucket, exactly as the printed sheet does
           it — the full text is in the feature sections further down. */}
       {actions?.length > 0 && (
-        <div className="su-panel">
+        <div className="byo-panel">
           <h3>Class + Ancestry Actions</h3>
           {ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => (
             <div key={k}>
-              <div className="su-actgroup-l">{ACTION_LABELS[k]}</div>
+              <div className="byo-actgroup-l">{ACTION_LABELS[k]}</div>
               {actions.filter((a) => a.action === k).map((a, i) => (
-                <div className="su-row" key={i}>
-                  <span className="su-row-label">{a.name}</span>
-                  <span className="su-mod" style={{ width: "auto" }}>{a.section}</span>
+                <div className="byo-row" key={i}>
+                  <span className="byo-row-label">{a.name}</span>
+                  <span className="byo-mod" style={{ width: "auto" }}>{a.section}</span>
                 </div>
               ))}
             </div>
@@ -168,8 +168,8 @@ export default function SheetSummary({ ctx }) {
       )}
 
       {casting && !casting.pending && (
-        <div className="su-panel">
-          <h3>Spellcasting <span className="su-count">{casting.label}</span></h3>
+        <div className="byo-panel">
+          <h3>Spellcasting <span className="byo-count">{casting.label}</span></h3>
           <Row label="Save DC" value={casting.saveDC} />
           <Row label="Attack" value={fmt(casting.attack)} />
           <Row label="Ability" value={casting.ability.toUpperCase()} />
@@ -185,8 +185,8 @@ export default function SheetSummary({ ctx }) {
           {casting.spellbook != null && <Row label="Spellbook" value={casting.spellbook} />}
 
           {chosenSpells.length > 0 && (
-            <div className="su-atk-table" style={{ marginTop: 10 }}>
-              <div className="su-atk-row su-atk-head" style={{ gridTemplateColumns: SPELL_COLS }}>
+            <div className="byo-atk-table" style={{ marginTop: 10 }}>
+              <div className="byo-atk-row byo-atk-head" style={{ gridTemplateColumns: SPELL_COLS }}>
                 <span>Spell</span><span>Lvl</span><span>Time</span><span>Range</span>
                 <span>Hit / DC</span><span>Effect</span>
               </div>
@@ -194,23 +194,23 @@ export default function SheetSummary({ ctx }) {
                 const { head: time } = splitCastingTime(sp.time);
                 const mark = spellMark(sp);
                 return (
-                  <div className="su-atk-row" key={sp.name} style={{ gridTemplateColumns: SPELL_COLS }}>
-                    <span className="su-atk-name">{sp.name}{mark ? ` ${mark}` : ""}</span>
-                    <span className="su-atk-num">{sp.level === 0 ? "C" : sp.level}{sp.higher ? "+" : ""}</span>
+                  <div className="byo-atk-row" key={sp.name} style={{ gridTemplateColumns: SPELL_COLS }}>
+                    <span className="byo-atk-name">{sp.name}{mark ? ` ${mark}` : ""}</span>
+                    <span className="byo-atk-num">{sp.level === 0 ? "C" : sp.level}{sp.higher ? "+" : ""}</span>
                     <span>{time}</span>
                     <span>{sp.range}</span>
-                    <span className="su-atk-num">{spellHitDC(sp, casting)}</span>
-                    <span className="su-atk-num">{spellEffect(sp)}</span>
+                    <span className="byo-atk-num">{spellHitDC(sp, casting)}</span>
+                    <span className="byo-atk-num">{spellEffect(sp)}</span>
                   </div>
                 );
               })}
             </div>
           )}
           {spellMarkNotes(chosenSpells).map((n) => (
-            <p className="su-note" key={n} style={{ marginTop: 6 }}>{n}</p>
+            <p className="byo-note" key={n} style={{ marginTop: 6 }}>{n}</p>
           ))}
           {otherSpells.trim() && (
-            <p className="su-note" style={{ marginTop: 6 }}>
+            <p className="byo-note" style={{ marginTop: 6 }}>
               Other: {otherSpells.split("\n").map((x) => x.trim()).filter(Boolean).join(", ")}.
             </p>
           )}
@@ -218,13 +218,13 @@ export default function SheetSummary({ ctx }) {
       )}
 
       {ancestrySpells?.length > 0 && (
-        <div className="su-panel">
+        <div className="byo-panel">
           <h3>Ancestry spells</h3>
           {ancestrySpells.map((sp) => (
-            <div className="su-trait" key={sp.key}>
-              <div className="su-trait-n">{sp.name}
+            <div className="byo-trait" key={sp.key}>
+              <div className="byo-trait-n">{sp.name}
                 <span className="src">{sp.from}{sp.use ? ` — ${sp.use}` : ""}</span></div>
-              <div className="su-trait-t">
+              <div className="byo-trait-t">
                 {sp.level === 0 ? "Cantrip" : `Level ${sp.level}`}. {splitCastingTime(sp.time).head}, {sp.range}.
                 {sp.ability ? ` DC ${sp.saveDC}, attack ${fmt(sp.attack)} (${sp.ability.toUpperCase()}).` : ""}
               </div>
@@ -233,40 +233,40 @@ export default function SheetSummary({ ctx }) {
         </div>
       )}
 
-      <div className="su-panel">
-        <h3>Ancestry traits <span className="su-count">{ancestry.name}</span></h3>
+      <div className="byo-panel">
+        <h3>Ancestry traits <span className="byo-count">{ancestry.name}</span></h3>
         {resolved.traits.map((t) => (
-          <div className="su-trait" key={t.name}>
-            <div className="su-trait-n">{t.name}</div>
-            <div className="su-trait-t">{t.text}</div>
+          <div className="byo-trait" key={t.name}>
+            <div className="byo-trait-n">{t.name}</div>
+            <div className="byo-trait-t">{t.text}</div>
           </div>
         ))}
         {resolved.droppedTraits.length > 0 && (
-          <p className="su-note" style={{ marginTop: 10 }}>
+          <p className="byo-note" style={{ marginTop: 10 }}>
             Replaced by this lineage: {resolved.droppedTraits.map((t) => t.name).join(", ")}.
           </p>
         )}
       </div>
 
       {classNow.length > 0 && (
-        <div className="su-panel">
+        <div className="byo-panel">
           <h3>{klass.name} features</h3>
           {classNow.map((f, i) => (
-            <div className="su-trait" key={`${f[0]}-${f[1]}-${i}`}>
-              <div className="su-trait-n">{f[1]} <span className="src">level {f[0]}</span></div>
-              <div className="su-trait-t">{f[2]}</div>
+            <div className="byo-trait" key={`${f[0]}-${f[1]}-${i}`}>
+              <div className="byo-trait-n">{f[1]} <span className="src">level {f[0]}</span></div>
+              <div className="byo-trait-t">{f[2]}</div>
             </div>
           ))}
         </div>
       )}
 
       {subNow.length > 0 && (
-        <div className="su-panel">
-          <h3>{subclass.name} <span className="su-count">{subclass.group}</span></h3>
+        <div className="byo-panel">
+          <h3>{subclass.name} <span className="byo-count">{subclass.group}</span></h3>
           {subNow.map((f, i) => (
-            <div className="su-trait" key={`${f[0]}-${f[1]}-${i}`}>
-              <div className="su-trait-n">{f[1]} <span className="src">level {f[0]}</span></div>
-              <div className="su-trait-t">
+            <div className="byo-trait" key={`${f[0]}-${f[1]}-${i}`}>
+              <div className="byo-trait-n">{f[1]} <span className="src">level {f[0]}</span></div>
+              <div className="byo-trait-t">
                 {f[2] || `Gained at level ${f[0]}.${subclass.page ? ` See p.${subclass.page}.` : ""}`}
               </div>
             </div>
@@ -275,16 +275,16 @@ export default function SheetSummary({ ctx }) {
       )}
 
       {chosenFeats?.length > 0 && (
-        <div className="su-panel">
+        <div className="byo-panel">
           <h3>Feats</h3>
           {chosenFeats.map(({ feat, from, ability }) => {
             const key = feat.ability?.fixed || ability;
             return (
-              <div className="su-trait" key={feat.id}>
-                <div className="su-trait-n">{feat.name}
+              <div className="byo-trait" key={feat.id}>
+                <div className="byo-trait-n">{feat.name}
                   <span className="src">{from}
                     {feat.ability && key ? ` · +${feat.ability.amount} ${key.toUpperCase()}` : ""}</span></div>
-                <div className="su-trait-t">{feat.text}</div>
+                <div className="byo-trait-t">{feat.text}</div>
               </div>
             );
           })}
@@ -292,22 +292,22 @@ export default function SheetSummary({ ctx }) {
       )}
 
       {background && (
-        <div className="su-panel">
-          <h3>Background <span className="su-count">{background.name}</span></h3>
-          <div className="su-trait">
-            <div className="su-trait-n">{background.feature.name}</div>
-            <div className="su-trait-t">{background.feature.text}</div>
+        <div className="byo-panel">
+          <h3>Background <span className="byo-count">{background.name}</span></h3>
+          <div className="byo-trait">
+            <div className="byo-trait-n">{background.feature.name}</div>
+            <div className="byo-trait-t">{background.feature.text}</div>
           </div>
           {bgChoice && background.choice && (
-            <div className="su-trait">
-              <div className="su-trait-n">{background.choice.name}</div>
-              <div className="su-trait-t">{bgChoice}</div>
+            <div className="byo-trait">
+              <div className="byo-trait-n">{background.choice.name}</div>
+              <div className="byo-trait-t">{bgChoice}</div>
             </div>
           )}
         </div>
       )}
 
-      <div className="su-panel">
+      <div className="byo-panel">
         <h3>Inventory</h3>
         {weaponRows.length > 0 && (
           <Row label="Weapons" value={weaponRows
@@ -321,24 +321,24 @@ export default function SheetSummary({ ctx }) {
       </div>
 
       {(backstory || "").trim() && (
-        <div className="su-panel">
+        <div className="byo-panel">
           <h3>Backstory</h3>
           {(backstory || "").trim().split(/\n\s*\n/).map((block, i) => (
-            <p className="su-trait-t" key={i} style={{ whiteSpace: "pre-line" }}>{block.trim()}</p>
+            <p className="byo-trait-t" key={i} style={{ whiteSpace: "pre-line" }}>{block.trim()}</p>
           ))}
         </div>
       )}
 
       {appendixGroups.length > 0 && (
-        <div className="su-panel">
-          <h3>Reference <span className="su-count">{appendix.length}</span></h3>
+        <div className="byo-panel">
+          <h3>Reference <span className="byo-count">{appendix.length}</span></h3>
           {appendixGroups.map((g) => (
             <div key={g}>
-              <div className="su-actgroup-l">{g}</div>
+              <div className="byo-actgroup-l">{g}</div>
               {appendix.filter((a) => a.group === g).map((a, i) => (
-                <div className="su-trait" key={`${g}-${i}`}>
-                  <div className="su-trait-n">{a.name}</div>
-                  <div className="su-trait-t">{a.text}</div>
+                <div className="byo-trait" key={`${g}-${i}`}>
+                  <div className="byo-trait-n">{a.name}</div>
+                  <div className="byo-trait-t">{a.text}</div>
                 </div>
               ))}
             </div>

@@ -57,25 +57,25 @@ export default class ErrorBoundary extends React.Component {
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="su-crash">
-        <div className="su-panel">
+      <div className="byo-crash">
+        <div className="byo-panel">
           <h3>{this.props.title || "Something broke"}</h3>
-          <p className="su-warn">
+          <p className="byo-warn">
             The app hit an error it couldn't recover from. Your character is still saved
             on this device.
           </p>
-          <p className="su-note">
+          <p className="byo-note">
             Save a copy before anything else — starting over wipes it.
           </p>
-          <div className="su-export-alt">
-            <button className="su-btn su-btn-go" onClick={this.downloadSave}>
+          <div className="byo-export-alt">
+            <button className="byo-btn byo-btn-go" onClick={this.downloadSave}>
               Download my character data
             </button>
-            <button className="su-btn su-btn-danger" onClick={this.startOver}>
+            <button className="byo-btn byo-btn-danger" onClick={this.startOver}>
               Start over
             </button>
           </div>
-          <p className="su-crash-msg">{String(this.state.error?.message || this.state.error)}</p>
+          <p className="byo-crash-msg">{String(this.state.error?.message || this.state.error)}</p>
         </div>
       </div>
     );

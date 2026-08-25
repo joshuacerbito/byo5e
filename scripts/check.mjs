@@ -97,14 +97,14 @@ if (!unbound) console.log("  ✓ no unbound identifiers");
 /* 4 — every className has a matching rule in styles.js */
 console.log("Styles");
 const css = fs.readFileSync("src/styles.js", "utf8");
-const defined = new Set([...css.matchAll(/\.((?:su|ps)-[a-z0-9-]+)/g)].map((m) => m[1]));
+const defined = new Set([...css.matchAll(/\.((?:byo|ps)-[a-z0-9-]+)/g)].map((m) => m[1]));
 const used = new Set();
 for (const f of files) {
   const code = fs.readFileSync(f, "utf8");
   /* className can be a plain string, a template literal with ${...}
-     interpolation, or a ternary — so scan for su-/ps- tokens directly
+     interpolation, or a ternary — so scan for byo-/ps- tokens directly
      rather than trying to parse the attribute value. */
-  for (const m of code.matchAll(/\b((?:su|ps)-[a-z0-9-]+)\b/g)) {
+  for (const m of code.matchAll(/\b((?:byo|ps)-[a-z0-9-]+)\b/g)) {
     if (f.endsWith("styles.js")) continue;
     used.add(m[1]);
   }

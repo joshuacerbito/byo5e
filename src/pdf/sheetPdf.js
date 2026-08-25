@@ -128,7 +128,7 @@ export function buildSheetDocDefinition(ctx) {
           { text: head, fontSize: 8.5, color: '#444444', margin: [0, 3, 0, 0] },
         ],
       },
-      { width: 'auto', text: 'SINA UNA', fontSize: 6.5, characterSpacing: 2, color: '#888888', margin: [0, 0, 0, 2] },
+      { width: 'auto', text: 'BYO5E', fontSize: 6.5, characterSpacing: 2, color: '#888888', margin: [0, 0, 0, 2] },
     ],
     columnGap: 12,
     margin: [0, 0, 0, 5],
@@ -410,7 +410,7 @@ export function buildSheetDocDefinition(ctx) {
   return {
     pageSize: 'A4',
     pageMargins: [36, 34, 36, 34],
-    info: { title: `${charName} — character sheet`, author: 'Sina Una character creator' },
+    info: { title: `${charName} — character sheet`, author: 'Bring Your Own 5e' },
     content,
     footer: (page, pages) => ({
       columns: [

@@ -25,25 +25,25 @@ export default function SpellTableRow({ sp, on, full, onToggle, casting }) {
      1.5fr column, and "RITUAL CONC" pushed long names into a second line. */
   const tags = [sp.ritual && ["R", "Ritual"], sp.conc && ["C", "Concentration"]].filter(Boolean);
   return (
-    <button className={`su-sprow su-sprow-tbl ${on ? "is-sel" : ""}`} onClick={onToggle}
+    <button className={`byo-sprow byo-sprow-tbl ${on ? "is-sel" : ""}`} onClick={onToggle}
             disabled={full} aria-pressed={on}>
-      <span className={`su-dot at-top${on ? " is-on" : ""}`} aria-hidden="true" />
-      <span className="su-atk-table" style={{ flex: 1 }}>
-        <span className="su-atk-row" style={{ gridTemplateColumns: "1.5fr .7fr .8fr .7fr .9fr 1fr" }}>
-          <span className="su-spell-n">{sp.name}{tags.map(([short, full]) => (
-            <span className="su-tag one" key={short} title={full} aria-label={full}>{short}</span>
+      <span className={`byo-dot at-top${on ? " is-on" : ""}`} aria-hidden="true" />
+      <span className="byo-atk-table" style={{ flex: 1 }}>
+        <span className="byo-atk-row" style={{ gridTemplateColumns: "1.5fr .7fr .8fr .7fr .9fr 1fr" }}>
+          <span className="byo-spell-n">{sp.name}{tags.map(([short, full]) => (
+            <span className="byo-tag one" key={short} title={full} aria-label={full}>{short}</span>
           ))}</span>
           <span>{time}</span>
           <span>{sp.range}</span>
-          <span className="su-atk-num">{hitOrDC(sp, casting)}</span>
-          <span className={eff.icon === "heal" ? "su-atk-num su-heal" : "su-atk-num"}>{eff.text}</span>
-          <span className="su-atk-notes">{sp.page ? `${sp.src === "scc" ? "SCC " : ""}p.${sp.page}` : "PHB"}</span>
+          <span className="byo-atk-num">{hitOrDC(sp, casting)}</span>
+          <span className={eff.icon === "heal" ? "byo-atk-num byo-heal" : "byo-atk-num"}>{eff.text}</span>
+          <span className="byo-atk-notes">{sp.page ? `${sp.src === "scc" ? "SCC " : ""}p.${sp.page}` : "PHB"}</span>
         </span>
-        {trigger ? <span className="su-spell-trig">Trigger: {trigger}</span> : null}
+        {trigger ? <span className="byo-spell-trig">Trigger: {trigger}</span> : null}
         {sp.text
-          ? <span className="su-spell-t">{sp.text}</span>
-          : <span className="su-spell-t su-spell-none">Description not loaded — see the Player's Handbook.</span>}
-        {sp.higher ? <span className="su-spell-hl"><b>At Higher Levels.</b> {sp.higher}</span> : null}
+          ? <span className="byo-spell-t">{sp.text}</span>
+          : <span className="byo-spell-t byo-spell-none">Description not loaded — see the Player's Handbook.</span>}
+        {sp.higher ? <span className="byo-spell-hl"><b>At Higher Levels.</b> {sp.higher}</span> : null}
       </span>
     </button>
   );

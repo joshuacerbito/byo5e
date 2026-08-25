@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import SinaUnaCreator from "./SinaUnaCreator.jsx";
+import CharacterCreator from "./CharacterCreator.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { STYLES } from "./styles.js";
 
@@ -12,7 +12,7 @@ createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <style>{STYLES}</style>
     <ErrorBoundary title="The character creator crashed">
-      <SinaUnaCreator />
+      <CharacterCreator />
     </ErrorBoundary>
   </React.StrictMode>
 );
