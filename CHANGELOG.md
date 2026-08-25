@@ -7,6 +7,35 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-26 (even later)
+
+### Added
+
+- **The step rail is clickable.** Every step is now a numbered button — jump straight to any
+  step that's actually open to you, not just Back/Next one at a time. A step only locks when it
+  truly can't render without something earlier (Defenses, Inventory and Sheet need a species
+  picked; Spells needs a spellcasting class); Class, Abilities, Background and Advancement never
+  needed the others done first and are open as soon as an edition's picked. Hovering a locked
+  step's number shows what it's waiting on.
+
+### Changed
+
+- **The rail is wider and always one line.** Numbers replace the old chevron arrows, labels are
+  always visible instead of only on the current step, and the page itself grows with the window
+  on desktop instead of staying pinned to a phone-width column — the rail scrolls sideways on a
+  narrow screen rather than wrapping into a tall stack.
+- **Downloads are disabled until every step is finished.** All five sheet/character exports
+  (three PDF routes, the raw HTML, the .json) refuse to run with a step still open, with a note
+  pointing back at the rail.
+
+### Fixed
+
+- **A step could look "done" (jade) before you'd ever visited it.** Steps with no completeness
+  rule of their own — Advancement at level 1, Defenses, Inventory, Sheet — used to fall through
+  to "always complete," so the rail painted them jade from the very first screen while still
+  correctly refusing to let you click them. Now a step only counts as done once you've actually
+  reached it.
+
 ## 2026-08-26
 
 ### Changed

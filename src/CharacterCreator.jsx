@@ -115,6 +115,13 @@ export default function CharacterCreator() {
   }, [edition]);
 
   const [step, setStep] = useState(saved?.step ?? DEFAULTS.step);
+  /* Furthest step reached so far — the rail lets you jump freely to any
+     step you've already visited, even if something picked later would,
+     recomputed live, make an earlier step look incomplete again (e.g. a
+     class feature unlocked by a level gained on Advancement). Only the
+     Next button's forward move is gated on live completeness. */
+  const [maxStep, setMaxStep] = useState(saved?.maxStep ?? saved?.step ?? DEFAULTS.step);
+  useEffect(() => { setMaxStep((m) => Math.max(m, step)); }, [step]);
   const [ancestryId, setAncestryId] = useState(saved?.ancestryId ?? DEFAULTS.ancestryId);
   const [ancestryPicks, setAncestryPicks] = useState(saved?.ancestryPicks ?? DEFAULTS.ancestryPicks);
   const [ancestrySpellPicks, setAncestrySpellPicks] = useState(saved?.ancestrySpellPicks ?? DEFAULTS.ancestrySpellPicks);
@@ -772,36 +779,67 @@ export default function CharacterCreator() {
   const here = STEPS[step] || STEPS[STEPS.length - 1];
   const at = (nm) => STEPS.indexOf(nm);
 
-  const canAdvance = () => {
-    if (here === "Edition") return !!content;
-    if (here === "Species/Race") return !!ancestry && ancestryChoiceMade;
-    if (here === "Abilities") return mode === "pointbuy" ? true : Object.keys(arrayAssign).length === 6;
-    if (here === "Class") {
+  /* Whether a named step (not necessarily the current one) is complete —
+     drives both the Next button and which rail steps are done/jumpable. */
+  const stepComplete = (name) => {
+    if (name === "Edition") return !!content;
+    if (name === "Species/Race") return !!ancestry && ancestryChoiceMade;
+    if (name === "Abilities") return mode === "pointbuy" ? true : Object.keys(arrayAssign).length === 6;
+    if (name === "Class") {
       if (!klass) return false;
       if (skillsLeft > 0) return false;
       if (optionChoiceGroups.some((g) => (optionPicks[g.key] || []).length < g.budget)) return false;
       if (klass.subclassLevel != null && subclassOn && !subclass) return false;
       return true;
     }
-    if (here === "Background") {
+    if (name === "Background") {
       if (!background) return false;
       if (bgSkillChoice && bgSkillPicks.length !== bgSkillChoice.count && bgSkillPool.length >= bgSkillChoice.count) return false;
       if (background.abilityChoices && !bgAbilitySlots.auto && bgAbilityPicks.length !== bgAbilitySlots.count) return false;
       return true;
     }
-    if (here === "Advancement") return !asiIncomplete;
+    if (name === "Advancement") return !asiIncomplete;
     return true;
   };
+  const canAdvance = () => stepComplete(here);
+  /* Reachable by clicking a rail step directly: whatever that step's own
+     render actually needs to show something, not "every step before it
+     is done" — Class and Abilities only read `content` (an ancestry
+     bonus is just +0 until one's picked) and Advancement/Background
+     degrade to their own "pick X first" stub when visited early, so none
+     of those gate on anything upstream. Defenses, Inventory and Sheet do
+     read ancestry-derived numbers (AC, proficiencies, the whole sheet)
+     and render nothing without it, so those stay gated on ancestry;
+     Spells on having a caster. */
+  const stepPrereqOk = (name) => {
+    if (name === "Edition") return true;
+    if (name === "Defenses" || name === "Inventory" || name === "Sheet") return !!ancestry;
+    if (name === "Spells") return !!casting;
+    return !!content;
+  };
+  const stepReachable = (i) => stepPrereqOk(STEPS[i]);
+  /* What the rail tooltip says on a step it won't let you jump to yet —
+     names the actual missing thing, same list stepPrereqOk checks. */
+  const stepLockedReason = (name) => {
+    if (name === "Edition") return null;
+    if (name === "Defenses" || name === "Inventory" || name === "Sheet") return ancestry ? null : "Pick a species first";
+    if (name === "Spells") return casting ? null : "Pick a spellcasting class first";
+    return content ? null : "Pick an edition first";
+  };
+  /* Gate every download on the whole character being finished, not just
+     reached — the Sheet step itself has no completeness rule of its own
+     (stepComplete falls through to true for it), so it's excluded here. */
+  const allStepsDone = STEPS.every((s) => s === "Sheet" || stepComplete(s));
 
   /* ------------------------------------------------------------------
      PERSISTENCE
   ------------------------------------------------------------------- */
   const snapshot = useMemo(() => ({
-    edition, step, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
+    edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
     classEquipPicks, bgEquipPicks, pickedSpellIds, otherSpells,
-  }), [edition, step, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
+  }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
     classEquipPicks, bgEquipPicks, pickedSpellIds, otherSpells]);
@@ -812,6 +850,7 @@ export default function CharacterCreator() {
     clearSaved();
     pickEdition(DEFAULTS.edition);
     setStep(DEFAULTS.step);
+    setMaxStep(DEFAULTS.step);
     setName(DEFAULTS.name); setBackstory(DEFAULTS.backstory);
     setShowResetConfirm(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -964,17 +1003,21 @@ export default function CharacterCreator() {
 
         <div className="byo-rail">
           {STEPS.map((s, i) => {
-            const state = i < step ? "is-done" : i === step ? "is-now" : "is-todo";
-            const stroke = i < step ? "#3FA98A" : i === step ? "#D4A537" : "#4C6076";
+            /* A step with no completeness rule of its own (Advancement at
+               level 1, Defenses, Inventory, Sheet) falls through to "true"
+               in stepComplete — right for gating Next, wrong for the rail:
+               it would show jade before you've ever been there. Only count
+               a step done once you've actually reached it. */
+            const state = i === step ? "is-now" : i <= maxStep && stepComplete(s) ? "is-done" : "is-todo";
+            const jumpable = i !== step && stepReachable(i);
+            const lockedReason = !jumpable && i !== step ? stepLockedReason(s) : null;
             return (
-              <div key={s} className={`byo-chev ${state}`}>
-                <svg width="13" height="15" viewBox="0 0 13 15" fill="none" aria-hidden="true">
-                  <path d="M1 1.5L6.5 7.5L1 13.5" stroke={stroke} strokeWidth="1.6" />
-                  <path d="M6 1.5L11.5 7.5L6 13.5" stroke={stroke} strokeWidth="1.6"
-                        opacity={i <= step ? "1" : "0.4"} />
-                </svg>
-                {i === step && <span className="byo-chev-label">{s}</span>}
-              </div>
+              <button key={s} type="button" className={`byo-chev ${state}`} title={lockedReason || s}
+                      disabled={!jumpable}
+                      onClick={() => { setStep(i); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                <span className="byo-chev-n">{i + 1}</span>
+                <span className="byo-chev-label">{s}</span>
+              </button>
             );
           })}
         </div>
@@ -1102,8 +1145,13 @@ export default function CharacterCreator() {
           )}
 
           {/* ---------------- ABILITIES ---------------- */}
-          {here === "Abilities" && ancestry && (
+          {here === "Abilities" && content && (
             <>
+              {!ancestry && (
+                <p className="byo-note" style={{ marginBottom: 14 }}>
+                  No species picked yet — any ability bonuses it grants will show up here once you pick one.
+                </p>
+              )}
               <div className="byo-choice" style={{ marginBottom: 14 }}>
                 <button className={`byo-opt ${mode === "pointbuy" ? "is-sel" : ""}`} onClick={() => setMode("pointbuy")}>Point buy</button>
                 <button className={`byo-opt ${mode === "array" ? "is-sel" : ""}`} onClick={() => setMode("array")}>Standard array</button>
@@ -1803,18 +1851,23 @@ export default function CharacterCreator() {
               <SheetSummary ctx={sheetCtx} />
               <Rule />
 
+              {!allStepsDone && (
+                <p className="byo-warn">Finish every earlier step before saving — check the rail above for anything
+                  still gold or grey.</p>
+              )}
+
               <div className="byo-export byo-export-stack">
                 <div className="byo-export-t">Character sheet</div>
                 <div className="byo-export-alt">
-                  <button className="byo-btn byo-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
-                  <button className="byo-btn byo-btn-ios" onClick={saveForIOS} disabled={pdfState === "working"}>
+                  <button className="byo-btn byo-btn-go" onClick={printSheet} disabled={!allStepsDone}>Save on Android/Mac/PC</button>
+                  <button className="byo-btn byo-btn-ios" onClick={saveForIOS} disabled={!allStepsDone || pdfState === "working"}>
                     {pdfState === "working" ? "Building…" : "Save on iOS"}
                   </button>
-                  <button className="byo-btn byo-btn-alt" onClick={saveVector} disabled={pdfState === "working"}>Save for other devices</button>
+                  <button className="byo-btn byo-btn-alt" onClick={saveVector} disabled={!allStepsDone || pdfState === "working"}>Save for other devices</button>
                 </div>
               </div>
               <p className="byo-note" style={{ marginTop: -2 }}>
-                <button className="byo-linkbtn" onClick={downloadSheet}>Download the raw HTML</button> instead.
+                <button className="byo-linkbtn" onClick={downloadSheet} disabled={!allStepsDone}>Download the raw HTML</button> instead.
               </p>
 
               <div className="byo-export byo-export-stack">
@@ -1822,7 +1875,7 @@ export default function CharacterCreator() {
                   <div className="byo-export-t">Character data</div>
                   <div className="byo-export-s">A .json file of every choice you made. Keep it somewhere the browser can't clear.</div>
                 </div>
-                <button className="byo-btn byo-btn-alt" onClick={exportCharacter}>Export .json</button>
+                <button className="byo-btn byo-btn-alt" onClick={exportCharacter} disabled={!allStepsDone}>Export .json</button>
               </div>
               {pdfState === "error" && <p className="byo-warn">That export failed. Try one of the other buttons.</p>}
               {!name.trim() && <p className="byo-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>}

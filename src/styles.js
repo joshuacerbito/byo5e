@@ -12,22 +12,37 @@ export const STYLES = `
   font-family:'Karla',system-ui,sans-serif; min-height:100vh;
   padding:28px 18px 120px; -webkit-font-smoothing:antialiased;
 }
-.byo-wrap{max-width:800px;margin:0 auto;}
+.byo-wrap{max-width:min(94vw,1180px);margin:0 auto;}
 .byo-h1{font-family:'Fraunces',serif;font-weight:800;font-size:38px;line-height:1.05;
   margin:0 0 4px;color:var(--gold);letter-spacing:-.01em;}
 .byo-h2{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;
   text-transform:uppercase;color:var(--bone-dim);margin:10px 0 22px;}
 .byo-sub{color:var(--bone-dim);font-size:14px;margin:0 0 22px;}
 
-/* batok rail — chevron linework, filled as you progress */
-.byo-rail{display:flex;gap:5px;align-items:center;margin:0 0 26px;flex-wrap:wrap;}
-.byo-chev{display:flex;align-items:center;gap:7px;}
-.byo-chev svg{display:block;}
-.byo-chev-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;
+/* Step rail — numbered, one line always. Fits flat on a wide viewport
+   since .byo-wrap grows with it; too narrow for that and it scrolls
+   sideways as one row rather than wrapping into a tall stack. */
+.byo-rail{display:flex;gap:4px;align-items:center;margin:0 0 26px;flex-wrap:nowrap;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;-webkit-overflow-scrolling:touch;
+  padding-bottom:2px;}
+.byo-chev{display:flex;align-items:center;gap:8px;background:none;border:1px solid transparent;
+  padding:8px 10px;margin:0;font:inherit;cursor:pointer;border-radius:7px;min-height:36px;
+  flex:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+.byo-chev:disabled{cursor:default;}
+.byo-chev:not(:disabled):hover{background:var(--rock-2);border-color:var(--line);}
+.byo-chev:not(:disabled):active{background:var(--rock-2);}
+.byo-chev.is-now{background:var(--rock-2);border-color:var(--gold-dim);}
+.byo-chev-n{display:flex;align-items:center;justify-content:center;flex:none;
+  width:20px;height:20px;border-radius:50%;border:1px solid #4C6076;
+  font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#4C6076;}
+.byo-chev.is-now .byo-chev-n{border-color:var(--gold);color:var(--gold);}
+.byo-chev.is-done .byo-chev-n{border-color:var(--jade);color:var(--jade);background:rgba(63,169,138,.12);}
+.byo-chev-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--bone-dim);}
 .byo-chev.is-now .byo-chev-label{color:var(--gold);}
 .byo-chev.is-done .byo-chev-label{color:var(--jade);}
 .byo-chev.is-todo .byo-chev-label{color:#4C6076;}
+.byo-chev:disabled .byo-chev-label{opacity:.55;}
 
 .byo-card{background:var(--rock);border:1px solid var(--line);border-radius:3px;
   padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:border-color .14s,background .14s;
@@ -110,7 +125,7 @@ export const STYLES = `
 
 .byo-nav{position:fixed;left:0;right:0;bottom:0;background:rgba(11,22,34,.96);
   border-top:1px solid var(--line);padding:13px 18px;backdrop-filter:blur(8px);}
-.byo-nav-in{max-width:800px;margin:0 auto;display:flex;gap:10px;align-items:center;}
+.byo-nav-in{max-width:min(94vw,1180px);margin:0 auto;display:flex;gap:10px;align-items:center;}
 .byo-btn{font-family:'Karla',sans-serif;font-weight:700;font-size:14px;padding:11px 22px;
   border-radius:2px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--bone-dim);}
 .byo-btn:hover:not(:disabled){border-color:var(--gold-dim);color:var(--bone);}
@@ -124,6 +139,7 @@ export const STYLES = `
   color:var(--gold-dim);text-decoration:underline;text-underline-offset:2px;}
 .byo-linkbtn:hover{color:var(--gold);}
 .byo-linkbtn:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+.byo-linkbtn:disabled{color:#4C6076;text-decoration:none;cursor:default;}
 
 /* Start over holds the left end and everything else is pushed right, so
    Back and Next end up adjacent as a pair. Scoped to the nav: the same
