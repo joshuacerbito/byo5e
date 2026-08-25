@@ -12,7 +12,7 @@ import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORD
    a button nobody can click has no business rendering behind it. */
 export function buildSheetHTML(ctx, { interactive = true } = {}) {
   const {
-    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore,
+    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore, backstory,
     attackRows, masteryEnabled, carriedWeapons, actions, ancestrySpells, chosenFeats, classFeatures,
   } = ctx;
 
@@ -105,6 +105,14 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
       `<p><b>Equipment.</b> ${background.equipment.map(esc).join(", ")}.</p>`,
       background.tools?.length ? `<p><b>Tools.</b> ${background.tools.map(esc).join(", ")}.</p>` : "",
     ].join("") : "";
+
+    /* Player-written prose. Blank lines separate paragraphs; a lone newline
+       is a line break inside one, so a bullet list pasted in keeps its shape. */
+    const backstoryHtml = (backstory || "").trim()
+      ? (backstory || "").trim().split(/\n\s*\n/)
+          .map((para) => `<p>${para.split("\n").map((l) => esc(l.trim())).join("<br>")}</p>`)
+          .join("")
+      : "";
 
     /* Everything the character starts with, in one place — weapons +
        armor + class/background gear + starting gold. Same at-a-glance
@@ -291,6 +299,7 @@ ${feats ? `<section><h4>${esc(subclass.name)} — ${esc(subclass.group)}</h4>${f
 ${featsHtml ? `<section><h4>Feats</h4>${featsHtml}</section>` : ""}
 ${bg ? `<section><h4>Background — ${esc(background.name)}</h4>${bg}</section>` : ""}
 ${inventoryHtml ? `<section><h4>Inventory</h4>${inventoryHtml}</section>` : ""}
+${backstoryHtml ? `<section><h4>Backstory</h4>${backstoryHtml}</section>` : ""}
 ${appx}
 </body></html>`;
 }

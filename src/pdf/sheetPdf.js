@@ -108,6 +108,7 @@ export function buildSheetDocDefinition(ctx) {
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
     savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, ancestrySpells,
     finalScore, attackRows, masteryEnabled, carriedWeapons, actions, chosenFeats, classFeatures,
+    backstory,
   } = ctx;
 
   const charName = name.trim() || 'Unnamed';
@@ -384,6 +385,15 @@ export function buildSheetDocDefinition(ctx) {
     content.push(para('Armor', `${armor && armor.id !== 'none' ? armor.name : 'None'}${shieldOn ? ' + shield' : ''}.`));
     if (gearList.length) content.push(para('Gear', `${gearList.join(', ')}.`));
     content.push(para('Currency', `${startingGold.gp} gp.`));
+  }
+
+  /* Player-written prose. Blank lines separate paragraphs; single newlines
+     inside one are kept, since pdfmake honours them in a text run. */
+  if ((backstory || '').trim()) {
+    content.push(...heading('Backstory'));
+    (backstory || '').trim().split(/\n\s*\n/).forEach((block) => {
+      content.push({ text: block.split('\n').map((l) => l.trim()).join('\n'), style: 'p' });
+    });
   }
 
   /* ---- reference appendix ---- */

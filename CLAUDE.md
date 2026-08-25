@@ -360,7 +360,7 @@ untouched, so the Reference appendix still prints the full string.
 
 **The Sheet step shows the whole sheet on screen.** `components/SheetSummary.jsx` renders every
 section the printed sheet carries — vitals, core, saves, skills, attacks, actions, spellcasting,
-traits, class and subclass features, feats, background, inventory, reference — from the same
+traits, class and subclass features, feats, background, inventory, backstory, reference — from the same
 `sheetCtx` object the three export routes read. That shared input is the point: a field missing
 from the summary is a field missing from the file, so the two can't drift.
 
@@ -374,8 +374,15 @@ the print sheet's `.sk` grid — eighteen rows is a long single column to scan �
 which tightens its gap under the 430px breakpoint rather than collapsing to one column.
 
 The export buttons sit **below** the summary, not above it: the page reads as the sheet itself,
-then what to do with it. Order on the step is name → summary → export buttons → plain text →
-start over.
+then what to do with it. Order on the step is name → backstory → summary → export buttons →
+plain text → start over.
+
+**Backstory is free text the player writes.** A `backstory` string in the root state, saved with
+everything else, typed on the Sheet step under the name and printed on every route. It sits
+**after** Inventory on the sheet — the last thing on the character's own pages, before the
+Reference appendix — because it is the one section nothing looks up mid-turn. Blank lines
+separate paragraphs; a single newline is a line break inside one, so a pasted list keeps its
+shape. Empty means the section is not rendered at all rather than printing an empty box.
 
 `spellHitDC` / `spellEffect` moved to `derive.js` when this landed — they existed as three
 identical copies in `sheetHtml.js`, `sheetPdf.js` and here. `SpellTableRow` keeps its own, since

@@ -7,6 +7,18 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-25 (later still, again)
+
+### Added
+
+- **A backstory box.** The Sheet step now has a free-text field under the character's name for
+  whoever they are, where they came from and why they left. It saves with the rest of the
+  character and prints on every route — the HTML sheet, both PDFs and the plain-text copy —
+  sitting after the Inventory, at the end of the character's own pages and before the Reference
+  appendix, since it is the one section nobody looks up mid-turn. Blank lines start new
+  paragraphs, so a few paragraphs stay a few paragraphs. Leave it empty and the section doesn't
+  print at all.
+
 ## 2026-08-25 (later still)
 
 ### Changed
