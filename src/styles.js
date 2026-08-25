@@ -61,6 +61,12 @@ export const STYLES = `
 .su-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);}
 .su-row:last-child{border-bottom:none;}
 .su-row-label{flex:1;font-size:14px;}
+/* Skills on the Sheet step's summary, two tracks like the printed sheet's
+   .sk grid. The column gap needs its own hairline-free edge, so the rows
+   keep their own bottom border and only the true last row loses it. */
+.su-sk-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:44px;}
+.su-sk-grid .su-row{border-bottom:1px solid var(--line);}
+.su-sk-grid .su-row:last-child,.su-sk-grid .su-row:nth-last-child(2):nth-child(odd){border-bottom:none;}
 .su-step{display:flex;align-items:center;gap:8px;}
 .su-btn-sq{width:26px;height:26px;border:1px solid var(--line);background:transparent;
   color:var(--bone);font-size:15px;line-height:1;border-radius:2px;cursor:pointer;}
@@ -136,6 +142,10 @@ export const STYLES = `
   .su-nav{padding:11px 12px;}
   .su-nav-in{gap:6px;}
   .su-nav .su-btn{padding:11px 12px;font-size:13px;}
+  /* Two skill tracks still fit a phone, but not at the desktop gap. */
+  .su-sk-grid{column-gap:18px;}
+  .su-sk-grid .su-row{gap:7px;}
+  .su-sk-grid .su-row-label{font-size:13px;}
 }
 
 .su-btn-danger{border-color:var(--coral);color:var(--coral);}

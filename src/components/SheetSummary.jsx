@@ -112,14 +112,18 @@ export default function SheetSummary({ ctx }) {
       {skillTable.length > 0 && (
         <div className="su-panel">
           <h3>Skills</h3>
-          {skillTable.map((s) => (
-            <div className="su-row" key={s.name}>
-              <span className={`su-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-              <span className="su-row-label">{s.name}
-                <span className="su-ac-parts">{s.ability}</span></span>
-              <span className="su-final">{fmt(s.value)}</span>
-            </div>
-          ))}
+          {/* Two tracks, the same shape the printed sheet's .sk grid uses —
+              eighteen skills is a long single column to scan. */}
+          <div className="su-sk-grid">
+            {skillTable.map((s) => (
+              <div className="su-row" key={s.name}>
+                <span className={`su-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                <span className="su-row-label">{s.name}
+                  <span className="su-ac-parts">{s.ability}</span></span>
+                <span className="su-final">{fmt(s.value)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

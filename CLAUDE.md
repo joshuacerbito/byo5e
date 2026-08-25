@@ -369,7 +369,13 @@ document; dropping one into the dark UI would be unreadable on a phone at a tabl
 reason the app is dark at all. Two things it does not repeat: the ability strip (the app's own
 live `su-sum` bar is pinned above the step content from the Abilities step onward and shows the
 same six numbers) and the print-width column layout (it reuses `su-atk-row`, overriding
-`gridTemplateColumns` inline the way `SpellTableRow` does).
+`gridTemplateColumns` inline the way `SpellTableRow` does). The skills list *is* two-track like
+the print sheet's `.sk` grid — eighteen rows is a long single column to scan — via `.su-sk-grid`,
+which tightens its gap under the 430px breakpoint rather than collapsing to one column.
+
+The export buttons sit **below** the summary, not above it: the page reads as the sheet itself,
+then what to do with it. Order on the step is name → summary → export buttons → plain text →
+start over.
 
 `spellHitDC` / `spellEffect` moved to `derive.js` when this landed — they existed as three
 identical copies in `sheetHtml.js`, `sheetPdf.js` and here. `SpellTableRow` keeps its own, since

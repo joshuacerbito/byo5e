@@ -2340,6 +2340,13 @@ export default function SinaUnaCreator() {
 
             <Rule />
 
+            {/* The same `sheetCtx` the three export routes read, rendered
+                in the app's own styling. If a field is missing here it's
+                missing from the file too. */}
+            <SheetSummary ctx={sheetCtx} />
+
+            <Rule />
+
             <div className="su-export su-export-stack">
               <div className="su-export-t">Character sheet</div>
               <div className="su-export-alt">
@@ -2362,18 +2369,6 @@ export default function SinaUnaCreator() {
             {!name.trim() && (
               <p className="su-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>
             )}
-
-            <Rule />
-
-            <p className="su-note" style={{ marginBottom: 12 }}>
-              Everything below is what the file contains. Length isn't fixed to a page
-              count — it flows to however many pages the character actually needs.
-            </p>
-
-            {/* The same `sheetCtx` the three export routes read, rendered
-                in the app's own styling. If a field is missing here it's
-                missing from the file too. */}
-            <SheetSummary ctx={sheetCtx} />
 
             <Rule />
 

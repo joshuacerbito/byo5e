@@ -17,6 +17,13 @@ Dates are the day the work landed.
   `Dart ×10` on one line. Nothing about the numbers changes — copies of a weapon always had
   identical stats, so there was never anything to lose by collapsing them. The app, the
   printed sheet and both PDF routes all pick this up together.
+- **The Sheet step's skills list is two columns**, the way it has always been on the printed
+  sheet. Eighteen skills in one column meant scrolling past most of the character to reach
+  Survival.
+- **The save buttons moved below the sheet summary.** The step now reads as the character
+  sheet first and what to do with it second: name, the whole sheet, then the three save
+  buttons, then the plain-text copy. The line explaining that the file has no fixed page
+  count went with the move — the summary above it is the explanation.
 
 ## 2026-08-25 (later)
 
