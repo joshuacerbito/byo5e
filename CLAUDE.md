@@ -198,7 +198,9 @@ armor) and `CLASSES[id].weaponProf` (`{ categories, specific }`, checked by
 `isWeaponProficient()` in `derive.js`). Weapon stats live in `src/data/weapons.js`
 (`WEAPONS`, 37 PHB + 18 Sina Una weapons — one flat array, the app never distinguishes the two
 sources downstream). Unarmed Strike (1 + Str mod, the 2014 damage — not 2024's d4) is
-always listed. Background `equipment` stays prose-only, shown on the Background step — it was
+always listed. Rows are built from `groupWeapons(carriedWeapons)`, not the flat list, so a
+monk's ten darts are one `Dart ×10` row rather than ten identical ones — same dedupe the
+Inventory step uses. Background `equipment` stays prose-only, shown on the Background step — it was
 never wired into the attack table (see Weapon Mastery note above for the one 2024 add-on this
 table carries). The printable sheet gets the same table (`attackRows` from `sheetCtx`), on the
 main pages rather than the appendix — it's meant for at-a-glance use during play.

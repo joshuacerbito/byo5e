@@ -7,6 +7,17 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-25 (later still)
+
+### Changed
+
+- **Identical weapons are one row in the Attacks table**, the way they already were in the
+  Inventory. A monk starts with ten darts and used to get ten separate Dart rows, each with
+  the same to-hit and the same damage, pushing everything else off the page. It now reads
+  `Dart ×10` on one line. Nothing about the numbers changes — copies of a weapon always had
+  identical stats, so there was never anything to lose by collapsing them. The app, the
+  printed sheet and both PDF routes all pick this up together.
+
 ## 2026-08-25 (later)
 
 Xanathar's Guide to Everything and Tasha's Cauldron of Everything, folded in. Both books

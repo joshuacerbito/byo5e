@@ -526,7 +526,7 @@ export default function SinaUnaCreator() {
     const str = mod(finalScore("str"));
     const dex = mod(finalScore("dex"));
     const rows = [];
-    carriedWeapons.forEach((w, i) => {
+    groupedWeapons.forEach(({ weapon: w, qty }) => {
       const proficient = isWeaponProficient(w, weaponProf);
       const finesse = w.properties.includes("F");
       const ranged = w.kind === "ranged";
@@ -536,7 +536,7 @@ export default function SinaUnaCreator() {
       if (w.dmg2) notes.push(`Versatile — ${w.dmg2}${fmt(abilityMod)} two-handed`);
       if (masteryEnabled && WEAPON_MASTERY_2024[w.id]) notes.push(`Mastery: ${WEAPON_MASTERY_2024[w.id]}`);
       rows.push({
-        key: `${w.id}-${i}`, name: w.name, range: w.range ? w.range.replace("/", " / ") + " ft" : (ranged ? "—" : "5 ft"),
+        key: w.id, name: qty > 1 ? `${w.name} ×${qty}` : w.name, range: w.range ? w.range.replace("/", " / ") + " ft" : (ranged ? "—" : "5 ft"),
         hitOrDC: fmt(atk),
         damage: w.dmg1 ? `${w.dmg1}${fmt(abilityMod)}` : "—",
         dmgType: w.dmgType ? DMG_TYPE_LABELS[w.dmgType] : null,
@@ -549,7 +549,7 @@ export default function SinaUnaCreator() {
       damage: `${1 + str}`, dmgType: "bludgeoning", notes: "", proficient: true,
     });
     return rows;
-  }, [resolved, klass, weaponProf, carriedWeapons, pb, masteryEnabled, scores, arrayAssign, mode, scoreAdj]);
+  }, [resolved, klass, weaponProf, groupedWeapons, pb, masteryEnabled, scores, arrayAssign, mode, scoreAdj]);
 
   /* The class's features for this character: its own, plus whatever
      the extra books add. Tasha's optional features only join in when
