@@ -41,11 +41,11 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
     ].filter(Boolean).map(([k, v]) => `<div class="ln"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("");
 
     const saves = savingThrows.map((s) =>
-      `<div class="ln${s.proficient ? " p" : ""}"><span class="dot">${s.proficient ? "●" : "○"}</span>` +
+      `<div class="ln${s.proficient ? " p" : ""}"><span class="dot"></span>` +
       `<span>${s.label}</span><b>${fmt(s.value)}</b></div>`).join("");
 
     const skills = skillTable.map((s) =>
-      `<div class="ln${s.proficient ? " p" : ""}"><span class="dot">${s.proficient ? "●" : "○"}</span>` +
+      `<div class="ln${s.proficient ? " p" : ""}"><span class="dot"></span>` +
       `<span>${s.name} <em>${s.ability}</em></span><b>${fmt(s.value)}</b></div>`).join("");
 
     const traits = resolved.traits.map((t) =>
@@ -227,8 +227,11 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
   .ln{display:flex;align-items:baseline;gap:6px;padding:2px 0;font-size:9.5pt}
   .ln span:not(.dot){flex:1}
   .ln em{font-size:7pt;text-transform:uppercase;color:#888;font-style:normal;letter-spacing:.06em;margin-left:3px}
-  .dot{font-size:8pt;width:9px;flex:none!important;color:#bbb}
-  .ln.p .dot{color:#111}
+  /* Drawn, not typed: Windows renders ●/○ from a fallback face at a
+     noticeably smaller size than macOS does. */
+  .dot{width:7px;height:7px;flex:none!important;box-sizing:border-box;border-radius:50%;
+    border:1px solid #bbb;align-self:center}
+  .ln.p .dot{border-color:#111;background:#111}
   /* Grid, not column-count: CSS multi-column doesn't survive the
      rasteriser the iOS export runs the sheet through. */
   .sk{display:grid;grid-template-columns:1fr 1fr;column-gap:22px}

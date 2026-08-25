@@ -1511,7 +1511,7 @@ export default function SinaUnaCreator() {
                   <h3>Saving throws <span className="su-count">proficiency {fmt(pb)}</span></h3>
                   {savingThrows.map((s) => (
                     <div className="su-row" key={s.key}>
-                      <span className="su-prof" aria-hidden="true">{s.proficient ? "●" : "○"}</span>
+                      <span className={`su-prof${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
                       <span className="su-row-label">{s.label}</span>
                       <span className="su-final">{fmt(s.value)}</span>
                     </div>

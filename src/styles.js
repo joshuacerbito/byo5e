@@ -183,7 +183,12 @@ export const STYLES = `
 @media(max-width:420px){.su-vitals{grid-template-columns:repeat(2,1fr);}}
 .su-ac-parts{display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;
   color:var(--bone-dim);margin-top:2px;}
-.su-prof{font-size:11px;color:var(--gold);width:14px;}
+.su-prof{width:14px;flex:none;display:inline-flex;align-items:center;justify-content:center;}
+/* Drawn, not typed: Windows renders ●/○ from a fallback face at a
+   noticeably smaller size than macOS does. */
+.su-prof::before{content:"";width:9px;height:9px;box-sizing:border-box;border-radius:50%;
+  border:1.5px solid var(--gold);}
+.su-prof.is-on::before{background:var(--gold);}
 .su-dim{opacity:.45;}
 
 .su-cast{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
