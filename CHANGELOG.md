@@ -7,6 +7,14 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-26
+
+This is the last update to the Sina Una Character Creator. Development has moved to
+**Bring Your Own 5e**, an SRD-only rebuild on the `develop` branch — no Sina Una content, no
+Handbook/Xanathar's/Tasha's/Strixhaven, ships SRD 5.1 (2014) and SRD 5.2 (2024) with the edition
+selectable at character creation, and user-supplied content packs to follow. This branch stays up
+as-is for anyone still using it; it won't get further changes.
+
 ## 2026-08-25 (last, again)
 
 ### Fixed
