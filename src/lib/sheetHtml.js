@@ -1,6 +1,7 @@
 import { ABILITIES } from '../data/progression.js';
 import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
   spellMark, spellMarkNotes, spellHitDC as hitDC, spellEffect, ABIL_LABEL } from './derive.js';
+import { sheetFileBase } from '../pdf/saveFile.js';
 
 /* Builds a standalone, printable HTML document for the character.
    Everything it needs is passed in explicitly.
@@ -12,7 +13,7 @@ import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORD
    a button nobody can click has no business rendering behind it. */
 export function buildSheetHTML(ctx, { interactive = true } = {}) {
   const {
-    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore,
+    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore, backstory,
     attackRows, masteryEnabled, carriedWeapons, actions, ancestrySpells, chosenFeats, classFeatures,
   } = ctx;
 
@@ -106,6 +107,14 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
       background.tools?.length ? `<p><b>Tools.</b> ${background.tools.map(esc).join(", ")}.</p>` : "",
     ].join("") : "";
 
+    /* Player-written prose. Blank lines separate paragraphs; a lone newline
+       is a line break inside one, so a bullet list pasted in keeps its shape. */
+    const backstoryHtml = (backstory || "").trim()
+      ? (backstory || "").trim().split(/\n\s*\n/)
+          .map((para) => `<p>${para.split("\n").map((l) => esc(l.trim())).join("<br>")}</p>`)
+          .join("")
+      : "";
+
     /* Everything the character starts with, in one place — weapons +
        armor + class/background gear + starting gold. Same at-a-glance
        intent as Attacks/Spellcasting, but this is background reading
@@ -196,7 +205,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
 
     return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(name.trim() || "Unnamed")} — character sheet</title>
+<title>${esc(sheetFileBase(name))}</title>
 <style>
   *{box-sizing:border-box}
   /* A4 all the way through: the on-screen column is a full 210mm wide
@@ -291,6 +300,7 @@ ${feats ? `<section><h4>${esc(subclass.name)} — ${esc(subclass.group)}</h4>${f
 ${featsHtml ? `<section><h4>Feats</h4>${featsHtml}</section>` : ""}
 ${bg ? `<section><h4>Background — ${esc(background.name)}</h4>${bg}</section>` : ""}
 ${inventoryHtml ? `<section><h4>Inventory</h4>${inventoryHtml}</section>` : ""}
+${backstoryHtml ? `<section><h4>Backstory</h4>${backstoryHtml}</section>` : ""}
 ${appx}
 </body></html>`;
 }

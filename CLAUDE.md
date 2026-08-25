@@ -89,7 +89,7 @@ src/
   pdf/
     sheetRaster.js         the HTML sheet photographed into an A4 PDF — the iOS route
     sheetPdf.js            pdfmake vector PDF — the fallback route
-    saveFile.js            share-sheet-or-download delivery, shared by both
+    saveFile.js            share-sheet-or-download delivery + sheetFileName(), shared by both
     vfsFonts.js            GENERATED — base64 Fraunces/Karla subsets pdfmake embeds
   pdfTest.js               harness for npm run check:export (not a build entry)
   pdfTestFixture.js        fixed character it renders
@@ -363,7 +363,7 @@ untouched, so the Reference appendix still prints the full string.
 
 **The Sheet step shows the whole sheet on screen.** `components/SheetSummary.jsx` renders every
 section the printed sheet carries — vitals, core, saves, skills, attacks, actions, spellcasting,
-traits, class and subclass features, feats, background, inventory, reference — from the same
+traits, class and subclass features, feats, background, inventory, backstory, reference — from the same
 `sheetCtx` object the three export routes read. That shared input is the point: a field missing
 from the summary is a field missing from the file, so the two can't drift.
 
@@ -377,8 +377,15 @@ the print sheet's `.sk` grid — eighteen rows is a long single column to scan �
 which tightens its gap under the 430px breakpoint rather than collapsing to one column.
 
 The export buttons sit **below** the summary, not above it: the page reads as the sheet itself,
-then what to do with it. Order on the step is name → summary → export buttons → plain text →
-start over.
+then what to do with it. Order on the step is name → backstory → summary → export buttons →
+plain text → start over.
+
+**Backstory is free text the player writes.** A `backstory` string in the root state, saved with
+everything else, typed on the Sheet step under the name and printed on every route. It sits
+**after** Inventory on the sheet — the last thing on the character's own pages, before the
+Reference appendix — because it is the one section nothing looks up mid-turn. Blank lines
+separate paragraphs; a single newline is a line break inside one, so a pasted list keeps its
+shape. Empty means the section is not rendered at all rather than printing an empty box.
 
 `spellHitDC` / `spellEffect` moved to `derive.js` when this landed — they existed as three
 identical copies in `sheetHtml.js`, `sheetPdf.js` and here. `SpellTableRow` keeps its own, since
@@ -501,6 +508,22 @@ the download attribute, and drops the file in a tab. It hands the file to
 `navigator.share({ files })` where that exists (making "Save to Files" one tap on iOS) and falls
 back to an anchor download typed `application/octet-stream`, which Safari won't display inline.
 `navigator.share` needs transient user activation, so nothing may be awaited ahead of the render.
+
+`sheetFileName(name, ext)` in the same file names every downloaded file after the character and
+nothing else — both PDF routes and the raw-HTML link call it, so a folder of saved sheets reads
+as a list of names. It keeps letters (Unicode, so a name in any script survives), digits, spaces,
+hyphens and underscores, drops everything a filesystem or share sheet could choke on rather than
+substituting for it, collapses runs of whitespace and falls back to `Unnamed` when the name is
+empty or was all punctuation.
+
+**The print route names its file through a document title.** It has no filename to set, and which
+title the dialog reads depends on the engine: Chromium takes the printing iframe's, macOS Safari
+takes the *host page's* — which is how a saved sheet arrived called "Sina Una — Character
+Creator". So `printSheet()` swaps `document.title` to `sheetFileBase(name)` for the duration of
+the dialog and puts it back in the same `cleanup` that removes the iframe, and the sheet's own
+`<title>` is the bare name too. Restoring reads `APP_TITLE`, captured at module load rather than
+at click time, so a second print started before the first dialog closes can't restore the
+borrowed title and leave it stuck.
 
 **Both PDF paths are lazy.** pdfmake, the fonts, html2canvas and jsPDF are `import()`ed on first
 use, so the wizard's initial load is unchanged and Vite emits each as its own chunk.
@@ -633,6 +656,9 @@ added to both or it silently fails to travel.
 bare ids resolved against whatever content the app shipped. The point of the field is that a
 later format — ids qualified by the pack they came from — is distinguishable from this one by a
 reader, rather than guessed at. Import is not built yet (see `plans/byo5e-pack-format.md`).
+`characterFileName` names it through the same `sheetFileName` every sheet export uses, so the
+character file and the sheets beside it carry one name and the extension is what tells them
+apart.
 
 ### 4. Carried forward from the Xanathar's / Tasha's pass
 

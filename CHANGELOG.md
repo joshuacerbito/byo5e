@@ -7,7 +7,41 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-25 (last, again)
+
+### Fixed
+
+- **"Save on Android/Mac/PC" now suggests the character's name too.** The other export routes
+  were fixed earlier the same day, but this one saves through the browser's own print dialog,
+  which takes its filename from a page title rather than from anything the app hands it — and
+  macOS Safari reads the app's title, not the sheet's, so every saved character came out called
+  "Sina Una — Character Creator". The app now lends the print dialog the character's name and
+  takes its own title back afterwards.
+
+## 2026-08-25 (last)
+
+### Changed
+
+- **Saved sheets are named after the character.** Every download — both PDFs and the raw HTML —
+  used to come out as `juan-dela-cruz-sheet.pdf`. It is now `Juan Dela Cruz.pdf`: the name as
+  typed, with anything a filesystem would object to dropped and spare spaces tidied away. A
+  folder of saved characters reads as a list of names. A name in any script survives; a blank
+  one still saves as `Unnamed`.
+- **The Sheet step's "Name" box is labelled "Character Name"**, which is what it always meant.
+
 ## 2026-08-25 (later still, again)
+
+### Added
+
+- **A backstory box.** The Sheet step now has a free-text field under the character's name for
+  whoever they are, where they came from and why they left. It saves with the rest of the
+  character and prints on every route — the HTML sheet, both PDFs and the plain-text copy —
+  sitting after the Inventory, at the end of the character's own pages and before the Reference
+  appendix, since it is the one section nobody looks up mid-turn. Blank lines start new
+  paragraphs, so a few paragraphs stay a few paragraphs. Leave it empty and the section doesn't
+  print at all.
+
+## 2026-08-25 (content packs, phase 0)
 
 Groundwork for content packs — the first phase of turning this into a builder that loads
 whatever book you own, rather than one hardcoded to this campaign. Most of it is invisible

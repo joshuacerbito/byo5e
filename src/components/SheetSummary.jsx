@@ -24,7 +24,7 @@ export default function SheetSummary({ ctx }) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
-    savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix,
+    savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, backstory,
     bgChoice, finalScore, attackRows, carriedWeapons, actions, ancestrySpells,
     chosenFeats, classFeatures,
   } = ctx;
@@ -319,6 +319,15 @@ export default function SheetSummary({ ctx }) {
         {gear.length > 0 && <Row label="Gear" value={gear.join(", ")} />}
         <Row label="Currency" value={`${gold.gp} gp`} />
       </div>
+
+      {(backstory || "").trim() && (
+        <div className="su-panel">
+          <h3>Backstory</h3>
+          {(backstory || "").trim().split(/\n\s*\n/).map((block, i) => (
+            <p className="su-trait-t" key={i} style={{ whiteSpace: "pre-line" }}>{block.trim()}</p>
+          ))}
+        </div>
+      )}
 
       {appendixGroups.length > 0 && (
         <div className="su-panel">

@@ -1,3 +1,5 @@
+import { sheetFileName } from "../pdf/saveFile.js";
+
 /* The character save, in one place: the localStorage key, the read/write
    pair around it, and the export envelope.
 
@@ -51,5 +53,7 @@ export function buildCharacterExport(snapshot) {
   }, null, 2);
 }
 
-export const characterFileName = (name) =>
-  `${(name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "unnamed"}-character.json`;
+/* Named after the character, the same as every sheet export — a folder of
+   saved files reads as a list of names. The `.json` is what distinguishes
+   the character from the sheet beside it, so no suffix is added. */
+export const characterFileName = (name) => sheetFileName(name, "json");

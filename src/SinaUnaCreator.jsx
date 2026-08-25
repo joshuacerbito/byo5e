@@ -23,6 +23,7 @@ import { mod, fmt, recommendedSpread, resolveLineage, splitCastingTime, ACTION_O
 import { buildSheetHTML } from "./lib/sheetHtml.js";
 import { saveSheetPDF } from "./pdf/sheetPdf.js";
 import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
+import { sheetFileName, sheetFileBase } from "./pdf/saveFile.js";
 import { loadSaved, saveSnapshot, clearSaved, buildCharacterExport, characterFileName }
   from "./lib/storage.js";
 import Rule from "./components/Rule.jsx";
@@ -41,6 +42,12 @@ const BOOK_SPELLS = [...PHB_SPELLS, ...SCC_SPELLS, ...XGE_SPELLS, ...TCE_SPELLS]
 /* Book code -> pool, in the order the picker lists them. */
 const SPELL_POOLS = { phb: PHB_SPELLS, xge: XGE_SPELLS, tce: TCE_SPELLS, scc: SCC_SPELLS };
 
+/* Read once, before anything can swap it: printSheet() borrows the page
+   title to name the file the print dialog saves, and restoring from a
+   snapshot taken at click time would restore the borrowed title if a
+   second print started before the first one's dialog closed. */
+const APP_TITLE = document.title;
+
 /* Read once per page load — this is a single-page app with no client routing,
    so a fresh parse per mount would never see a different value anyway. */
 const saved = loadSaved();
@@ -51,6 +58,7 @@ const DEFAULTS = {
   name: "", classId: null, level: 1, subclassId: null, curse: null, skillPicks: [],
   bonusSkillPicks: [], asiMode: "focus", classAsi: {}, asiFeat: null, lineageFeat: null, bgId: null, bgSkillPicks: [], bgChoice: null, armorId: "none", hasShield: false,
   equipmentChoices: {}, masteryEnabled: false, tceOptional: false, pickedSpells: [], otherSpells: "",
+  backstory: "",
 };
 
 export default function SinaUnaCreator() {
@@ -62,6 +70,7 @@ export default function SinaUnaCreator() {
   const [scores, setScores] = useState(saved?.scores ?? DEFAULTS.scores);
   const [arrayAssign, setArrayAssign] = useState(saved?.arrayAssign ?? DEFAULTS.arrayAssign);
   const [name, setName] = useState(saved?.name ?? DEFAULTS.name);
+  const [backstory, setBackstory] = useState(saved?.backstory ?? DEFAULTS.backstory);
   const [classId, setClassId] = useState(saved?.classId ?? DEFAULTS.classId);
   const [level, setLevel] = useState(saved?.level ?? DEFAULTS.level);
   const [subclassId, setSubclassId] = useState(saved?.subclassId ?? DEFAULTS.subclassId);
@@ -331,10 +340,12 @@ export default function SinaUnaCreator() {
     classId, level, subclassId, curse, skillPicks, bonusSkillPicks, tceOptional,
     asiMode, classAsi, asiFeat, lineageFeat, bgId, bgSkillPicks, bgChoice,
     armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells,
+    backstory,
   }), [step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
       classId, level, subclassId, curse, skillPicks, bonusSkillPicks, tceOptional,
       asiMode, classAsi, asiFeat, lineageFeat, bgId, bgSkillPicks, bgChoice,
-      armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells]);
+      armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells,
+      backstory]);
 
   /* Persist the whole character to localStorage on every change. */
   useEffect(() => { saveSnapshot(snapshot); }, [snapshot]);
@@ -371,6 +382,7 @@ export default function SinaUnaCreator() {
     setTceOptional(DEFAULTS.tceOptional);
     setPickedSpells(DEFAULTS.pickedSpells);
     setOtherSpells(DEFAULTS.otherSpells);
+    setBackstory(DEFAULTS.backstory);
     setShowResetConfirm(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -980,7 +992,7 @@ export default function SinaUnaCreator() {
     armorClass, hitPoints, speed, initiative, passivePerception, passiveSkills, actions, pb, armor, shieldOn,
     savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice,
     finalScore, attackRows, carriedWeapons, masteryEnabled, ancestrySpells, chosenFeats,
-    classFeatures,
+    classFeatures, backstory,
   };
 
   const downloadSheet = () => {
@@ -988,7 +1000,7 @@ export default function SinaUnaCreator() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(name.trim() || "unnamed").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-sheet.html`;
+    a.download = sheetFileName(name, "html");
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1062,7 +1074,18 @@ export default function SinaUnaCreator() {
     iframe.style.height = "1123px";
     iframe.style.border = "0";
     document.body.appendChild(iframe);
-    const cleanup = () => { if (iframe.parentNode) document.body.removeChild(iframe); };
+
+    /* The print dialog's "Save as PDF" filename comes from a document title,
+       and which one depends on the browser: Chromium takes the printing
+       iframe's, macOS Safari takes the top page's — which is how a saved
+       sheet came out as "Sina Una — Character Creator". Set the host page's
+       title to the character for the duration of the dialog so both engines
+       arrive at the same name the PDF routes use, and put it back afterwards. */
+    document.title = sheetFileBase(name);
+    const cleanup = () => {
+      document.title = APP_TITLE;
+      if (iframe.parentNode) document.body.removeChild(iframe);
+    };
     iframe.onload = () => {
       iframe.contentWindow.addEventListener("afterprint", cleanup);
       iframe.contentWindow.focus();
@@ -1168,13 +1191,19 @@ export default function SinaUnaCreator() {
       L.push("STARTING EQUIPMENT");
       background.equipment.forEach((e) => L.push(`• ${e}`));
     }
+    if (backstory.trim()) {
+      L.push("");
+      L.push("BACKSTORY");
+      L.push(backstory.trim());
+    }
     L.push("");
     L.push("Still to choose: weapons and gear.");
     return L.join("\n");
   }, [resolved, ancestry, name, scores, arrayAssign, mode, scoreAdj, klass, level, subclass,
       subclassReady, skillPicks, freeSkills, curse, hitPoints, background, bgSkills, bgChoice,
       armorClass, bestAC, shieldOn, savingThrows, initiative, passiveSkills, speed, pb,
-      skillTable, casting, availableSpells, allSkills, chosenFeats, classAsi, asiMode, asiAvailable]);
+      skillTable, casting, availableSpells, allSkills, chosenFeats, classAsi, asiMode, asiAvailable,
+      backstory]);
 
   return (
     <div className="su-root">
@@ -2340,9 +2369,17 @@ export default function SinaUnaCreator() {
           {here === "Sheet" && resolved && (
             <>
               <div className="su-panel">
-                <h3>Name</h3>
+                <h3>Character Name</h3>
                 <input className="su-input" value={name} onChange={(e) => setName(e.target.value)}
                        placeholder="Unnamed" aria-label="Character name" />
+              </div>
+
+              <div className="su-panel">
+                <h3>Backstory</h3>
+                <p className="su-note">Free text — who they are, where they come from, why they left. Prints with the sheet.</p>
+                <textarea className="su-out" rows={6} value={backstory}
+                          onChange={(e) => setBackstory(e.target.value)}
+                          placeholder="Optional." aria-label="Backstory" />
               </div>
 
               <Rule />
