@@ -148,6 +148,13 @@ export const STYLES = `
   .su-sk-grid .su-row-label{font-size:13px;}
 }
 
+/* The error-boundary fallback. It renders where the app would have been,
+   so it carries its own page padding — there is no wizard chrome left to
+   sit inside when the root boundary is the one that caught. */
+.su-crash{max-width:640px;margin:0 auto;padding:40px 18px;}
+.su-crash-msg{margin:14px 0 0;font-family:'JetBrains Mono',monospace;font-size:11.5px;
+  color:var(--bone-dim);word-break:break-word;}
+
 .su-btn-danger{border-color:var(--coral);color:var(--coral);}
 .su-btn-danger:hover:not(:disabled){background:var(--coral);border-color:var(--coral);color:var(--bone);}
 

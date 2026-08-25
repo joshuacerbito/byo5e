@@ -138,6 +138,16 @@ export function recommendedSpread(asi) {
 export function resolveLineage(lineage, choicePicks) {
   if (!lineage) return null;
   const base = BASE_RACES[lineage.base];
+  /* A lineage naming a base race that isn't there is a data error, not a
+     user one — a half-written pack, or a base race removed while lineages
+     under it stayed (which is exactly what commenting out Custom Lineage
+     nearly did). Every caller already handles a null resolved ancestry,
+     since an unchosen one produces the same thing, so failing that way
+     costs a rendered step instead of the whole app. */
+  if (!base) {
+    console.warn(`Lineage "${lineage.id}" names unknown base race "${lineage.base}"`);
+    return null;
+  }
   const dropped = new Set(lineage.replaces || []);
 
   /* Base ability increases survive unless the variant replaces them. */

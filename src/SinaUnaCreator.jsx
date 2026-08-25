@@ -23,10 +23,12 @@ import { mod, fmt, recommendedSpread, resolveLineage, splitCastingTime, ACTION_O
 import { buildSheetHTML } from "./lib/sheetHtml.js";
 import { saveSheetPDF } from "./pdf/sheetPdf.js";
 import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
-import { STYLES } from "./styles.js";
+import { loadSaved, saveSnapshot, clearSaved, buildCharacterExport, characterFileName }
+  from "./lib/storage.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
 import SheetSummary from "./components/SheetSummary.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 /* Every non-island pool in one list. The Strixhaven, Xanathar's and
    Tasha's spells all sit on the ordinary 2014 class lists, so they're
@@ -39,18 +41,8 @@ const BOOK_SPELLS = [...PHB_SPELLS, ...SCC_SPELLS, ...XGE_SPELLS, ...TCE_SPELLS]
 /* Book code -> pool, in the order the picker lists them. */
 const SPELL_POOLS = { phb: PHB_SPELLS, xge: XGE_SPELLS, tce: TCE_SPELLS, scc: SCC_SPELLS };
 
-const STORAGE_KEY = "sina-una-character";
-
 /* Read once per page load — this is a single-page app with no client routing,
    so a fresh parse per mount would never see a different value anyway. */
-function loadSaved() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
 const saved = loadSaved();
 
 const DEFAULTS = {
@@ -330,32 +322,27 @@ export default function SinaUnaCreator() {
   const [pickedSpells, setPickedSpells] = useState(saved?.pickedSpells ?? DEFAULTS.pickedSpells);
   const [otherSpells, setOtherSpells] = useState(saved?.otherSpells ?? DEFAULTS.otherSpells);
 
-  /* Persist the whole character to localStorage on every change. */
-  useEffect(() => {
-    const snapshot = {
-      step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
-      classId, level, subclassId, curse, skillPicks, bonusSkillPicks, tceOptional,
-      asiMode, classAsi, asiFeat, lineageFeat, bgId, bgSkillPicks, bgChoice,
-      armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells,
-    };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-    } catch {
-      /* storage full or unavailable — silently skip, nothing else depends on it */
-    }
-  }, [step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
+  /* The whole character as plain data. One definition, two readers: the
+     localStorage mirror below and the .json export on the Sheet step. A
+     field that only reaches one of them is a field that silently fails to
+     travel with the character. */
+  const snapshot = useMemo(() => ({
+    step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
+    classId, level, subclassId, curse, skillPicks, bonusSkillPicks, tceOptional,
+    asiMode, classAsi, asiFeat, lineageFeat, bgId, bgSkillPicks, bgChoice,
+    armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells,
+  }), [step, baseId, lineageId, choicePicks, mode, scores, arrayAssign, name,
       classId, level, subclassId, curse, skillPicks, bonusSkillPicks, tceOptional,
       asiMode, classAsi, asiFeat, lineageFeat, bgId, bgSkillPicks, bgChoice,
       armorId, hasShield, equipmentChoices, masteryEnabled, pickedSpells, otherSpells]);
 
+  /* Persist the whole character to localStorage on every change. */
+  useEffect(() => { saveSnapshot(snapshot); }, [snapshot]);
+
   /* Wipes the saved character and every field back to its default, then
      returns to the first step. */
   const resetAll = () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
+    clearSaved();
     setStep(DEFAULTS.step);
     setBaseId(DEFAULTS.baseId);
     setLineageId(DEFAULTS.lineageId);
@@ -1008,6 +995,22 @@ export default function SinaUnaCreator() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  /* The character itself, as data rather than as a sheet. The sheet
+     exports are for reading at the table; this one is for keeping — it
+     restores into the builder, survives a cleared browser, and moves
+     between devices, none of which a PDF does. */
+  const exportCharacter = () => {
+    const blob = new Blob([buildCharacterExport(snapshot)], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = characterFileName(name);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
   /* Three ways out, because no single one works everywhere.
 
      printSheet() is the browser's own print pipeline — best output, and the
@@ -1175,8 +1178,6 @@ export default function SinaUnaCreator() {
 
   return (
     <div className="su-root">
-      <style>{STYLES}</style>
-
       <div className="su-wrap">
         <p className="su-eyebrow">The Islands of Sina Una</p>
         <h1 className="su-h1">Make a character</h1>
@@ -1239,1158 +1240,1176 @@ export default function SinaUnaCreator() {
           </div>
         )}
 
-        {/* ---------------- STEP 0 — ANCESTRY ---------------- */}
-        {here === "Ancestry" && (
-          <>
-            {BASE_RACE_ORDER.map((id) => {
-              const b = BASE_RACES[id];
-              const sel = id === baseId;
-              const opts = LINEAGES.filter((l) => l.base === id);
-              const sina = opts.filter((l) => l.src === "sinauna").length;
-              const asiStr = Object.entries(b.asi).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(" ");
-              return (
-                <button key={id} className={`su-card ${sel ? "is-sel" : ""}`}
-                        onClick={() => pickBase(id)} aria-pressed={sel}>
-                  <div className="su-card-top">
-                    <span className="su-card-name">{b.name}</span>
-                    <span className="su-card-kind">
-                      {opts.length} option{opts.length > 1 ? "s" : ""}
-                      {sina > 0 ? ` · ${sina} island` : ""}
-                    </span>
-                  </div>
-                  <div className="su-pills" style={{ marginTop: 8 }}>
-                    {asiStr
-                      ? <span className="su-pill">{asiStr}</span>
-                      : <span className="su-pill alt">increases come from lineage</span>}
-                    <span className="su-pill alt">speed {b.speed}</span>
-                    {b.darkvision > 0 && <span className="su-pill alt">darkvision {b.darkvision}</span>}
-                  </div>
-                </button>
-              );
-            })}
+        {/* The wizard body, behind its own boundary: a step that throws
+            leaves the header, the step rail and the ability strip standing,
+            so the character is still visible and Back still works. Keyed on
+            the step name, which clears the error when you move away from the
+            step that caused it. */}
+        <ErrorBoundary key={here} title="This step hit an error">
+          {/* ---------------- STEP 0 — ANCESTRY ---------------- */}
+          {here === "Ancestry" && (
+            <>
+              {BASE_RACE_ORDER.map((id) => {
+                const b = BASE_RACES[id];
+                const sel = id === baseId;
+                const opts = LINEAGES.filter((l) => l.base === id);
+                const sina = opts.filter((l) => l.src === "sinauna").length;
+                const asiStr = Object.entries(b.asi).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(" ");
+                return (
+                  <button key={id} className={`su-card ${sel ? "is-sel" : ""}`}
+                          onClick={() => pickBase(id)} aria-pressed={sel}>
+                    <div className="su-card-top">
+                      <span className="su-card-name">{b.name}</span>
+                      <span className="su-card-kind">
+                        {opts.length} option{opts.length > 1 ? "s" : ""}
+                        {sina > 0 ? ` · ${sina} island` : ""}
+                      </span>
+                    </div>
+                    <div className="su-pills" style={{ marginTop: 8 }}>
+                      {asiStr
+                        ? <span className="su-pill">{asiStr}</span>
+                        : <span className="su-pill alt">increases come from lineage</span>}
+                      <span className="su-pill alt">speed {b.speed}</span>
+                      {b.darkvision > 0 && <span className="su-pill alt">darkvision {b.darkvision}</span>}
+                    </div>
+                  </button>
+                );
+              })}
 
-            {baseRace && (
-              <>
-                <Rule />
+              {baseRace && (
+                <>
+                  <Rule />
 
-                <div className="su-panel">
-                  <h3>
-                    {baseLineages.some((l) => l.kind === "subrace") ? "Subrace" : "Lineage"}
-                  </h3>
-                  <p className="su-note" style={{ marginBottom: 4 }}>
-                    Island options modify the {baseRace.name.toLowerCase()} rather than replacing it —
-                    subraces add to it, variants swap specific traits out.
-                  </p>
-                  {CONTENT_SOURCES.map((source) => {
-                    const list = baseLineages.filter((l) => l.src === source);
-                    if (!list.length) return null;
-                    return (
-                      <div key={source}>
-                        <div className="su-src">
-                          {SOURCE_LABEL[source]}
-                          <span className="su-src-n">{list.length}</span>
-                        </div>
-                        {list.map((l) => {
-                          const sel = l.id === lineageId;
-                          const parts = Object.entries(l.asi.fixed || {}).map(([k, v]) => `${k.toUpperCase()} +${v}`);
-                          if (l.asi.choice) {
-                            parts.push(`+${l.asi.choice.amount} to ${l.asi.choice.count} of ` +
-                              (l.asi.choice.from.length > 4 ? "any" : l.asi.choice.from.map((x) => x.toUpperCase()).join("/")));
-                          }
-                          return (
-                            <button key={l.id} className={`su-card ${sel ? "is-sel" : ""}`}
-                                    style={{ marginTop: 8 }}
-                                    onClick={() => pickLineage(l.id)} aria-pressed={sel}>
-                              <div className="su-card-top">
-                                <span className="su-card-name">{l.name}</span>
-                                <span className="su-card-kind">
-                                  {l.kind}{l.page ? ` · p.${l.page}` : ""}
-                                </span>
-                              </div>
-                              {l.blurb && <p className="su-card-blurb">{l.blurb}</p>}
-                              <div className="su-pills" style={{ marginTop: l.blurb ? 0 : 8 }}>
-                                {parts.length
-                                  ? parts.map((x) => <span className="su-pill" key={x}>{x}</span>)
-                                  : <span className="su-pill alt">no extra increases</span>}
-                                {(l.replaces || []).length > 0 &&
-                                  <span className="su-pill alt">replaces {l.replaces.length} traits</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-
-            {needsChoice && (
-              <>
-                <Rule />
-                <div className="su-panel">
-                  <h3>
-                    Ability increases
-                    <span className="su-count">
-                      {choicePicks.length}/{choiceCount} chosen
-                    </span>
-                  </h3>
-                  <p className="su-note" style={{ marginBottom: 10 }}>
-                    {ancestry.name} gives {choiceCount === 1 ? "one more point" : `${choiceCount} more points`}.
-                    Pick {choiceCount === 1 ? "where it goes" : "different abilities for each"}.
-                  </p>
-                  <div className="su-skills">
-                    {ancestry.asi.choice.from.map((k) => {
-                      const on = choicePicks.includes(k);
-                      const full = !on && choicePicks.length >= choiceCount;
+                  <div className="su-panel">
+                    <h3>
+                      {baseLineages.some((l) => l.kind === "subrace") ? "Subrace" : "Lineage"}
+                    </h3>
+                    <p className="su-note" style={{ marginBottom: 4 }}>
+                      Island options modify the {baseRace.name.toLowerCase()} rather than replacing it —
+                      subraces add to it, variants swap specific traits out.
+                    </p>
+                    {CONTENT_SOURCES.map((source) => {
+                      const list = baseLineages.filter((l) => l.src === source);
+                      if (!list.length) return null;
                       return (
-                        <button key={k} className={`su-skill ${on ? "is-sel" : ""}`}
-                                onClick={() => toggleChoice(k)} disabled={full}
-                                aria-pressed={on}>
-                          {ABILITIES.find((a) => a.key === k).label} +{ancestry.asi.choice.amount}
+                        <div key={source}>
+                          <div className="su-src">
+                            {SOURCE_LABEL[source]}
+                            <span className="su-src-n">{list.length}</span>
+                          </div>
+                          {list.map((l) => {
+                            const sel = l.id === lineageId;
+                            const parts = Object.entries(l.asi.fixed || {}).map(([k, v]) => `${k.toUpperCase()} +${v}`);
+                            if (l.asi.choice) {
+                              parts.push(`+${l.asi.choice.amount} to ${l.asi.choice.count} of ` +
+                                (l.asi.choice.from.length > 4 ? "any" : l.asi.choice.from.map((x) => x.toUpperCase()).join("/")));
+                            }
+                            return (
+                              <button key={l.id} className={`su-card ${sel ? "is-sel" : ""}`}
+                                      style={{ marginTop: 8 }}
+                                      onClick={() => pickLineage(l.id)} aria-pressed={sel}>
+                                <div className="su-card-top">
+                                  <span className="su-card-name">{l.name}</span>
+                                  <span className="su-card-kind">
+                                    {l.kind}{l.page ? ` · p.${l.page}` : ""}
+                                  </span>
+                                </div>
+                                {l.blurb && <p className="su-card-blurb">{l.blurb}</p>}
+                                <div className="su-pills" style={{ marginTop: l.blurb ? 0 : 8 }}>
+                                  {parts.length
+                                    ? parts.map((x) => <span className="su-pill" key={x}>{x}</span>)
+                                    : <span className="su-pill alt">no extra increases</span>}
+                                  {(l.replaces || []).length > 0 &&
+                                    <span className="su-pill alt">replaces {l.replaces.length} traits</span>}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {needsChoice && (
+                <>
+                  <Rule />
+                  <div className="su-panel">
+                    <h3>
+                      Ability increases
+                      <span className="su-count">
+                        {choicePicks.length}/{choiceCount} chosen
+                      </span>
+                    </h3>
+                    <p className="su-note" style={{ marginBottom: 10 }}>
+                      {ancestry.name} gives {choiceCount === 1 ? "one more point" : `${choiceCount} more points`}.
+                      Pick {choiceCount === 1 ? "where it goes" : "different abilities for each"}.
+                    </p>
+                    <div className="su-skills">
+                      {ancestry.asi.choice.from.map((k) => {
+                        const on = choicePicks.includes(k);
+                        const full = !on && choicePicks.length >= choiceCount;
+                        return (
+                          <button key={k} className={`su-skill ${on ? "is-sel" : ""}`}
+                                  onClick={() => toggleChoice(k)} disabled={full}
+                                  aria-pressed={on}>
+                            {ABILITIES.find((a) => a.key === k).label} +{ancestry.asi.choice.amount}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {resolved && (
+                <>
+                  <Rule />
+                  <div className="su-panel">
+                    <h3>What you get</h3>
+                    {resolved.keptBase.map((t) => (
+                      <div className="su-trait" key={t.name}>
+                        <div className="su-trait-n">{t.name}<span className="src">{resolved.base.name}</span></div>
+                        <div className="su-trait-t">{t.text}</div>
+                      </div>
+                    ))}
+                    {(ancestry.traits || []).map((t) => (
+                      <div className="su-trait" key={t.name}>
+                        <div className="su-trait-n">{t.name}
+                          <span className="src">{ancestry.src === "sinauna" ? "Sina Una" : ancestry.name}</span></div>
+                        <div className="su-trait-t">{t.text}</div>
+                      </div>
+                    ))}
+                    {resolved.droppedTraits.map((t) => (
+                      <div className="su-trait su-struck" key={t.name}>
+                        <div className="su-trait-n">{t.name}<span className="src">Replaced</span></div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {/* ---------------- STEP 1 — ABILITIES ---------------- */}
+          {here === "Abilities" && resolved && (
+            <>
+              <div className="su-choice" style={{ marginBottom: 14 }}>
+                <button className={`su-opt ${mode === "pointbuy" ? "is-sel" : ""}`} onClick={() => setMode("pointbuy")}>Point buy</button>
+                <button className={`su-opt ${mode === "array" ? "is-sel" : ""}`} onClick={() => setMode("array")}>Standard array</button>
+              </div>
+
+              {mode === "pointbuy" && (
+                <>
+                  <div className={`su-budget`}>
+                    <span className="su-budget-l">Points left</span>
+                    <span className={`su-budget-n ${remaining === 0 ? "zero" : ""}`}>{remaining}</span>
+                  </div>
+                  <div className="su-suggest">
+                    <div>
+                      <div className="su-suggest-t">Not sure where to put these?</div>
+                      <div className="su-suggest-s">
+                        Start with a spread that leans into what {ancestry.name} already boosts. You can change it after.
+                      </div>
+                    </div>
+                    <button className="su-opt" onClick={() => setScores(recommendedSpread(resolved.asi))}>
+                      Use it
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <div className="su-panel">
+                {ABILITIES.map(({ key, label }) => {
+                  const bonus = resolved.asi[key] || 0;
+                  const base = baseScoreFor(key);
+                  return (
+                    <div className="su-row" key={key}>
+                      <span className="su-row-label">{label}</span>
+                      {mode === "pointbuy" ? (
+                        <div className="su-step">
+                          <button className="su-btn-sq" onClick={() => setScore(key, base - 1)}
+                                  disabled={base <= 8} aria-label={`Lower ${label}`}>−</button>
+                          <span className="su-num">{base}</span>
+                          <button className="su-btn-sq" onClick={() => setScore(key, base + 1)}
+                                  disabled={base >= 15 || (POINT_COST[base + 1] - POINT_COST[base]) > remaining}
+                                  aria-label={`Raise ${label}`}>+</button>
+                        </div>
+                      ) : (
+                        <select className="su-sel" value={arrayAssign[key] ?? ""}
+                                onChange={(e) => assignArray(key, e.target.value)} aria-label={label}>
+                          <option value="">—</option>
+                          {STANDARD_ARRAY.map((v, i) => (
+                            <option key={i} value={v}
+                                    disabled={usedArrayVals.includes(v) && arrayAssign[key] !== v}>{v}</option>
+                          ))}
+                        </select>
+                      )}
+                      <span className="su-arrow">{bonus ? `+${bonus} →` : "→"}</span>
+                      <span className="su-final">{fmt(mod(base + bonus))}</span>
+                      <span className="su-mod">{base + bonus}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="su-note">Ancestry bonuses are already applied. Point buy caps each score at 15 before bonuses.</p>
+            </>
+          )}
+
+          {/* ---------------- STEP 2 — CLASS ---------------- */}
+          {here === "Class" && (
+            <>
+              <div className="su-panel">
+                <h3>Level</h3>
+                <p className="su-note" style={{ marginBottom: 10 }}>
+                  Sets which features you have and whether you pick a subclass yet.
+                </p>
+                <div className="su-lvl">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} className={`su-opt ${level === n ? "is-sel" : ""}`}
+                            onClick={() => setLevel(n)} aria-pressed={level === n}>{n}</button>
+                  ))}
+                </div>
+              </div>
+
+              {CONTENT_SOURCES.map((source) => {
+                const list = Object.entries(CLASSES).filter(([, c]) => c.src === source);
+                if (!list.length) return null;
+                return (
+                  <div key={source}>
+                    <div className="su-src">
+                      {SOURCE_LABEL[source]}
+                      <span className="su-src-n">{list.length}</span>
+                    </div>
+                    {list.map(([id, c]) => {
+                      const sel = id === classId;
+                      const subs = ALL_SUBCLASSES.filter((s) => s.cls === id);
+                      return (
+                        <button key={id} className={`su-card ${sel ? "is-sel" : ""}`}
+                                style={{ marginTop: 8 }}
+                                onClick={() => pickClass(id)} aria-pressed={sel}>
+                          <div className="su-card-top">
+                            <span className="su-card-name">{c.name}</span>
+                            <span className="su-card-kind">d{c.hitDie} hit die</span>
+                          </div>
+                          <p className="su-card-blurb">
+                            Saves: {c.saves.join(", ")} · {c.skillCount} skills ·{" "}
+                            {subs.length ? `${subs[0].name} available at ${subs[0].unlock}` : "no Sina Una option"}
+                          </p>
                         </button>
                       );
                     })}
                   </div>
-                </div>
-              </>
-            )}
-
-            {resolved && (
-              <>
-                <Rule />
-                <div className="su-panel">
-                  <h3>What you get</h3>
-                  {resolved.keptBase.map((t) => (
-                    <div className="su-trait" key={t.name}>
-                      <div className="su-trait-n">{t.name}<span className="src">{resolved.base.name}</span></div>
-                      <div className="su-trait-t">{t.text}</div>
-                    </div>
-                  ))}
-                  {(ancestry.traits || []).map((t) => (
-                    <div className="su-trait" key={t.name}>
-                      <div className="su-trait-n">{t.name}
-                        <span className="src">{ancestry.src === "sinauna" ? "Sina Una" : ancestry.name}</span></div>
-                      <div className="su-trait-t">{t.text}</div>
-                    </div>
-                  ))}
-                  {resolved.droppedTraits.map((t) => (
-                    <div className="su-trait su-struck" key={t.name}>
-                      <div className="su-trait-n">{t.name}<span className="src">Replaced</span></div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {/* ---------------- STEP 1 — ABILITIES ---------------- */}
-        {here === "Abilities" && resolved && (
-          <>
-            <div className="su-choice" style={{ marginBottom: 14 }}>
-              <button className={`su-opt ${mode === "pointbuy" ? "is-sel" : ""}`} onClick={() => setMode("pointbuy")}>Point buy</button>
-              <button className={`su-opt ${mode === "array" ? "is-sel" : ""}`} onClick={() => setMode("array")}>Standard array</button>
-            </div>
-
-            {mode === "pointbuy" && (
-              <>
-                <div className={`su-budget`}>
-                  <span className="su-budget-l">Points left</span>
-                  <span className={`su-budget-n ${remaining === 0 ? "zero" : ""}`}>{remaining}</span>
-                </div>
-                <div className="su-suggest">
-                  <div>
-                    <div className="su-suggest-t">Not sure where to put these?</div>
-                    <div className="su-suggest-s">
-                      Start with a spread that leans into what {ancestry.name} already boosts. You can change it after.
-                    </div>
-                  </div>
-                  <button className="su-opt" onClick={() => setScores(recommendedSpread(resolved.asi))}>
-                    Use it
-                  </button>
-                </div>
-              </>
-            )}
-
-            <div className="su-panel">
-              {ABILITIES.map(({ key, label }) => {
-                const bonus = resolved.asi[key] || 0;
-                const base = baseScoreFor(key);
-                return (
-                  <div className="su-row" key={key}>
-                    <span className="su-row-label">{label}</span>
-                    {mode === "pointbuy" ? (
-                      <div className="su-step">
-                        <button className="su-btn-sq" onClick={() => setScore(key, base - 1)}
-                                disabled={base <= 8} aria-label={`Lower ${label}`}>−</button>
-                        <span className="su-num">{base}</span>
-                        <button className="su-btn-sq" onClick={() => setScore(key, base + 1)}
-                                disabled={base >= 15 || (POINT_COST[base + 1] - POINT_COST[base]) > remaining}
-                                aria-label={`Raise ${label}`}>+</button>
-                      </div>
-                    ) : (
-                      <select className="su-sel" value={arrayAssign[key] ?? ""}
-                              onChange={(e) => assignArray(key, e.target.value)} aria-label={label}>
-                        <option value="">—</option>
-                        {STANDARD_ARRAY.map((v, i) => (
-                          <option key={i} value={v}
-                                  disabled={usedArrayVals.includes(v) && arrayAssign[key] !== v}>{v}</option>
-                        ))}
-                      </select>
-                    )}
-                    <span className="su-arrow">{bonus ? `+${bonus} →` : "→"}</span>
-                    <span className="su-final">{fmt(mod(base + bonus))}</span>
-                    <span className="su-mod">{base + bonus}</span>
-                  </div>
                 );
               })}
-            </div>
-            <p className="su-note">Ancestry bonuses are already applied. Point buy caps each score at 15 before bonuses.</p>
-          </>
-        )}
 
-        {/* ---------------- STEP 2 — CLASS ---------------- */}
-        {here === "Class" && (
-          <>
-            <div className="su-panel">
-              <h3>Level</h3>
-              <p className="su-note" style={{ marginBottom: 10 }}>
-                Sets which features you have and whether you pick a subclass yet.
-              </p>
-              <div className="su-lvl">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button key={n} className={`su-opt ${level === n ? "is-sel" : ""}`}
-                          onClick={() => setLevel(n)} aria-pressed={level === n}>{n}</button>
-                ))}
-              </div>
-            </div>
+              {klass && (
+                <>
+                  <Rule />
 
-            {CONTENT_SOURCES.map((source) => {
-              const list = Object.entries(CLASSES).filter(([, c]) => c.src === source);
-              if (!list.length) return null;
-              return (
-                <div key={source}>
-                  <div className="su-src">
-                    {SOURCE_LABEL[source]}
-                    <span className="su-src-n">{list.length}</span>
-                  </div>
-                  {list.map(([id, c]) => {
-                    const sel = id === classId;
-                    const subs = ALL_SUBCLASSES.filter((s) => s.cls === id);
-                    return (
-                      <button key={id} className={`su-card ${sel ? "is-sel" : ""}`}
-                              style={{ marginTop: 8 }}
-                              onClick={() => pickClass(id)} aria-pressed={sel}>
-                        <div className="su-card-top">
-                          <span className="su-card-name">{c.name}</span>
-                          <span className="su-card-kind">d{c.hitDie} hit die</span>
-                        </div>
-                        <p className="su-card-blurb">
-                          Saves: {c.saves.join(", ")} · {c.skillCount} skills ·{" "}
-                          {subs.length ? `${subs[0].name} available at ${subs[0].unlock}` : "no Sina Una option"}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-
-            {klass && (
-              <>
-                <Rule />
-
-                {/* subclass — only once the level unlocks it */}
-                <div className="su-panel">
-                  <h3>{classSubclasses[0]?.group || "Subclass"}</h3>
-                  {!subclassReady ? (
-                    <p className="su-note">
-                      {klass.name}s choose at level {subclassUnlock}. You're level {level}, so this comes later —
-                      nothing to decide now.
-                    </p>
-                  ) : (
-                    <>
-                      {CONTENT_SOURCES.map((source) => {
-                        const list = classSubclasses.filter((s) => s.src === source);
-                        if (!list.length) return null;
-                        return (
-                          <div key={source}>
-                            <div className="su-src">
-                              {SOURCE_LABEL[source]}
-                              <span className="su-src-n">{list.length}</span>
+                  {/* subclass — only once the level unlocks it */}
+                  <div className="su-panel">
+                    <h3>{classSubclasses[0]?.group || "Subclass"}</h3>
+                    {!subclassReady ? (
+                      <p className="su-note">
+                        {klass.name}s choose at level {subclassUnlock}. You're level {level}, so this comes later —
+                        nothing to decide now.
+                      </p>
+                    ) : (
+                      <>
+                        {CONTENT_SOURCES.map((source) => {
+                          const list = classSubclasses.filter((s) => s.src === source);
+                          if (!list.length) return null;
+                          return (
+                            <div key={source}>
+                              <div className="su-src">
+                                {SOURCE_LABEL[source]}
+                                <span className="su-src-n">{list.length}</span>
+                              </div>
+                              {list.map((s) => {
+                                const sel = s.id === subclassId;
+                                const now = s.features.filter((f) => f[0] <= level);
+                                return (
+                                  <button key={s.id} className={`su-card ${sel ? "is-sel" : ""}`}
+                                          style={{ marginTop: 8 }}
+                                          onClick={() => { setSubclassId(s.id); setCurse(null); setBonusSkillPicks([]); }}
+                                          aria-pressed={sel}>
+                                    <div className="su-card-top">
+                                      <span className="su-card-name">{s.name}</span>
+                                      {s.page && <span className="su-card-kind">p.{s.page}</span>}
+                                    </div>
+                                    {s.blurb && <p className="su-card-blurb">{s.blurb}</p>}
+                                    <div className="su-pills" style={{ marginTop: s.blurb ? 0 : 8 }}>
+                                      {now.map((f, i) => <span className="su-pill" key={i}>{f[1]}</span>)}
+                                      {now.length === 0 && <span className="su-pill alt">no features yet</span>}
+                                    </div>
+                                  </button>
+                                );
+                              })}
                             </div>
-                            {list.map((s) => {
-                              const sel = s.id === subclassId;
-                              const now = s.features.filter((f) => f[0] <= level);
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+
+                  {/* subclass-specific choice, e.g. Graverobber's curse */}
+                  {subclass?.choice && level >= subclass.choice.atLevel && (
+                    <div className="su-panel">
+                      <h3>{subclass.choice.name}</h3>
+                      <p className="su-note">{subclass.choice.note}</p>
+                      <div className="su-choice">
+                        {subclass.choice.options.map((o) => (
+                          <button key={o.id} className={`su-opt ${curse === o.id ? "is-sel" : ""}`}
+                                  onClick={() => setCurse(o.id)} aria-pressed={curse === o.id}>
+                            {o.name} · {o.sub}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* skills — anything already free is not in this list */}
+                  <div className="su-panel">
+                    <h3>Skills <span className="su-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
+                    {freeSkills.size > 0 && (
+                      <p className="su-note" style={{ marginBottom: 10 }}>
+                        You already have {[...freeSkills].join(" and ")} for free, so {freeSkills.size > 1 ? "they aren't" : "it isn't"} listed below.
+                      </p>
+                    )}
+                    <div className="su-skills">
+                      {skillPool.map((s) => {
+                        const on = skillPicks.includes(s);
+                        const full = !on && skillPicks.length >= klass.skillCount;
+                        return (
+                          <button key={s} className={`su-skill ${on ? "is-sel" : ""}`}
+                                  onClick={() => toggleSkill(s)} disabled={full}
+                                  aria-pressed={on}>{s}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {bonusSkillCount > 0 && (
+                    <div className="su-panel">
+                      <h3>Extra skills
+                        <span className="su-count">{bonusSkillsLeft > 0 ? `${bonusSkillsLeft} to go` : "done"}</span></h3>
+                      <p className="su-note" style={{ marginBottom: 10 }}>
+                        {[...new Set(bonusSkillGrants.map((e) => e.source))].filter(Boolean).join(" and ")}{" "}
+                        grant{bonusSkillGrants.length > 1 ? "" : "s"}{" "}
+                        {bonusSkillCount === 1 ? "one extra skill" : `${bonusSkillCount} extra skills`}
+                        {bonusSkillGrants.every((e) => !e.from) ? " — any skill you like." : ", from a short list."}
+                      </p>
+                      <div className="su-skills">
+                        {bonusSkillPool.map((x) => {
+                          const on = bonusSkillPicks.includes(x);
+                          const full = !on && bonusSkillPicks.length >= bonusSkillCount;
+                          return (
+                            <button key={x} className={`su-skill ${on ? "is-sel" : ""}`}
+                                    onClick={() => toggleBonusSkill(x)} disabled={full}
+                                    aria-pressed={on}>{x}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="su-panel">
+                    <h3>Proficiencies</h3>
+                    <div className="su-row"><span className="su-row-label">Armor</span>
+                      <span className="su-mod" style={{ width: "auto" }}>{klass.armor}</span></div>
+                    <div className="su-row"><span className="su-row-label">Weapons</span>
+                      <span className="su-mod" style={{ width: "auto" }}>{klass.weapons}</span></div>
+                    <div className="su-row"><span className="su-row-label">Saving throws</span>
+                      <span className="su-mod" style={{ width: "auto" }}>{klass.saves.join(", ")}</span></div>
+                  </div>
+
+                  {/* Tasha's optional class features. Unlike Weapon
+                      Mastery this is still 2014 content, so it feeds the
+                      features list, the appendix and all three exports
+                      like anything else — the toggle is here because
+                      Tasha's itself calls them optional, and several of
+                      them replace a feature the class already has. */}
+                  <div className="su-panel">
+                    <div className="su-row">
+                      <span className="su-row-label">Tasha's optional class features
+                        <span className="su-count">optional</span></span>
+                      <button className={`su-opt ${tceOptional ? "is-sel" : ""}`}
+                              onClick={() => setTceOptional((v) => !v)} aria-pressed={tceOptional}>
+                        {tceOptional ? "On" : "Off"}
+                      </button>
+                    </div>
+                    <p className="su-note">
+                      {tceOptional
+                        ? "Tasha's extra features and its added fighting styles, metamagic, invocations and maneuvers are listed with your class features. Several replace a feature you already have — the text says which."
+                        : "Off. Tasha's Cauldron offers extra class features, and more fighting styles, metamagic, invocations and maneuvers. Ask your DM before switching this on."}
+                    </p>
+                  </div>
+
+                  {/* Feats and the level-4 improvement. Both live here
+                      rather than on the Ancestry or Abilities step: half
+                      the feats in the books have a prerequisite that only
+                      the class answers — spellcasting, heavy armour,
+                      martial weapons. */}
+                  {lineageFeatSlot && (
+                    <>
+                      <Rule />
+                      <div className="su-panel">
+                        <h3>{ancestry.name} feat
+                          <span className="su-count">{lineageFeat && !featIncomplete(lineageFeat) ? "done" : "1 to pick"}</span></h3>
+                        {renderFeatPicker("lineage", null,
+                          `${ancestry.name} grants one feat at 1st level. Only feats you qualify for are listed.`)}
+                      </div>
+                    </>
+                  )}
+
+                  {asiAvailable && (
+                    <>
+                      <Rule />
+                      <div className="su-panel">
+                        <h3>Ability Score Improvement
+                          <span className="su-count">{asiLeft > 0 ? `${asiLeft} to spend` : "done"}</span></h3>
+                        <p className="su-note" style={{ marginBottom: 10 }}>
+                          Every class gets this at 4th level — the only one inside this campaign's range.
+                          Nothing can go above 20.
+                        </p>
+                        <div className="su-choice">
+                          {[["focus", "+2 to one score"], ["split", "+1 to two scores"], ["feat", "Take a feat"]]
+                            .map(([m, label]) => (
+                              <button key={m} className={`su-opt ${asiMode === m ? "is-sel" : ""}`}
+                                      onClick={() => { setAsiMode(m); setClassAsi({}); }}
+                                      aria-pressed={asiMode === m}>{label}</button>
+                            ))}
+                        </div>
+                        {asiMode === "feat" ? (
+                          <div style={{ marginTop: 12 }}>
+                            {renderFeatPicker("asi", null,
+                              "Taking a feat instead of the ability increase is a variant rule — check your DM allows it.")}
+                          </div>
+                        ) : (
+                          <div className="su-choice" style={{ marginTop: 12 }}>
+                            {ABILITIES.map(({ key, label }) => {
+                              const on = !!classAsi[key];
+                              const step = asiMode === "focus" ? 2 : 1;
+                              const maxed = !on && prereqScore(key) + step > 20;
+                              const full = !on && asiSpent + step > 2;
                               return (
-                                <button key={s.id} className={`su-card ${sel ? "is-sel" : ""}`}
-                                        style={{ marginTop: 8 }}
-                                        onClick={() => { setSubclassId(s.id); setCurse(null); setBonusSkillPicks([]); }}
-                                        aria-pressed={sel}>
-                                  <div className="su-card-top">
-                                    <span className="su-card-name">{s.name}</span>
-                                    {s.page && <span className="su-card-kind">p.{s.page}</span>}
-                                  </div>
-                                  {s.blurb && <p className="su-card-blurb">{s.blurb}</p>}
-                                  <div className="su-pills" style={{ marginTop: s.blurb ? 0 : 8 }}>
-                                    {now.map((f, i) => <span className="su-pill" key={i}>{f[1]}</span>)}
-                                    {now.length === 0 && <span className="su-pill alt">no features yet</span>}
-                                  </div>
+                                <button key={key} className={`su-opt ${on ? "is-sel" : ""}`}
+                                        onClick={() => applyAsi(key)} disabled={maxed || full}
+                                        aria-pressed={on}>
+                                  {label}{on ? ` +${classAsi[key]}` : maxed ? " · at 20" : ""}
                                 </button>
                               );
                             })}
                           </div>
-                        );
-                      })}
+                        )}
+                      </div>
                     </>
                   )}
-                </div>
+                </>
+              )}
+            </>
+          )}
 
-                {/* subclass-specific choice, e.g. Graverobber's curse */}
-                {subclass?.choice && level >= subclass.choice.atLevel && (
+          {/* ---------------- STEP 3 — BACKGROUND ---------------- */}
+          {here === "Background" && (
+            <>
+              {BACKGROUNDS.map((b) => {
+                const sel = b.id === bgId;
+                const sk = b.skills.fixed
+                  ? b.skills.fixed.join(", ")
+                  : `${b.skills.choose} from ${b.skills.from.join(", ")}`;
+                return (
+                  <button key={b.id} className={`su-card ${sel ? "is-sel" : ""}`}
+                          onClick={() => pickBackground(b.id)} aria-pressed={sel}>
+                    <div className="su-card-top">
+                      <span className="su-card-name">{b.name}</span>
+                      <span className="su-card-kind">p.{b.page}</span>
+                    </div>
+                    <p className="su-card-blurb">{b.blurb}</p>
+                    <div className="su-pills">
+                      <span className="su-pill">{b.feature.name}</span>
+                      <span className="su-pill alt">{sk}</span>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {background && (
+                <>
+                  <Rule />
+
                   <div className="su-panel">
-                    <h3>{subclass.choice.name}</h3>
-                    <p className="su-note">{subclass.choice.note}</p>
-                    <div className="su-choice">
-                      {subclass.choice.options.map((o) => (
-                        <button key={o.id} className={`su-opt ${curse === o.id ? "is-sel" : ""}`}
-                                onClick={() => setCurse(o.id)} aria-pressed={curse === o.id}>
-                          {o.name} · {o.sub}
-                        </button>
-                      ))}
-                    </div>
+                    <h3>Feature: {background.feature.name}</h3>
+                    <p className="su-note">{background.feature.text}</p>
                   </div>
-                )}
 
-                {/* skills — anything already free is not in this list */}
-                <div className="su-panel">
-                  <h3>Skills <span className="su-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
-                  {freeSkills.size > 0 && (
-                    <p className="su-note" style={{ marginBottom: 10 }}>
-                      You already have {[...freeSkills].join(" and ")} for free, so {freeSkills.size > 1 ? "they aren't" : "it isn't"} listed below.
-                    </p>
-                  )}
-                  <div className="su-skills">
-                    {skillPool.map((s) => {
-                      const on = skillPicks.includes(s);
-                      const full = !on && skillPicks.length >= klass.skillCount;
-                      return (
-                        <button key={s} className={`su-skill ${on ? "is-sel" : ""}`}
-                                onClick={() => toggleSkill(s)} disabled={full}
-                                aria-pressed={on}>{s}</button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {bonusSkillCount > 0 && (
-                  <div className="su-panel">
-                    <h3>Extra skills
-                      <span className="su-count">{bonusSkillsLeft > 0 ? `${bonusSkillsLeft} to go` : "done"}</span></h3>
-                    <p className="su-note" style={{ marginBottom: 10 }}>
-                      {[...new Set(bonusSkillGrants.map((e) => e.source))].filter(Boolean).join(" and ")}{" "}
-                      grant{bonusSkillGrants.length > 1 ? "" : "s"}{" "}
-                      {bonusSkillCount === 1 ? "one extra skill" : `${bonusSkillCount} extra skills`}
-                      {bonusSkillGrants.every((e) => !e.from) ? " — any skill you like." : ", from a short list."}
-                    </p>
-                    <div className="su-skills">
-                      {bonusSkillPool.map((x) => {
-                        const on = bonusSkillPicks.includes(x);
-                        const full = !on && bonusSkillPicks.length >= bonusSkillCount;
-                        return (
-                          <button key={x} className={`su-skill ${on ? "is-sel" : ""}`}
-                                  onClick={() => toggleBonusSkill(x)} disabled={full}
-                                  aria-pressed={on}>{x}</button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="su-panel">
-                  <h3>Proficiencies</h3>
-                  <div className="su-row"><span className="su-row-label">Armor</span>
-                    <span className="su-mod" style={{ width: "auto" }}>{klass.armor}</span></div>
-                  <div className="su-row"><span className="su-row-label">Weapons</span>
-                    <span className="su-mod" style={{ width: "auto" }}>{klass.weapons}</span></div>
-                  <div className="su-row"><span className="su-row-label">Saving throws</span>
-                    <span className="su-mod" style={{ width: "auto" }}>{klass.saves.join(", ")}</span></div>
-                </div>
-
-                {/* Tasha's optional class features. Unlike Weapon
-                    Mastery this is still 2014 content, so it feeds the
-                    features list, the appendix and all three exports
-                    like anything else — the toggle is here because
-                    Tasha's itself calls them optional, and several of
-                    them replace a feature the class already has. */}
-                <div className="su-panel">
-                  <div className="su-row">
-                    <span className="su-row-label">Tasha's optional class features
-                      <span className="su-count">optional</span></span>
-                    <button className={`su-opt ${tceOptional ? "is-sel" : ""}`}
-                            onClick={() => setTceOptional((v) => !v)} aria-pressed={tceOptional}>
-                      {tceOptional ? "On" : "Off"}
-                    </button>
-                  </div>
-                  <p className="su-note">
-                    {tceOptional
-                      ? "Tasha's extra features and its added fighting styles, metamagic, invocations and maneuvers are listed with your class features. Several replace a feature you already have — the text says which."
-                      : "Off. Tasha's Cauldron offers extra class features, and more fighting styles, metamagic, invocations and maneuvers. Ask your DM before switching this on."}
-                  </p>
-                </div>
-
-                {/* Feats and the level-4 improvement. Both live here
-                    rather than on the Ancestry or Abilities step: half
-                    the feats in the books have a prerequisite that only
-                    the class answers — spellcasting, heavy armour,
-                    martial weapons. */}
-                {lineageFeatSlot && (
-                  <>
-                    <Rule />
+                  {/* choose-from backgrounds: pool already excludes held skills */}
+                  {background.skills.choose && (
                     <div className="su-panel">
-                      <h3>{ancestry.name} feat
-                        <span className="su-count">{lineageFeat && !featIncomplete(lineageFeat) ? "done" : "1 to pick"}</span></h3>
-                      {renderFeatPicker("lineage", null,
-                        `${ancestry.name} grants one feat at 1st level. Only feats you qualify for are listed.`)}
-                    </div>
-                  </>
-                )}
-
-                {asiAvailable && (
-                  <>
-                    <Rule />
-                    <div className="su-panel">
-                      <h3>Ability Score Improvement
-                        <span className="su-count">{asiLeft > 0 ? `${asiLeft} to spend` : "done"}</span></h3>
-                      <p className="su-note" style={{ marginBottom: 10 }}>
-                        Every class gets this at 4th level — the only one inside this campaign's range.
-                        Nothing can go above 20.
-                      </p>
-                      <div className="su-choice">
-                        {[["focus", "+2 to one score"], ["split", "+1 to two scores"], ["feat", "Take a feat"]]
-                          .map(([m, label]) => (
-                            <button key={m} className={`su-opt ${asiMode === m ? "is-sel" : ""}`}
-                                    onClick={() => { setAsiMode(m); setClassAsi({}); }}
-                                    aria-pressed={asiMode === m}>{label}</button>
-                          ))}
-                      </div>
-                      {asiMode === "feat" ? (
-                        <div style={{ marginTop: 12 }}>
-                          {renderFeatPicker("asi", null,
-                            "Taking a feat instead of the ability increase is a variant rule — check your DM allows it.")}
-                        </div>
+                      <h3>Skills <span className="su-count">
+                        {bgPool.length < background.skills.choose ? "limited" :
+                         bgSkillsLeft > 0 ? `${bgSkillsLeft} to go` : "done"}
+                      </span></h3>
+                      {bgPool.length < background.skills.from.length && (
+                        <p className="su-note" style={{ marginBottom: 10 }}>
+                          {background.skills.from.filter((s) => priorSkills.has(s)).join(" and ")} already
+                          covered, so {background.skills.from.filter((s) => priorSkills.has(s)).length > 1 ? "they're" : "it's"} not
+                          listed.
+                        </p>
+                      )}
+                      {bgPool.length === 0 ? (
+                        <p className="su-note">
+                          You already have everything this background offers. Nothing to choose — worth
+                          considering a different background, or different class skills.
+                        </p>
                       ) : (
-                        <div className="su-choice" style={{ marginTop: 12 }}>
-                          {ABILITIES.map(({ key, label }) => {
-                            const on = !!classAsi[key];
-                            const step = asiMode === "focus" ? 2 : 1;
-                            const maxed = !on && prereqScore(key) + step > 20;
-                            const full = !on && asiSpent + step > 2;
+                        <div className="su-skills">
+                          {bgPool.map((s) => {
+                            const on = bgSkillPicks.includes(s);
+                            const full = !on && bgSkillPicks.length >= background.skills.choose;
                             return (
-                              <button key={key} className={`su-opt ${on ? "is-sel" : ""}`}
-                                      onClick={() => applyAsi(key)} disabled={maxed || full}
-                                      aria-pressed={on}>
-                                {label}{on ? ` +${classAsi[key]}` : maxed ? " · at 20" : ""}
-                              </button>
+                              <button key={s} className={`su-skill ${on ? "is-sel" : ""}`}
+                                      onClick={() => toggleBgSkill(s)} disabled={full}
+                                      aria-pressed={on}>{s}</button>
                             );
                           })}
                         </div>
                       )}
                     </div>
-                  </>
-                )}
-              </>
-            )}
-          </>
-        )}
+                  )}
 
-        {/* ---------------- STEP 3 — BACKGROUND ---------------- */}
-        {here === "Background" && (
-          <>
-            {BACKGROUNDS.map((b) => {
-              const sel = b.id === bgId;
-              const sk = b.skills.fixed
-                ? b.skills.fixed.join(", ")
-                : `${b.skills.choose} from ${b.skills.from.join(", ")}`;
-              return (
-                <button key={b.id} className={`su-card ${sel ? "is-sel" : ""}`}
-                        onClick={() => pickBackground(b.id)} aria-pressed={sel}>
-                  <div className="su-card-top">
-                    <span className="su-card-name">{b.name}</span>
-                    <span className="su-card-kind">p.{b.page}</span>
-                  </div>
-                  <p className="su-card-blurb">{b.blurb}</p>
-                  <div className="su-pills">
-                    <span className="su-pill">{b.feature.name}</span>
-                    <span className="su-pill alt">{sk}</span>
-                  </div>
-                </button>
-              );
-            })}
-
-            {background && (
-              <>
-                <Rule />
-
-                <div className="su-panel">
-                  <h3>Feature: {background.feature.name}</h3>
-                  <p className="su-note">{background.feature.text}</p>
-                </div>
-
-                {/* choose-from backgrounds: pool already excludes held skills */}
-                {background.skills.choose && (
-                  <div className="su-panel">
-                    <h3>Skills <span className="su-count">
-                      {bgPool.length < background.skills.choose ? "limited" :
-                       bgSkillsLeft > 0 ? `${bgSkillsLeft} to go` : "done"}
-                    </span></h3>
-                    {bgPool.length < background.skills.from.length && (
-                      <p className="su-note" style={{ marginBottom: 10 }}>
-                        {background.skills.from.filter((s) => priorSkills.has(s)).join(" and ")} already
-                        covered, so {background.skills.from.filter((s) => priorSkills.has(s)).length > 1 ? "they're" : "it's"} not
-                        listed.
-                      </p>
-                    )}
-                    {bgPool.length === 0 ? (
-                      <p className="su-note">
-                        You already have everything this background offers. Nothing to choose — worth
-                        considering a different background, or different class skills.
-                      </p>
-                    ) : (
+                  {/* fixed-skill backgrounds: flag collisions honestly */}
+                  {background.skills.fixed && (
+                    <div className="su-panel">
+                      <h3>Skills</h3>
                       <div className="su-skills">
-                        {bgPool.map((s) => {
-                          const on = bgSkillPicks.includes(s);
-                          const full = !on && bgSkillPicks.length >= background.skills.choose;
-                          return (
-                            <button key={s} className={`su-skill ${on ? "is-sel" : ""}`}
-                                    onClick={() => toggleBgSkill(s)} disabled={full}
-                                    aria-pressed={on}>{s}</button>
-                          );
-                        })}
+                        {background.skills.fixed.map((s) => (
+                          <span key={s} className={`su-skill is-given ${bgOverlap.includes(s) ? "is-dupe" : ""}`}>
+                            {s}{bgOverlap.includes(s) ? " · duplicate" : ""}
+                          </span>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                )}
-
-                {/* fixed-skill backgrounds: flag collisions honestly */}
-                {background.skills.fixed && (
-                  <div className="su-panel">
-                    <h3>Skills</h3>
-                    <div className="su-skills">
-                      {background.skills.fixed.map((s) => (
-                        <span key={s} className={`su-skill is-given ${bgOverlap.includes(s) ? "is-dupe" : ""}`}>
-                          {s}{bgOverlap.includes(s) ? " · duplicate" : ""}
-                        </span>
-                      ))}
-                    </div>
-                    {bgOverlap.length > 0 && (
-                      <p className="su-warn">
-                        You already have {bgOverlap.join(" and ")} from your class or ancestry. The 2014 rules
-                        don't let you swap a duplicate for something else, so it's wasted — go back and pick
-                        different class skills if you'd rather not lose {bgOverlap.length > 1 ? "them" : "it"}.
-                        <button className="su-chip-b" onClick={() => setStep(2)}>Change class skills</button>
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {background.choice && (
-                  <div className="su-panel">
-                    <h3>{background.choice.name}</h3>
-                    <p className="su-note">{background.choice.note}</p>
-                    <div className="su-skills" style={{ marginTop: 10 }}>
-                      {background.choice.options.map((o) => (
-                        <button key={o} className={`su-skill ${bgChoice === o ? "is-sel" : ""}`}
-                                onClick={() => setBgChoice(o)} aria-pressed={bgChoice === o}>{o}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="su-panel">
-                  <h3>You start with</h3>
-                  {background.equipment.map((e) => (
-                    <div className="su-row" key={e}><span className="su-row-label">{e}</span></div>
-                  ))}
-                  {background.tools.length > 0 && (
-                    <div className="su-row"><span className="su-row-label">Tools</span>
-                      <span className="su-mod" style={{ width: "auto" }}>{background.tools.join(", ")}</span></div>
-                  )}
-                  {(background.langs > 0 || background.fixedLangs) && (
-                    <div className="su-row"><span className="su-row-label">Languages</span>
-                      <span className="su-mod" style={{ width: "auto" }}>
-                        {background.fixedLangs ? background.fixedLangs.join(", ")
-                          : `${background.langs} of your choice`}
-                      </span></div>
-                  )}
-                </div>
-
-                <p className="su-note">
-                  Personality traits, ideals, bonds, and flaws are on p.{background.page} — roll or pick
-                  those at the table.
-                </p>
-              </>
-            )}
-          </>
-        )}
-
-        {/* ---------------- STEP 4 — DEFENSES ---------------- */}
-        {here === "Defenses" && resolved && (
-          <>
-            <div className="su-vitals">
-              <div className="su-vital">
-                <div className="su-vital-n">{armorClass}</div>
-                <div className="su-vital-l">Armor Class</div>
-                <div className="su-vital-s">{bestAC?.parts}{shieldOn ? " + 2 shield" : ""}</div>
-              </div>
-              <div className="su-vital">
-                <div className="su-vital-n">{klass ? hitPoints : "—"}</div>
-                <div className="su-vital-l">Hit Points</div>
-              </div>
-              <div className="su-vital">
-                <div className="su-vital-n">{fmt(initiative)}</div>
-                <div className="su-vital-l">Initiative</div>
-              </div>
-              <div className="su-vital">
-                <div className="su-vital-n">{speed}</div>
-                <div className="su-vital-l">Speed</div>
-              </div>
-            </div>
-
-            {!klass ? (
-              <div className="su-stub">
-                <p className="su-stub-t">Pick a class first</p>
-                <p className="su-stub-s">Armor proficiency decides what you can wear.</p>
-              </div>
-            ) : (
-              <>
-                <div className="su-panel">
-                  <h3>Armor</h3>
-                  {armorOptions.length === 1 ? (
-                    <p className="su-note">
-                      {klass.name}s aren't proficient with any armor
-                      {klass.unarmored ? `, and don't need it — ${klass.unarmored.name} is usually better anyway.` : "."}
-                    </p>
-                  ) : (
-                    <>
-                      {klass.noMetal && (
-                        <p className="su-note" style={{ marginBottom: 10 }}>
-                          Metal armor is left out — druids won't wear it. Studded leather is included, though
-                          whether its rivets count is a table-by-table call.
+                      {bgOverlap.length > 0 && (
+                        <p className="su-warn">
+                          You already have {bgOverlap.join(" and ")} from your class or ancestry. The 2014 rules
+                          don't let you swap a duplicate for something else, so it's wasted — go back and pick
+                          different class skills if you'd rather not lose {bgOverlap.length > 1 ? "them" : "it"}.
+                          <button className="su-chip-b" onClick={() => setStep(2)}>Change class skills</button>
                         </p>
                       )}
-                      <div className="su-skills">
-                        {armorOptions.map((a) => (
-                          <button key={a.id} className={`su-skill ${armor.id === a.id ? "is-sel" : ""}`}
-                                  onClick={() => setArmorId(a.id)} aria-pressed={armor.id === a.id}>
-                            {a.name}{a.cat !== "none" ? ` ${a.base}` : ""}
-                          </button>
+                    </div>
+                  )}
+
+                  {background.choice && (
+                    <div className="su-panel">
+                      <h3>{background.choice.name}</h3>
+                      <p className="su-note">{background.choice.note}</p>
+                      <div className="su-skills" style={{ marginTop: 10 }}>
+                        {background.choice.options.map((o) => (
+                          <button key={o} className={`su-skill ${bgChoice === o ? "is-sel" : ""}`}
+                                  onClick={() => setBgChoice(o)} aria-pressed={bgChoice === o}>{o}</button>
                         ))}
                       </div>
-                    </>
-                  )}
-                  {shieldAllowed && (
-                    <div className="su-row" style={{ marginTop: 12 }}>
-                      <span className="su-row-label">Shield <span className="su-count">+2 AC</span></span>
-                      <button className={`su-opt ${shieldOn ? "is-sel" : ""}`}
-                              onClick={() => setHasShield((v) => !v)} aria-pressed={shieldOn}>
-                        {shieldOn ? "Carrying" : "No shield"}
-                      </button>
                     </div>
                   )}
-                  {strShortfall && (
-                    <p className="su-warn">
-                      {armor.name} needs Strength {strShortfall} and you have {finalScore("str")}, so your
-                      speed drops by 10 feet — {resolved.speed} down to {speed}.
-                    </p>
-                  )}
-                  {armor.stealth && (
-                    <p className="su-warn">{armor.name} gives disadvantage on Stealth checks.</p>
-                  )}
-                  {klass.unarmored && armor.id !== "none" && (
-                    <p className="su-warn">
-                      Wearing armor switches off {klass.unarmored.name}.
-                    </p>
-                  )}
-                  {klass.unarmored?.noShield && shieldOn && armor.id === "none" && (
-                    <p className="su-warn">
-                      {klass.name} Unarmored Defense doesn't work with a shield, so you're on plain 10 + Dex.
-                    </p>
-                  )}
-                </div>
 
-                {acCandidates.length > 1 && (
                   <div className="su-panel">
-                    <h3>Why that number</h3>
-                    <p className="su-note" style={{ marginBottom: 10 }}>
-                      More than one formula applies. You use the best one.
-                    </p>
-                    {acCandidates.map((c) => {
-                      const best = c.value === bestAC.value;
-                      return (
-                        <div className={`su-row ${best ? "" : "su-dim"}`} key={c.label}>
-                          <span className="su-row-label">{c.label}
-                            <span className="su-ac-parts">{c.parts}</span></span>
-                          <span className={best ? "su-final" : "su-mod"}>{c.value}</span>
-                        </div>
-                      );
-                    })}
+                    <h3>You start with</h3>
+                    {background.equipment.map((e) => (
+                      <div className="su-row" key={e}><span className="su-row-label">{e}</span></div>
+                    ))}
+                    {background.tools.length > 0 && (
+                      <div className="su-row"><span className="su-row-label">Tools</span>
+                        <span className="su-mod" style={{ width: "auto" }}>{background.tools.join(", ")}</span></div>
+                    )}
+                    {(background.langs > 0 || background.fixedLangs) && (
+                      <div className="su-row"><span className="su-row-label">Languages</span>
+                        <span className="su-mod" style={{ width: "auto" }}>
+                          {background.fixedLangs ? background.fixedLangs.join(", ")
+                            : `${background.langs} of your choice`}
+                        </span></div>
+                    )}
                   </div>
-                )}
 
-                <div className="su-panel">
-                  <h3>Saving throws <span className="su-count">proficiency {fmt(pb)}</span></h3>
-                  {savingThrows.map((s) => (
-                    <div className="su-row" key={s.key}>
-                      <span className={`su-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-                      <span className="su-row-label">{s.label}</span>
-                      <span className="su-final">{fmt(s.value)}</span>
-                    </div>
-                  ))}
-                  <p className="su-note" style={{ marginTop: 10 }}>
-                    Filled circles are the two your class is proficient in.
+                  <p className="su-note">
+                    Personality traits, ideals, bonds, and flaws are on p.{background.page} — roll or pick
+                    those at the table.
                   </p>
-                </div>
-
-                <div className="su-panel">
-                  <h3>Passive skills</h3>
-                  {passiveSkills.map((p) => (
-                    <div className="su-row" key={p.name}>
-                      <span className="su-row-label">Passive {p.name}</span>
-                      <span className="su-final">{p.value}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {weaponChoiceGroups.length > 0 && (
-                  <div className="su-panel">
-                    <h3>Starting Equipment <span className="su-count">weapons</span></h3>
-                    <p className="su-note" style={{ marginBottom: 10 }}>
-                      {klass.name}'s starting gear. Background gear — packs, tools, trinkets — is on the Background step.
-                    </p>
-                    {weaponChoiceGroups.length > 1 && (
-                      <p className="su-note" style={{ marginBottom: 4 }}>
-                        You get one pick from <em>each</em> row below — {weaponChoiceGroups.length} weapons total, not one.
-                      </p>
-                    )}
-                    {weaponChoiceGroups.map((group, gi) => {
-                      const choice = equipmentChoices[gi];
-                      const ordinal = ["1st", "2nd", "3rd", "4th"][gi] || `${gi + 1}th`;
-                      return (
-                        <div key={gi} style={{ marginBottom: 10 }}>
-                          {weaponChoiceGroups.length > 1 && (
-                            <span className="su-row-label" style={{ display: "block", marginBottom: 4 }}>
-                              {ordinal} weapon
-                            </span>
-                          )}
-                          <div className="su-skills">
-                            {group.map((opt, oi) => {
-                              const sel = choice?.optIdx === oi;
-                              const label = opt.label || WEAPONS.find((w) => w.id === opt.weapon)?.name || opt.weapon;
-                              return (
-                                <button key={oi} className={`su-skill ${sel ? "is-sel" : ""}`}
-                                        onClick={() => setEquipmentChoices((prev) => ({ ...prev, [gi]: { optIdx: oi, weaponId: null } }))}
-                                        aria-pressed={sel}>
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {choice != null && group[choice.optIdx]?.filter && (() => {
-                            const optQty = group[choice.optIdx].qty || 1;
-                            return (
-                              <>
-                                {optQty > 1 && (
-                                  <p className="su-note" style={{ marginTop: 6, marginBottom: 4 }}>
-                                    Pick one — you get {optQty} of it.
-                                  </p>
-                                )}
-                                <div className="su-skills" style={{ marginTop: 6 }}>
-                                  {WEAPONS.filter((w) => {
-                                    const f = group[choice.optIdx].filter;
-                                    if (f.category && w.category !== f.category) return false;
-                                    if (f.melee && w.kind !== "melee") return false;
-                                    return true;
-                                  }).map((w) => (
-                                    <button key={w.id} className={`su-skill ${choice.weaponId === w.id ? "is-sel" : ""}`}
-                                            onClick={() => setEquipmentChoices((prev) => ({ ...prev, [gi]: { ...prev[gi], weaponId: w.id } }))}
-                                            aria-pressed={choice.weaponId === w.id}>
-                                      {w.name}{optQty > 1 ? ` ×${optQty}` : ""}
-                                    </button>
-                                  ))}
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      );
-                    })}
-                    {klass.startingEquipment?.gear?.length > 0 && (
-                      <p className="su-note" style={{ marginTop: 4 }}>
-                        Also: {klass.startingEquipment.gear.join(", ")}.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="su-panel">
-                  <h3>Attacks</h3>
-                  <div className="su-atk-table">
-                    <div className="su-atk-row su-atk-head">
-                      <span>Attack</span><span>Range</span><span>Hit / DC</span><span>Damage</span><span>Notes</span>
-                    </div>
-                    {attackRows.map((r) => (
-                      <div className="su-atk-row" key={r.key}>
-                        <span className="su-atk-name">{r.name}{!r.proficient && <span className="su-tag alt">not proficient</span>}</span>
-                        <span>{r.range}</span>
-                        <span className="su-atk-num">{r.hitOrDC}</span>
-                        <span className="su-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
-                        <span className="su-atk-notes">{r.notes || "—"}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="su-row" style={{ marginTop: 10 }}>
-                    <span className="su-row-label">Weapon Mastery <span className="su-count">2024, optional</span></span>
-                    <button className={`su-opt ${masteryEnabled ? "is-sel" : ""}`}
-                            onClick={() => setMasteryEnabled((v) => !v)} aria-pressed={masteryEnabled}>
-                      {masteryEnabled ? "On" : "Off"}
-                    </button>
-                  </div>
-                  {masteryEnabled && (
-                    <p className="su-warn">
-                      Off the 2014 chassis Sina Una uses — an informational tag only, in the Notes column above.
-                      It doesn't change AC, attack bonus, or damage, and this app doesn't track which masteries
-                      you'd actually know. {[...new Set(carriedWeapons.map((w) => WEAPON_MASTERY_2024[w.id]).filter(Boolean))]
-                        .map((m) => `${m} — ${MASTERY_PROPERTY_TEXT[m]}`).join(" ")}
-                    </p>
-                  )}
-                </div>
-
-                {actions.length > 0 && (
-                  <div className="su-panel">
-                    <h3>Class + Ancestry Actions</h3>
-                    {ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => (
-                      <div key={k}>
-                        <div className="su-actgroup-l">{ACTION_LABELS[k]}</div>
-                        {actions.filter((a) => a.action === k).map((a, i) => (
-                          <div className="su-trait" key={i}>
-                            <div className="su-trait-n">{a.name} <span className="src">{a.source}</span></div>
-                            <div className="su-trait-t">{a.text}</div>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {ancestrySpells.length > 0 && (
-                  <div className="su-panel">
-                    <h3>Ancestry spells</h3>
-                    <p className="su-note" style={{ marginBottom: 10 }}>
-                      Granted by your lineage, not picked on the Spells step — and they don't
-                      spend your slots.
-                    </p>
-                    {ancestrySpells.map((sp) => (
-                      <div className="su-trait" key={sp.key}>
-                        <div className="su-trait-n">{sp.name}
-                          <span className="src">{sp.from}{sp.use ? ` — ${sp.use}` : ""}</span></div>
-                        <div className="su-trait-t">
-                          {sp.level === 0 ? "Cantrip" : `Level ${sp.level}`}. {splitCastingTime(sp.time).head}, {sp.range}.
-                          {sp.ability ? ` DC ${sp.saveDC}, attack ${fmt(sp.attack)} (${sp.ability.toUpperCase()}).` : ""} {sp.text}
-                        </div>
-                      </div>
-                    ))}
-                    {ancestrySpells.some((sp) => !sp.ability && (sp.atk || sp.save)) && (
-                      <p className="su-warn">
-                        The book names no spellcasting ability for one of these traits, so there's no
-                        DC to show — ask your DM which ability it uses.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {chosenFeats.length > 0 && (
-                  <div className="su-panel">
-                    <h3>Feats</h3>
-                    {chosenFeats.map(({ feat, from, ability }) => {
-                      const key = feat.ability?.fixed || ability;
-                      return (
-                        <div key={feat.id} style={{ marginBottom: 10 }}>
-                          <div className="su-row">
-                            <span className="su-row-label">{feat.name}</span>
-                            <span className="su-mod" style={{ width: "auto" }}>
-                              {feat.ability && key ? `+${feat.ability.amount} ${key.toUpperCase()}` : from}
-                            </span>
-                          </div>
-                          <p className="su-note">{feat.text}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="su-panel">
-                  <h3>Actions in Combat</h3>
-                  <p className="su-note">{BASIC_ACTIONS.join(", ")}.</p>
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {/* ---------------- SPELLS ---------------- */}
-        {here === "Spells" && casting && !casting.pending && (
-          <>
-            <div className="su-cast">
-              <div className="su-cast-c">
-                <div className="su-cast-l">Save DC</div>
-                <div className="su-cast-v">{casting.saveDC}</div>
-              </div>
-              <div className="su-cast-c">
-                <div className="su-cast-l">Attack</div>
-                <div className="su-cast-v">{fmt(casting.attack)}</div>
-              </div>
-              <div className="su-cast-c">
-                <div className="su-cast-l">{casting.ability.toUpperCase()}</div>
-                <div className="su-cast-v">{fmt(casting.abMod)}</div>
-              </div>
-            </div>
-
-            {casting.slots?.length > 0 && (
-              <div className="su-slots" style={{ marginBottom: 14 }}>
-                {casting.slots.map((n, i) => (
-                  <div className="su-slot" key={i}>
-                    <div className="su-slot-l">{i + 1}{["st", "nd", "rd"][i] || "th"}</div>
-                    <div className="su-slot-n">{n}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {casting.pact && (
-              <div className="su-slots" style={{ marginBottom: 14 }}>
-                <div className="su-slot">
-                  <div className="su-slot-l">Pact slots</div>
-                  <div className="su-slot-n">{casting.pact.n}</div>
-                </div>
-                <div className="su-slot">
-                  <div className="su-slot-l">at level</div>
-                  <div className="su-slot-n">{casting.pact.lvl}</div>
-                </div>
-              </div>
-            )}
-
-            {cantripBudget > 0 && (
-              <>
-                <div className="su-panel">
-                  <h3>Cantrips
-                    <span className="su-count">{pickedCantrips.length}/{cantripBudget}</span></h3>
-                  {availableSpells?.rows.some((x) => x.level === 0) && (
-                    <p className="su-note" style={{ marginBottom: 10 }}>
-                      Island cantrips open to you. Anything from your usual list goes in the box below.
-                    </p>
-                  )}
-                  {availableSpells?.pools.map(({ src, label, spells }) => {
-                    const rows = spells.filter((x) => x.level === 0);
-                    if (!rows.length) return null;
-                    return (
-                      <React.Fragment key={src}>
-                        <div className="su-src">{label}
-                          <span className="su-src-n">{rows.length}</span></div>
-                        {rows.map((sp) => (
-                          <SpellTableRow key={sp.name} sp={sp} casting={casting}
-                                    on={pickedSpells.includes(sp.name)}
-                                    full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
-                                    onToggle={() => toggleSpell(sp.name)} />
-                        ))}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-                <Rule />
-              </>
-            )}
-
-            {spellBudget > 0 && (
-              <>
-                <div className="su-panel">
-                  <h3>{casting.prepared != null ? "Prepared spells" : "Spells known"}
-                    <span className="su-count">{pickedLeveled.length}/{spellBudget}</span></h3>
-                  <p className="su-note" style={{ marginBottom: 10 }}>
-                    {casting.prepared != null
-                      ? "You can swap these after a long rest."
-                      : "These are locked in until you level up."}{" "}
-                    Only spells at or below your highest slot level appear.
-                  </p>
-                  {[1, 2, 3].map((lvl) => {
-                    const byPool = (availableSpells?.pools || [])
-                      .map((p) => ({ ...p, spells: p.spells.filter((x) => x.level === lvl) }))
-                      .filter((p) => p.spells.length);
-                    if (!byPool.length) return null;
-                    return (
-                      <div key={lvl}>
-                        <div className="su-lvlh">Level {lvl}
-                          {casting.slots?.[lvl - 1] != null && (
-                            <span className="su-count">{casting.slots[lvl - 1]} slot{casting.slots[lvl - 1] === 1 ? "" : "s"}</span>
-                          )}
-                        </div>
-                        {byPool.map(({ src, label, spells }) => (
-                          <React.Fragment key={src}>
-                            <div className="su-src">{label}
-                              <span className="su-src-n">{spells.length}</span></div>
-                            {spells.map((sp) => (
-                              <SpellTableRow key={sp.name} sp={sp} casting={casting}
-                                        on={pickedSpells.includes(sp.name)}
-                                        full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
-                                        onToggle={() => toggleSpell(sp.name)} />
-                            ))}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-                <Rule />
-              </>
-            )}
-
-            <div className="su-panel">
-              <h3>Anything else</h3>
-              <p className="su-note" style={{ marginBottom: 10 }}>
-                Everything from the Handbook, Xanathar's, Tasha's, Strixhaven and the islands is listed above. If your table uses spells
-                from another book, add them here — one per line.
-              </p>
-              <textarea className="su-out" rows={4} value={otherSpells}
-                        onChange={(e) => setOtherSpells(e.target.value)}
-                        placeholder={"Healing Spirit\nShadow Blade"}
-                        aria-label="Other spells" />
-            </div>
-          </>
-        )}
-
-        {/* ---------------- INVENTORY ---------------- */}
-        {here === "Inventory" && resolved && (
-          <>
-            <div className="su-panel">
-              <h3>Weapons</h3>
-              {groupedWeapons.length > 0 ? groupedWeapons.map(({ weapon, qty }) => (
-                <div className="su-row" key={weapon.id}>
-                  <span className="su-row-label">{weapon.name}</span>
-                  {qty > 1 && <span className="su-mod" style={{ width: "auto" }}>×{qty}</span>}
-                </div>
-              )) : (
-                <p className="su-note">
-                  Nothing picked yet. <button className="su-linkbtn" onClick={() => setStep(at("Defenses"))}>
-                    Choose starting weapons
-                  </button> on the Defenses step.
-                </p>
+                </>
               )}
-            </div>
+            </>
+          )}
 
-            <div className="su-panel">
-              <h3>Armor</h3>
-              <div className="su-row">
-                <span className="su-row-label">Worn</span>
-                <span className="su-mod" style={{ width: "auto" }}>{armor.id === "none" ? "None" : armor.name}</span>
+          {/* ---------------- STEP 4 — DEFENSES ---------------- */}
+          {here === "Defenses" && resolved && (
+            <>
+              <div className="su-vitals">
+                <div className="su-vital">
+                  <div className="su-vital-n">{armorClass}</div>
+                  <div className="su-vital-l">Armor Class</div>
+                  <div className="su-vital-s">{bestAC?.parts}{shieldOn ? " + 2 shield" : ""}</div>
+                </div>
+                <div className="su-vital">
+                  <div className="su-vital-n">{klass ? hitPoints : "—"}</div>
+                  <div className="su-vital-l">Hit Points</div>
+                </div>
+                <div className="su-vital">
+                  <div className="su-vital-n">{fmt(initiative)}</div>
+                  <div className="su-vital-l">Initiative</div>
+                </div>
+                <div className="su-vital">
+                  <div className="su-vital-n">{speed}</div>
+                  <div className="su-vital-l">Speed</div>
+                </div>
               </div>
-              <div className="su-row">
-                <span className="su-row-label">Shield</span>
-                <span className="su-mod" style={{ width: "auto" }}>{shieldOn ? "Carrying" : "None"}</span>
-              </div>
-              <p className="su-note" style={{ marginTop: 6 }}>
-                <button className="su-linkbtn" onClick={() => setStep(at("Defenses"))}>Change armor</button> on the Defenses step.
-              </p>
-            </div>
 
-            <div className="su-panel">
-              <h3>Gear</h3>
-              {[...(klass?.startingEquipment?.gear || []), ...startingGold.items,
-                ...(background?.tools || [])].map((g) => (
-                <div className="su-row" key={g}><span className="su-row-label">{g}</span></div>
-              ))}
-              {!klass && !background && (
-                <p className="su-note">Pick a class and background to see starting gear.</p>
-              )}
-            </div>
-
-            <div className="su-panel">
-              <h3>Currency</h3>
-              {background ? (
-                <div className="su-vitals" style={{ gridTemplateColumns: "1fr" }}>
-                  <div className="su-vital">
-                    <div className="su-vital-n">{startingGold.gp} gp</div>
-                    <div className="su-vital-l">Starting gold — {background.name}</div>
-                  </div>
+              {!klass ? (
+                <div className="su-stub">
+                  <p className="su-stub-t">Pick a class first</p>
+                  <p className="su-stub-s">Armor proficiency decides what you can wear.</p>
                 </div>
               ) : (
-                <p className="su-note">Pick a background to see starting gold.</p>
+                <>
+                  <div className="su-panel">
+                    <h3>Armor</h3>
+                    {armorOptions.length === 1 ? (
+                      <p className="su-note">
+                        {klass.name}s aren't proficient with any armor
+                        {klass.unarmored ? `, and don't need it — ${klass.unarmored.name} is usually better anyway.` : "."}
+                      </p>
+                    ) : (
+                      <>
+                        {klass.noMetal && (
+                          <p className="su-note" style={{ marginBottom: 10 }}>
+                            Metal armor is left out — druids won't wear it. Studded leather is included, though
+                            whether its rivets count is a table-by-table call.
+                          </p>
+                        )}
+                        <div className="su-skills">
+                          {armorOptions.map((a) => (
+                            <button key={a.id} className={`su-skill ${armor.id === a.id ? "is-sel" : ""}`}
+                                    onClick={() => setArmorId(a.id)} aria-pressed={armor.id === a.id}>
+                              {a.name}{a.cat !== "none" ? ` ${a.base}` : ""}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {shieldAllowed && (
+                      <div className="su-row" style={{ marginTop: 12 }}>
+                        <span className="su-row-label">Shield <span className="su-count">+2 AC</span></span>
+                        <button className={`su-opt ${shieldOn ? "is-sel" : ""}`}
+                                onClick={() => setHasShield((v) => !v)} aria-pressed={shieldOn}>
+                          {shieldOn ? "Carrying" : "No shield"}
+                        </button>
+                      </div>
+                    )}
+                    {strShortfall && (
+                      <p className="su-warn">
+                        {armor.name} needs Strength {strShortfall} and you have {finalScore("str")}, so your
+                        speed drops by 10 feet — {resolved.speed} down to {speed}.
+                      </p>
+                    )}
+                    {armor.stealth && (
+                      <p className="su-warn">{armor.name} gives disadvantage on Stealth checks.</p>
+                    )}
+                    {klass.unarmored && armor.id !== "none" && (
+                      <p className="su-warn">
+                        Wearing armor switches off {klass.unarmored.name}.
+                      </p>
+                    )}
+                    {klass.unarmored?.noShield && shieldOn && armor.id === "none" && (
+                      <p className="su-warn">
+                        {klass.name} Unarmored Defense doesn't work with a shield, so you're on plain 10 + Dex.
+                      </p>
+                    )}
+                  </div>
+
+                  {acCandidates.length > 1 && (
+                    <div className="su-panel">
+                      <h3>Why that number</h3>
+                      <p className="su-note" style={{ marginBottom: 10 }}>
+                        More than one formula applies. You use the best one.
+                      </p>
+                      {acCandidates.map((c) => {
+                        const best = c.value === bestAC.value;
+                        return (
+                          <div className={`su-row ${best ? "" : "su-dim"}`} key={c.label}>
+                            <span className="su-row-label">{c.label}
+                              <span className="su-ac-parts">{c.parts}</span></span>
+                            <span className={best ? "su-final" : "su-mod"}>{c.value}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="su-panel">
+                    <h3>Saving throws <span className="su-count">proficiency {fmt(pb)}</span></h3>
+                    {savingThrows.map((s) => (
+                      <div className="su-row" key={s.key}>
+                        <span className={`su-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                        <span className="su-row-label">{s.label}</span>
+                        <span className="su-final">{fmt(s.value)}</span>
+                      </div>
+                    ))}
+                    <p className="su-note" style={{ marginTop: 10 }}>
+                      Filled circles are the two your class is proficient in.
+                    </p>
+                  </div>
+
+                  <div className="su-panel">
+                    <h3>Passive skills</h3>
+                    {passiveSkills.map((p) => (
+                      <div className="su-row" key={p.name}>
+                        <span className="su-row-label">Passive {p.name}</span>
+                        <span className="su-final">{p.value}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {weaponChoiceGroups.length > 0 && (
+                    <div className="su-panel">
+                      <h3>Starting Equipment <span className="su-count">weapons</span></h3>
+                      <p className="su-note" style={{ marginBottom: 10 }}>
+                        {klass.name}'s starting gear. Background gear — packs, tools, trinkets — is on the Background step.
+                      </p>
+                      {weaponChoiceGroups.length > 1 && (
+                        <p className="su-note" style={{ marginBottom: 4 }}>
+                          You get one pick from <em>each</em> row below — {weaponChoiceGroups.length} weapons total, not one.
+                        </p>
+                      )}
+                      {weaponChoiceGroups.map((group, gi) => {
+                        const choice = equipmentChoices[gi];
+                        const ordinal = ["1st", "2nd", "3rd", "4th"][gi] || `${gi + 1}th`;
+                        return (
+                          <div key={gi} style={{ marginBottom: 10 }}>
+                            {weaponChoiceGroups.length > 1 && (
+                              <span className="su-row-label" style={{ display: "block", marginBottom: 4 }}>
+                                {ordinal} weapon
+                              </span>
+                            )}
+                            <div className="su-skills">
+                              {group.map((opt, oi) => {
+                                const sel = choice?.optIdx === oi;
+                                const label = opt.label || WEAPONS.find((w) => w.id === opt.weapon)?.name || opt.weapon;
+                                return (
+                                  <button key={oi} className={`su-skill ${sel ? "is-sel" : ""}`}
+                                          onClick={() => setEquipmentChoices((prev) => ({ ...prev, [gi]: { optIdx: oi, weaponId: null } }))}
+                                          aria-pressed={sel}>
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {choice != null && group[choice.optIdx]?.filter && (() => {
+                              const optQty = group[choice.optIdx].qty || 1;
+                              return (
+                                <>
+                                  {optQty > 1 && (
+                                    <p className="su-note" style={{ marginTop: 6, marginBottom: 4 }}>
+                                      Pick one — you get {optQty} of it.
+                                    </p>
+                                  )}
+                                  <div className="su-skills" style={{ marginTop: 6 }}>
+                                    {WEAPONS.filter((w) => {
+                                      const f = group[choice.optIdx].filter;
+                                      if (f.category && w.category !== f.category) return false;
+                                      if (f.melee && w.kind !== "melee") return false;
+                                      return true;
+                                    }).map((w) => (
+                                      <button key={w.id} className={`su-skill ${choice.weaponId === w.id ? "is-sel" : ""}`}
+                                              onClick={() => setEquipmentChoices((prev) => ({ ...prev, [gi]: { ...prev[gi], weaponId: w.id } }))}
+                                              aria-pressed={choice.weaponId === w.id}>
+                                        {w.name}{optQty > 1 ? ` ×${optQty}` : ""}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })}
+                      {klass.startingEquipment?.gear?.length > 0 && (
+                        <p className="su-note" style={{ marginTop: 4 }}>
+                          Also: {klass.startingEquipment.gear.join(", ")}.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="su-panel">
+                    <h3>Attacks</h3>
+                    <div className="su-atk-table">
+                      <div className="su-atk-row su-atk-head">
+                        <span>Attack</span><span>Range</span><span>Hit / DC</span><span>Damage</span><span>Notes</span>
+                      </div>
+                      {attackRows.map((r) => (
+                        <div className="su-atk-row" key={r.key}>
+                          <span className="su-atk-name">{r.name}{!r.proficient && <span className="su-tag alt">not proficient</span>}</span>
+                          <span>{r.range}</span>
+                          <span className="su-atk-num">{r.hitOrDC}</span>
+                          <span className="su-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
+                          <span className="su-atk-notes">{r.notes || "—"}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="su-row" style={{ marginTop: 10 }}>
+                      <span className="su-row-label">Weapon Mastery <span className="su-count">2024, optional</span></span>
+                      <button className={`su-opt ${masteryEnabled ? "is-sel" : ""}`}
+                              onClick={() => setMasteryEnabled((v) => !v)} aria-pressed={masteryEnabled}>
+                        {masteryEnabled ? "On" : "Off"}
+                      </button>
+                    </div>
+                    {masteryEnabled && (
+                      <p className="su-warn">
+                        Off the 2014 chassis Sina Una uses — an informational tag only, in the Notes column above.
+                        It doesn't change AC, attack bonus, or damage, and this app doesn't track which masteries
+                        you'd actually know. {[...new Set(carriedWeapons.map((w) => WEAPON_MASTERY_2024[w.id]).filter(Boolean))]
+                          .map((m) => `${m} — ${MASTERY_PROPERTY_TEXT[m]}`).join(" ")}
+                      </p>
+                    )}
+                  </div>
+
+                  {actions.length > 0 && (
+                    <div className="su-panel">
+                      <h3>Class + Ancestry Actions</h3>
+                      {ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => (
+                        <div key={k}>
+                          <div className="su-actgroup-l">{ACTION_LABELS[k]}</div>
+                          {actions.filter((a) => a.action === k).map((a, i) => (
+                            <div className="su-trait" key={i}>
+                              <div className="su-trait-n">{a.name} <span className="src">{a.source}</span></div>
+                              <div className="su-trait-t">{a.text}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {ancestrySpells.length > 0 && (
+                    <div className="su-panel">
+                      <h3>Ancestry spells</h3>
+                      <p className="su-note" style={{ marginBottom: 10 }}>
+                        Granted by your lineage, not picked on the Spells step — and they don't
+                        spend your slots.
+                      </p>
+                      {ancestrySpells.map((sp) => (
+                        <div className="su-trait" key={sp.key}>
+                          <div className="su-trait-n">{sp.name}
+                            <span className="src">{sp.from}{sp.use ? ` — ${sp.use}` : ""}</span></div>
+                          <div className="su-trait-t">
+                            {sp.level === 0 ? "Cantrip" : `Level ${sp.level}`}. {splitCastingTime(sp.time).head}, {sp.range}.
+                            {sp.ability ? ` DC ${sp.saveDC}, attack ${fmt(sp.attack)} (${sp.ability.toUpperCase()}).` : ""} {sp.text}
+                          </div>
+                        </div>
+                      ))}
+                      {ancestrySpells.some((sp) => !sp.ability && (sp.atk || sp.save)) && (
+                        <p className="su-warn">
+                          The book names no spellcasting ability for one of these traits, so there's no
+                          DC to show — ask your DM which ability it uses.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {chosenFeats.length > 0 && (
+                    <div className="su-panel">
+                      <h3>Feats</h3>
+                      {chosenFeats.map(({ feat, from, ability }) => {
+                        const key = feat.ability?.fixed || ability;
+                        return (
+                          <div key={feat.id} style={{ marginBottom: 10 }}>
+                            <div className="su-row">
+                              <span className="su-row-label">{feat.name}</span>
+                              <span className="su-mod" style={{ width: "auto" }}>
+                                {feat.ability && key ? `+${feat.ability.amount} ${key.toUpperCase()}` : from}
+                              </span>
+                            </div>
+                            <p className="su-note">{feat.text}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="su-panel">
+                    <h3>Actions in Combat</h3>
+                    <p className="su-note">{BASIC_ACTIONS.join(", ")}.</p>
+                  </div>
+                </>
               )}
-            </div>
-          </>
-        )}
+            </>
+          )}
 
-        {/* ---------------- SHEET / EXPORT ---------------- */}
-        {here === "Sheet" && resolved && (
-          <>
-            <div className="su-panel">
-              <h3>Name</h3>
-              <input className="su-input" value={name} onChange={(e) => setName(e.target.value)}
-                     placeholder="Unnamed" aria-label="Character name" />
-            </div>
+          {/* ---------------- SPELLS ---------------- */}
+          {here === "Spells" && casting && !casting.pending && (
+            <>
+              <div className="su-cast">
+                <div className="su-cast-c">
+                  <div className="su-cast-l">Save DC</div>
+                  <div className="su-cast-v">{casting.saveDC}</div>
+                </div>
+                <div className="su-cast-c">
+                  <div className="su-cast-l">Attack</div>
+                  <div className="su-cast-v">{fmt(casting.attack)}</div>
+                </div>
+                <div className="su-cast-c">
+                  <div className="su-cast-l">{casting.ability.toUpperCase()}</div>
+                  <div className="su-cast-v">{fmt(casting.abMod)}</div>
+                </div>
+              </div>
 
-            <Rule />
+              {casting.slots?.length > 0 && (
+                <div className="su-slots" style={{ marginBottom: 14 }}>
+                  {casting.slots.map((n, i) => (
+                    <div className="su-slot" key={i}>
+                      <div className="su-slot-l">{i + 1}{["st", "nd", "rd"][i] || "th"}</div>
+                      <div className="su-slot-n">{n}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {casting.pact && (
+                <div className="su-slots" style={{ marginBottom: 14 }}>
+                  <div className="su-slot">
+                    <div className="su-slot-l">Pact slots</div>
+                    <div className="su-slot-n">{casting.pact.n}</div>
+                  </div>
+                  <div className="su-slot">
+                    <div className="su-slot-l">at level</div>
+                    <div className="su-slot-n">{casting.pact.lvl}</div>
+                  </div>
+                </div>
+              )}
 
-            {/* The same `sheetCtx` the three export routes read, rendered
-                in the app's own styling. If a field is missing here it's
-                missing from the file too. */}
-            <SheetSummary ctx={sheetCtx} />
+              {cantripBudget > 0 && (
+                <>
+                  <div className="su-panel">
+                    <h3>Cantrips
+                      <span className="su-count">{pickedCantrips.length}/{cantripBudget}</span></h3>
+                    {availableSpells?.rows.some((x) => x.level === 0) && (
+                      <p className="su-note" style={{ marginBottom: 10 }}>
+                        Island cantrips open to you. Anything from your usual list goes in the box below.
+                      </p>
+                    )}
+                    {availableSpells?.pools.map(({ src, label, spells }) => {
+                      const rows = spells.filter((x) => x.level === 0);
+                      if (!rows.length) return null;
+                      return (
+                        <React.Fragment key={src}>
+                          <div className="su-src">{label}
+                            <span className="su-src-n">{rows.length}</span></div>
+                          {rows.map((sp) => (
+                            <SpellTableRow key={sp.name} sp={sp} casting={casting}
+                                      on={pickedSpells.includes(sp.name)}
+                                      full={!pickedSpells.includes(sp.name) && pickedCantrips.length >= cantripBudget}
+                                      onToggle={() => toggleSpell(sp.name)} />
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                  <Rule />
+                </>
+              )}
 
-            <Rule />
+              {spellBudget > 0 && (
+                <>
+                  <div className="su-panel">
+                    <h3>{casting.prepared != null ? "Prepared spells" : "Spells known"}
+                      <span className="su-count">{pickedLeveled.length}/{spellBudget}</span></h3>
+                    <p className="su-note" style={{ marginBottom: 10 }}>
+                      {casting.prepared != null
+                        ? "You can swap these after a long rest."
+                        : "These are locked in until you level up."}{" "}
+                      Only spells at or below your highest slot level appear.
+                    </p>
+                    {[1, 2, 3].map((lvl) => {
+                      const byPool = (availableSpells?.pools || [])
+                        .map((p) => ({ ...p, spells: p.spells.filter((x) => x.level === lvl) }))
+                        .filter((p) => p.spells.length);
+                      if (!byPool.length) return null;
+                      return (
+                        <div key={lvl}>
+                          <div className="su-lvlh">Level {lvl}
+                            {casting.slots?.[lvl - 1] != null && (
+                              <span className="su-count">{casting.slots[lvl - 1]} slot{casting.slots[lvl - 1] === 1 ? "" : "s"}</span>
+                            )}
+                          </div>
+                          {byPool.map(({ src, label, spells }) => (
+                            <React.Fragment key={src}>
+                              <div className="su-src">{label}
+                                <span className="su-src-n">{spells.length}</span></div>
+                              {spells.map((sp) => (
+                                <SpellTableRow key={sp.name} sp={sp} casting={casting}
+                                          on={pickedSpells.includes(sp.name)}
+                                          full={!pickedSpells.includes(sp.name) && pickedLeveled.length >= spellBudget}
+                                          onToggle={() => toggleSpell(sp.name)} />
+                              ))}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <Rule />
+                </>
+              )}
 
-            <div className="su-export su-export-stack">
-              <div className="su-export-t">Character sheet</div>
-              <div className="su-export-alt">
-                <button className="su-btn su-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
-                <button className="su-btn su-btn-ios" onClick={saveForIOS} disabled={pdfState === "working"}>
-                  {pdfState === "working" ? "Building…" : "Save on iOS"}
-                </button>
-                <button className="su-btn su-btn-alt" onClick={saveVector} disabled={pdfState === "working"}>
-                  Save for other devices
+              <div className="su-panel">
+                <h3>Anything else</h3>
+                <p className="su-note" style={{ marginBottom: 10 }}>
+                  Everything from the Handbook, Xanathar's, Tasha's, Strixhaven and the islands is listed above. If your table uses spells
+                  from another book, add them here — one per line.
+                </p>
+                <textarea className="su-out" rows={4} value={otherSpells}
+                          onChange={(e) => setOtherSpells(e.target.value)}
+                          placeholder={"Healing Spirit\nShadow Blade"}
+                          aria-label="Other spells" />
+              </div>
+            </>
+          )}
+
+          {/* ---------------- INVENTORY ---------------- */}
+          {here === "Inventory" && resolved && (
+            <>
+              <div className="su-panel">
+                <h3>Weapons</h3>
+                {groupedWeapons.length > 0 ? groupedWeapons.map(({ weapon, qty }) => (
+                  <div className="su-row" key={weapon.id}>
+                    <span className="su-row-label">{weapon.name}</span>
+                    {qty > 1 && <span className="su-mod" style={{ width: "auto" }}>×{qty}</span>}
+                  </div>
+                )) : (
+                  <p className="su-note">
+                    Nothing picked yet. <button className="su-linkbtn" onClick={() => setStep(at("Defenses"))}>
+                      Choose starting weapons
+                    </button> on the Defenses step.
+                  </p>
+                )}
+              </div>
+
+              <div className="su-panel">
+                <h3>Armor</h3>
+                <div className="su-row">
+                  <span className="su-row-label">Worn</span>
+                  <span className="su-mod" style={{ width: "auto" }}>{armor.id === "none" ? "None" : armor.name}</span>
+                </div>
+                <div className="su-row">
+                  <span className="su-row-label">Shield</span>
+                  <span className="su-mod" style={{ width: "auto" }}>{shieldOn ? "Carrying" : "None"}</span>
+                </div>
+                <p className="su-note" style={{ marginTop: 6 }}>
+                  <button className="su-linkbtn" onClick={() => setStep(at("Defenses"))}>Change armor</button> on the Defenses step.
+                </p>
+              </div>
+
+              <div className="su-panel">
+                <h3>Gear</h3>
+                {[...(klass?.startingEquipment?.gear || []), ...startingGold.items,
+                  ...(background?.tools || [])].map((g) => (
+                  <div className="su-row" key={g}><span className="su-row-label">{g}</span></div>
+                ))}
+                {!klass && !background && (
+                  <p className="su-note">Pick a class and background to see starting gear.</p>
+                )}
+              </div>
+
+              <div className="su-panel">
+                <h3>Currency</h3>
+                {background ? (
+                  <div className="su-vitals" style={{ gridTemplateColumns: "1fr" }}>
+                    <div className="su-vital">
+                      <div className="su-vital-n">{startingGold.gp} gp</div>
+                      <div className="su-vital-l">Starting gold — {background.name}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="su-note">Pick a background to see starting gold.</p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ---------------- SHEET / EXPORT ---------------- */}
+          {here === "Sheet" && resolved && (
+            <>
+              <div className="su-panel">
+                <h3>Name</h3>
+                <input className="su-input" value={name} onChange={(e) => setName(e.target.value)}
+                       placeholder="Unnamed" aria-label="Character name" />
+              </div>
+
+              <Rule />
+
+              {/* The same `sheetCtx` the three export routes read, rendered
+                  in the app's own styling. If a field is missing here it's
+                  missing from the file too. */}
+              <SheetSummary ctx={sheetCtx} />
+
+              <Rule />
+
+              <div className="su-export su-export-stack">
+                <div className="su-export-t">Character sheet</div>
+                <div className="su-export-alt">
+                  <button className="su-btn su-btn-go" onClick={printSheet}>Save on Android/Mac/PC</button>
+                  <button className="su-btn su-btn-ios" onClick={saveForIOS} disabled={pdfState === "working"}>
+                    {pdfState === "working" ? "Building…" : "Save on iOS"}
+                  </button>
+                  <button className="su-btn su-btn-alt" onClick={saveVector} disabled={pdfState === "working"}>
+                    Save for other devices
+                  </button>
+                </div>
+              </div>
+              <p className="su-note" style={{ marginTop: -2 }}>
+                <button className="su-linkbtn" onClick={downloadSheet}>Download the raw HTML</button> instead.
+              </p>
+
+              <div className="su-export su-export-stack">
+                <div>
+                  <div className="su-export-t">Character data</div>
+                  <div className="su-export-s">
+                    A .json file of every choice you made — the character itself, not a
+                    printout of it. Keep it somewhere the browser can't clear.
+                  </div>
+                </div>
+                <button className="su-btn su-btn-alt" onClick={exportCharacter}>Export .json</button>
+              </div>
+              {pdfState === "error" && (
+                <p className="su-warn">That export failed. Try one of the other buttons.</p>
+              )}
+
+              {!name.trim() && (
+                <p className="su-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>
+              )}
+
+              <Rule />
+
+              <div className="su-panel">
+                <h3>Plain text</h3>
+                <textarea className="su-out" readOnly rows={10} value={sheetText}
+                          onFocus={(e) => e.target.select()} aria-label="Character summary" />
+              </div>
+
+              <Rule />
+
+              <div className="su-export">
+                <div>
+                  <div className="su-export-t">Start over</div>
+                  <div className="su-export-s">Wipes this character and every saved field.</div>
+                </div>
+                <button className="su-btn su-btn-danger" onClick={() => setShowResetConfirm(true)}>
+                  Create new character
                 </button>
               </div>
-            </div>
-            <p className="su-note" style={{ marginTop: -2 }}>
-              <button className="su-linkbtn" onClick={downloadSheet}>Download the raw HTML</button> instead.
-            </p>
-            {pdfState === "error" && (
-              <p className="su-warn">That export failed. Try one of the other buttons.</p>
-            )}
-
-            {!name.trim() && (
-              <p className="su-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>
-            )}
-
-            <Rule />
-
-            <div className="su-panel">
-              <h3>Plain text</h3>
-              <textarea className="su-out" readOnly rows={10} value={sheetText}
-                        onFocus={(e) => e.target.select()} aria-label="Character summary" />
-            </div>
-
-            <Rule />
-
-            <div className="su-export">
-              <div>
-                <div className="su-export-t">Start over</div>
-                <div className="su-export-s">Wipes this character and every saved field.</div>
-              </div>
-              <button className="su-btn su-btn-danger" onClick={() => setShowResetConfirm(true)}>
-                Create new character
-              </button>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </ErrorBoundary>
       </div>
 
       {showResetConfirm && (

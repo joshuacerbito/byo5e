@@ -64,7 +64,7 @@ pdftest.html                harness page for `npm run check:export` — not a bu
 vite.config.js
 wrangler.toml               pages_build_output_dir for `wrangler pages deploy`
 public/_headers              Cloudflare Pages cache rules — copied into dist/ verbatim by Vite
-scripts/check.mjs          static checks — run `npm run check` after every edit
+scripts/check.mjs          static + data-reference checks — run `npm run check` after every edit
 scripts/check-exports.mjs  headless-browser check of the iOS raster export — `npm run check:export`
 scripts/build-pdf-fonts.sh regenerates src/pdf/vfsFonts.js (needs python3 + fonttools)
 scripts/lib/fivetools.mjs  shared 5etools extraction helpers (tag stripping, entry flattening)
@@ -73,13 +73,16 @@ scripts/extract-subclasses.mjs       regenerates expandedSubclasses.js + phbSubc
 scripts/extract-feats.mjs            regenerates src/data/feats.js
 scripts/extract-optional-features.mjs  regenerates src/data/optionalFeatures.js
 src/
-  main.jsx                 entry point
+  main.jsx                 entry point — mounts the stylesheet and the outer error boundary
   SinaUnaCreator.jsx       root component: state, derivation, step rendering (~1700 lines)
   styles.js                all CSS as one exported template string
   components/
     Rule.jsx               group divider — hairline + batok chevron
     SpellTableRow.jsx      one selectable spell, table-row layout (name/time/range/hit-DC/effect/notes)
+    SheetSummary.jsx       the whole printed sheet, rendered in the app's own styling
+    ErrorBoundary.jsx      crash fallback — rescue the save, or reset
   lib/
+    storage.js             STORAGE_KEY, load/save/clear, the .json export envelope
     derive.js              mod, fmt, attackBonus, isWeaponProficient, BASIC_ACTIONS, groupWeapons, parseStartingGold, recommendedSpread, resolveLineage, spellHitDC, spellEffect, spellMark(Notes), SOURCE_LABEL, CONTENT_SOURCES
     steps.js               step list, buildSteps, profBonus, SLOTS_THIRD
     sheetHtml.js           buildSheetHTML(ctx, {interactive}) — standalone A4 HTML sheet
@@ -381,6 +384,16 @@ start over.
 identical copies in `sheetHtml.js`, `sheetPdf.js` and here. `SpellTableRow` keeps its own, since
 the picker's version also returns an icon flag.
 
+**Two error boundaries, and the fallback rescues the save.** `components/ErrorBoundary.jsx` is
+mounted twice: once in `main.jsx` around the whole app, once around the wizard body, keyed on the
+step name so moving away clears it. The inner one means a step that throws leaves the header,
+the step rail and the ability strip standing. The fallback offers a raw download of the
+localStorage save *before* it offers the reset, because the failure mode that mattered was a
+character whose own saved state crashed the app on every load — leaving "clear site data", which
+destroys the character, as the only way back in. That is also why `main.jsx` mounts `<style>`
+rather than the root component: the crash screen needs the stylesheet from above the thing that
+might fail.
+
 **"Start over" sits in the footer nav as well as on the Sheet step.** Both open the same
 `showResetConfirm` modal — one reset path, so the wording can't drift. It anchors the **left**
 end of the bar (`.su-nav .su-btn-danger{margin-right:auto}`) with Back and Next paired at the
@@ -610,6 +623,17 @@ The whole character mirrors to `localStorage` under `sina-una-character` and res
 the Sheet step has a confirmed "Create new character" reset. A shareable-with-the-DM ID is still
 an open idea, but nothing depends on it.
 
+The key, the read/write pair and the export envelope live in `src/lib/storage.js` — the root
+component holds no storage code of its own, which is what lets `ErrorBoundary` offer the rescue
+download without importing the component that just crashed. The saved fields are one `snapshot`
+memo with two readers, the localStorage mirror and the `.json` export; a field added to one is
+added to both or it silently fails to travel.
+
+**Character export is `.json`, and the file says what shape it is in.** `saveFormat: 1` means
+bare ids resolved against whatever content the app shipped. The point of the field is that a
+later format — ids qualified by the pack they came from — is distinguishable from this one by a
+reader, rather than guessed at. Import is not built yet (see `plans/byo5e-pack-format.md`).
+
 ### 4. Carried forward from the Xanathar's / Tasha's pass
 
 - **Expanded spell lists aren't modelled.** Oath Spells, Circle Spells, Gloom Stalker Magic,
@@ -631,7 +655,8 @@ an open idea, but nothing depends on it.
   Half-Elf's floating +1s; the proficiency swap touches tools, which the app doesn't model, so
   that part stays prose.
 - **Custom Lineage is built but commented out.** See the note above. Restoring it is uncommenting
-  two data blocks and putting two counts back in `scripts/check.mjs`.
+  two data blocks — `scripts/check.mjs` no longer asserts row counts, so nothing there needs
+  touching.
 - **Feats can't grant anything mechanical.** A feat's `ability` half-point feeds `finalScore`,
   and that's the whole of it — Skill Expert's proficiency and expertise, Fey Touched's and
   Shadow Touched's spells, Moderately Armored's armour proficiency, Resilient's save
@@ -677,9 +702,19 @@ npm run dev
 
 `npm run check` does five things: parses every module, verifies each cross-module import
 resolves to a real export, finds identifiers used without being imported or declared,
-confirms every `className` has a matching CSS rule (and lists dead ones), and asserts the data
-counts still match this document. It caught a dangling `.su-sk.is-prof` selector with no body
+confirms every `className` has a matching CSS rule (and lists dead ones), and checks that every
+cross-reference in the data resolves. It caught a dangling `.su-sk.is-prof` selector with no body
 during the module split — one that would have silently swallowed the rule after it.
+
+That fifth check **used to assert row counts** against the Content inventory table above. It
+caught a truncated file once and nothing else: every content addition failed it by design, so
+the expected numbers were routinely edited to match the data — an assertion you always update is
+an assertion that never fires. It now checks references instead — every `subclass.cls` is a real
+class, every `lineage.base` a real base race, every `SPELL_LISTS` entry a spell that exists,
+every skill name a real skill, every `startingEquipment`/`weaponProf` weapon id a real weapon,
+every effect `type` one the app reads, every feat race prerequisite a real ancestry — and prints
+the counts as a census line rather than enforcing them. The inventory table is still the
+document's claim about what's in here; it is no longer machine-checked.
 
 **Don't trust the OCR markdown for mechanics.** `Sina_una_5e-pages-*.md` were produced by an
 OCR pass that did not respect the book's two-column layout. Columns interleave mid-sentence,

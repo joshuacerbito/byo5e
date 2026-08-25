@@ -1,0 +1,55 @@
+/* The character save, in one place: the localStorage key, the read/write
+   pair around it, and the export envelope.
+
+   localStorage is a cache, not the record — it is per-device, per-browser,
+   and one "clear site data" from being gone. The `.json` export is the
+   portable form, and it is deliberately the same field set: an exported
+   file is a snapshot plus a header saying what shape it is in.
+
+   `saveFormat` is that header. It is 1 today, meaning "bare ids, whatever
+   content the app happened to ship". A later format will qualify every id
+   with the pack it came from, and a reader can only tell the two apart if
+   today's files say which one they are. */
+
+export const STORAGE_KEY = "sina-una-character";
+export const SAVE_FORMAT = 1;
+
+export function loadSaved() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSnapshot(snapshot) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* storage full or unavailable — silently skip, nothing else depends on it */
+  }
+}
+
+export function clearSaved() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/* The exported file. `app` and `exportedAt` are for the human opening it
+   in a text editor months later; `saveFormat` is the only field a reader
+   is required to understand. */
+export function buildCharacterExport(snapshot) {
+  return JSON.stringify({
+    saveFormat: SAVE_FORMAT,
+    app: "byo5e-character-creator",
+    exportedAt: new Date().toISOString(),
+    character: snapshot,
+  }, null, 2);
+}
+
+export const characterFileName = (name) =>
+  `${(name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "unnamed"}-character.json`;

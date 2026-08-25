@@ -7,6 +7,24 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-25 (later still, again)
+
+Groundwork for content packs — the first phase of turning this into a builder that loads
+whatever book you own, rather than one hardcoded to this campaign. Most of it is invisible
+on purpose; the two things you can see are a new button and a screen you'd rather never meet.
+
+### Added
+
+- **Export your character as a `.json` file.** Every choice you made, as data rather than as a
+  printout — it is the character, not a picture of one. The sheet exports are for reading at
+  the table; this is the one to keep somewhere the browser can't clear. Loading a file back in
+  is not built yet.
+- **A crash screen that saves your character instead of eating it.** If the app hits an error
+  it can't recover from, it now says so and offers a download of your saved character *before*
+  it offers to start over. Previously a page-breaking error left a blank screen, and the only
+  way back in was clearing site data — which took the character with it. Errors inside a single
+  step are caught separately, so the header, the step rail and your ability scores stay put.
+
 ## 2026-08-25 (later still)
 
 ### Changed
