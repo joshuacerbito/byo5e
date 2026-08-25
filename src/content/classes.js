@@ -111,12 +111,49 @@ function classTables(groups) {
   }));
 }
 
+/* multiclassing — { requirements, proficienciesGained }.
+
+   requirements is bare ability-score minimums ({ str: 13 } or
+   { or: [{ str: 13, dex: 13 }] }) in every class in both SRDs — no
+   strings, nothing to strip.
+
+   proficienciesGained.armor/weapons/tools/skills are the exact shapes
+   startingProficiencies carries (mixed bare-category strings, {@item}
+   tag strings, { proficiency, full } objects, choose blocks) — reuse
+   the same normalisers so a multiclass tool grant like "Choose one
+   {@item Musical Instrument|XPHB}" is stripped the same way the class's
+   own starting tools are, and toolProficiencies (structured) is
+   preferred over tools (prose) the same way too. */
+function normMulticlassing(mc) {
+  if (!mc) return null;
+  const pg = mc.proficienciesGained || {};
+  return {
+    requirements: mc.requirements ?? null,
+    proficienciesGained: {
+      armor: normArmorProf(pg.armor),
+      weapons: normWeaponProf(pg.weapons),
+      tools: normClassTools(pg),
+      skills: normSkills(pg.skills),
+    },
+  };
+}
+
+/* `p.progression` arrives two ways: an object keyed by the literal level
+   ("3": 2 — Sorcerer's Metamagic), or a bare 20-entry array (Warlock's
+   Eldritch Invocations) where the level is the 1-based POSITION, not the
+   array index. Object.entries on an array yields 0-based indices, so
+   without the +1 below every array-form table read one level low —
+   Eldritch Invocations would report 2 known at 1st level instead of 2nd. */
 function progressionBlock(arr, key) {
-  return (arr || []).map((p) => ({
-    name: p.name ?? null,
-    [key]: (p.featureType || p.category || []).slice(),
-    byLevel: Object.fromEntries(Object.entries(p.progression || {}).map(([k, v]) => [Number(k), v])),
-  }));
+  return (arr || []).map((p) => {
+    const isArray = Array.isArray(p.progression);
+    return {
+      name: p.name ?? null,
+      [key]: (p.featureType || p.category || []).slice(),
+      byLevel: Object.fromEntries(Object.entries(p.progression || {})
+        .map(([k, v]) => [Number(k) + (isArray ? 1 : 0), v])),
+    };
+  });
 }
 
 function buildSubclass(sc, reg, classId, optionIdOf) {
@@ -210,7 +247,7 @@ export function buildClasses(reg, optionIdOf) {
       weaponProf: normWeaponProf(sp.weapons),
       toolProf: normClassTools(sp),
       startingEquipment: normClassEquipment(cl.startingEquipment, reg, from),
-      multiclassing: cl.multiclassing ?? null,
+      multiclassing: normMulticlassing(cl.multiclassing),
       subclassLevel: subclassLevels.length ? Math.min(...subclassLevels) : null,
       subclassFeatureLevels: [...new Set(subclassLevels)].sort((a, b) => a - b),
       subclassTitle: cl.subclassTitle ? stripTags(cl.subclassTitle) : null,

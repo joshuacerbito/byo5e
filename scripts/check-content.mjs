@@ -19,8 +19,8 @@ import { buildContent } from "../src/content/index.js";
 
 const ROOT = path.resolve(process.cwd());
 const PACKS = [
-  { file: "src/packs/srd-5.1.json", edition: "2014", expectWarnings: 38 },
-  { file: "src/packs/srd-5.2.json", edition: "2024", expectWarnings: 9 },
+  { file: "src/packs/srd-5.1.json", edition: "2014", expectWarnings: 39 },
+  { file: "src/packs/srd-5.2.json", edition: "2024", expectWarnings: 13 },
 ];
 
 let failures = 0;
@@ -50,8 +50,11 @@ function scanShape(node, pathStr, out, depth = 0) {
   if (node && typeof node === "object") {
     for (const [k, v] of Object.entries(node)) {
       /* `filter` holds a 5etools query string by design ("level=0|class=Wizard");
-         it is machine data for the spell picker, not display text. */
-      if (k === "filter" || k === "source" && typeof v === "string") continue;
+         it is machine data for the spell picker, not display text. `ref` on a
+         block node is the raw pipe reference kept for traceability alongside
+         the resolved name/source/resolved fields toFeature adds next to it —
+         it is never rendered on its own. */
+      if (k === "filter" || k === "ref" || k === "source" && typeof v === "string") continue;
       scanShape(v, `${pathStr}.${k}`, out, depth + 1);
     }
   }

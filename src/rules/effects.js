@@ -97,3 +97,30 @@ export function mergeArmorProf(classProf, effects) {
   for (const e of effectsOfType(effects, "armorProf")) for (const v of e.value || []) out.add(v);
   return [...out];
 }
+
+/* `class.weaponProf.fixed` / `class.armorProf.fixed` are prose (the
+   content mapper keeps whatever category words and named weapons a book
+   prints — see src/content/prof.js), not the { categories, specific }
+   shape `isWeaponProficient`/AC candidates read. Both are short, plain
+   tokens in the SRD ("Simple", "Martial", "Longswords", "Light",
+   "Shield"), so matching them against a weapon/armor's own category code
+   or name is reliable without a lookup table. A plural in the prose
+   ("Longswords") still matches the singular item name as a prefix. */
+const ARMOR_WORDS = ["light", "medium", "heavy", "shield"];
+
+export function deriveClassArmorProf(fixed) {
+  const lower = (fixed || []).map((s) => s.toLowerCase());
+  return {
+    categories: ARMOR_WORDS.filter((w) => lower.some((s) => s.includes(w))),
+    noMetal: lower.some((s) => /metal/.test(s)),
+  };
+}
+
+export function deriveClassWeaponProf(fixed, weapons) {
+  const lower = (fixed || []).map((s) => s.toLowerCase());
+  const categories = ["simple", "martial"].filter((w) => lower.some((s) => s === w || s.startsWith(w)));
+  const specific = (weapons || [])
+    .filter((w) => lower.some((s) => s.startsWith(w.name.toLowerCase())))
+    .map((w) => w.id);
+  return { categories, specific };
+}

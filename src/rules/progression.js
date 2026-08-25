@@ -52,10 +52,13 @@ export function spellsKnown(casting, level) {
   return n || 0;
 }
 
-/* Prepared-spell count. The two editions encode this differently and the mapper
-   normalises both into one of two shapes:
+/* Prepared-spell count, read off `casting.preparedByLevel`. The two editions
+   encode this differently and the mapper (src/content/classes.js) normalises
+   both into one of two shapes:
 
-     { kind: "table", byLevel: [4, 5, 6, ...] }          2024
+     [4, 5, 6, ...]                                       2024 — a flat,
+                                                            already-computed
+                                                            20-row table
      { kind: "formula", base: "level"|"halfLevel",
        ability: "int" }                                  2014
 
@@ -63,9 +66,9 @@ export function spellsKnown(casting, level) {
    level" wording; half-casters use half their level rounded down, minimum one
    spell either way. */
 export function preparedCount(casting, level, abilityScore) {
-  const p = casting?.prepared;
+  const p = casting?.preparedByLevel;
   if (!p) return null;
-  if (p.kind === "table") return p.byLevel?.[level - 1] ?? null;
+  if (Array.isArray(p)) return p[level - 1] ?? null;
   if (p.kind === "formula") {
     const levelPart = p.base === "halfLevel" ? Math.floor(level / 2) : level;
     return Math.max(1, levelPart + mod(abilityScore));
@@ -97,6 +100,17 @@ export const nextAsiLevel = (asiLevels, level) =>
    ranges from 1 (cleric, sorcerer, warlock) to 3. */
 export const subclassActive = (subclassLevel, level) =>
   subclassLevel != null && level >= subclassLevel;
+
+/* Read a `{ byLevel }` progression table (class.optionProgression /
+   featProgression entries — Metamagic known, Invocations known, Fighting
+   Style slots) at a given level: the highest key at or below it, or 0. */
+export function progressionAt(byLevel, level) {
+  let v = 0;
+  for (const k of Object.keys(byLevel || {}).map(Number).sort((a, b) => a - b)) {
+    if (level >= k) v = byLevel[k];
+  }
+  return v;
+}
 
 /* Features of a class or subclass that a character of this level actually has.
    Sorted by level so the sheet reads in the order they were gained. */

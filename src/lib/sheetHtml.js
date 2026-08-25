@@ -1,6 +1,6 @@
-import { ABILITIES } from '../data/progression.js';
-import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
-  spellMark, spellMarkNotes, spellHitDC as hitDC, spellEffect, ABIL_LABEL } from './derive.js';
+import { ABILITIES, mod, fmt } from '../rules/abilities.js';
+import { groupWeapons, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
+  spellHitDC as hitDC, spellEffect, ABIL_LABEL } from './derive.js';
 import { sheetFileBase } from '../pdf/saveFile.js';
 
 /* Builds a standalone, printable HTML document for the character.
@@ -13,8 +13,9 @@ import { sheetFileBase } from '../pdf/saveFile.js';
    a button nobody can click has no business rendering behind it. */
 export function buildSheetHTML(ctx, { interactive = true } = {}) {
   const {
-    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, finalScore, backstory,
-    attackRows, masteryEnabled, carriedWeapons, actions, ancestrySpells, chosenFeats, classFeatures,
+    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, finalScore, backstory,
+    attackRows, carriedWeapons, actions, ancestrySpells, chosenFeats, classFeatures,
+    startingGold, gearList, toolsList,
   } = ctx;
 
     const esc = (x) => String(x ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -56,21 +57,15 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
       ? `<p class="mut">Replaced by this lineage: ${resolved.droppedTraits.map((t) => esc(t.name)).join(", ")}.</p>` : "";
 
     const classFeats = klass
-      ? (classFeatures || []).filter((f) => f[0] <= level)
-          .map((f) => `<p><b>${esc(f[1])}.</b> ${esc(f[2])}</p>`).join("")
-      : "";
-
-    const feats = subclass && subclassReady
-      ? subclass.features.filter((f) => f[0] <= level)
-          .map((f) => `<p><b>${esc(f[1])}.</b> ${esc(f[2] || `Gained at level ${f[0]}.${subclass.page ? ` See p.${subclass.page}.` : ""}`)}</p>`).join("")
+      ? (classFeatures || [])
+          .map((f) => `<p><b>${esc(f.name)}.</b> ${esc(f.text)}</p>`).join("")
       : "";
 
     const attacksHtml = attackRows?.length ? `
       <table class="atk"><thead><tr><th>Attack</th><th>Range</th><th>Hit/DC</th><th>Damage</th><th>Notes</th></tr></thead>
       <tbody>${attackRows.map((r) => `<tr><td>${esc(r.name)}${r.proficient ? "" : " <span class=\"mut\">(not proficient)</span>"}</td>` +
         `<td>${esc(r.range)}</td><td>${esc(r.hitOrDC)}</td>` +
-        `<td>${esc(r.damage)}${r.dmgType ? ` ${esc(r.dmgType)}` : ""}</td><td>${esc(r.notes || "—")}</td></tr>`).join("")}</tbody></table>
-      ${masteryEnabled ? `<p class="mut">Weapon Mastery notes are 2024, not the 2014 chassis this sheet otherwise uses — informational only.</p>` : ""}` : "";
+        `<td>${esc(r.damage)}${r.dmgType ? ` ${esc(r.dmgType)}` : ""}</td><td>${esc(r.notes || "—")}</td></tr>`).join("")}</tbody></table>` : "";
 
     /* Actions / Bonus Actions / Reactions granted by ancestry, class, and
        subclass — name only, grouped by bucket, each pointing at the
@@ -93,19 +88,12 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
        Actions gets, and for the same reason: the words appear once.
        The +1 is called out because it's already folded into the ability
        strip at the top, which is otherwise impossible to tell. */
-    const featsHtml = (chosenFeats || []).map(({ feat, from, ability }) => {
-      const key = feat.ability?.fixed || ability;
-      const bonus = feat.ability && key
-        ? ` <span class="mut">+${feat.ability.amount} ${key.toUpperCase()}, already in your scores.</span>` : "";
-      return `<p><b>${esc(feat.name)}</b> — ${esc(from)}.${bonus} See Feats.</p>`;
-    }).join("");
+    const featsHtml = (chosenFeats || []).map(({ feat, from, bonus }) =>
+      `<p><b>${esc(feat.name)}</b> — ${esc(from)}.${bonus ? ` <span class="mut">${esc(bonus)}, already in your scores.</span>` : ""} See Feats.</p>`
+    ).join("");
 
-    const bg = background ? [
-      `<p><b>${esc(background.feature.name)}.</b> ${esc(background.feature.text)}</p>`,
-      bgChoice && background.choice ? `<p><b>${esc(background.choice.name)}.</b> ${esc(bgChoice)}</p>` : "",
-      `<p><b>Equipment.</b> ${background.equipment.map(esc).join(", ")}.</p>`,
-      background.tools?.length ? `<p><b>Tools.</b> ${background.tools.map(esc).join(", ")}.</p>` : "",
-    ].join("") : "";
+    const bg = background?.feature
+      ? `<p><b>${esc(background.feature.name)}.</b> ${esc(background.feature.text)}</p>` : "";
 
     /* Player-written prose. Blank lines separate paragraphs; a lone newline
        is a line break inside one, so a bullet list pasted in keeps its shape. */
@@ -121,15 +109,13 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
        (what's in the pack), not per-turn info, so it sits after
        Background rather than up top. */
     const weaponRows = groupWeapons(carriedWeapons || []);
-    const startingGold = parseStartingGold(background);
-    const gearList = [...(klass?.startingEquipment?.gear || []), ...startingGold.items,
-      ...(background?.tools || [])];
-    const inventoryHtml = (weaponRows.length || armor?.id !== "none" || shieldOn || gearList.length || startingGold.gp) ? `
+    const gear = [...(gearList || []), ...(toolsList || [])];
+    const inventoryHtml = (weaponRows.length || armor?.id !== "none" || shieldOn || gear.length || startingGold) ? `
       ${weaponRows.length ? `<p><b>Weapons.</b> ${weaponRows.map((r) =>
         esc(r.weapon.name) + (r.qty > 1 ? ` ×${r.qty}` : "")).join(", ")}.</p>` : ""}
       <p><b>Armor.</b> ${armor && armor.id !== "none" ? esc(armor.name) : "None"}${shieldOn ? " + shield" : ""}.</p>
-      ${gearList.length ? `<p><b>Gear.</b> ${gearList.map(esc).join(", ")}.</p>` : ""}
-      <p><b>Currency.</b> ${startingGold.gp} gp.</p>` : "";
+      ${gear.length ? `<p><b>Gear.</b> ${gear.map(esc).join(", ")}.</p>` : ""}
+      <p><b>Currency.</b> ${startingGold} gp.</p>` : "";
 
     /* Compact spell table — same at-a-glance intent as the Attacks table:
        Name/Time/Range/Hit-DC/Effect/Notes, no prose. Full descriptions are
@@ -143,7 +129,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
     const spellLegend = (() => {
       const bits = [
         chosenSpells.some((x) => x.level === 0) && "<b>C</b> is a cantrip",
-        chosenSpells.some((x) => x.higher)
+        chosenSpells.some((x) => x.higherLevels)
           && "a <b>+</b> means the spell does more cast with a higher slot — the reference below says what",
       ].filter(Boolean);
       return bits.length ? `<p class="mut">Lvl: ${bits.join("; ")}.</p>` : "";
@@ -163,10 +149,10 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
         const hit = sp.atk ? (sp.attack == null ? "—" : fmt(sp.attack))
           : sp.save ? `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()}${sp.saveDC == null ? "" : ` ${sp.saveDC}`}`
           : "—";
-        return `<tr><td>${esc(sp.name)}</td><td>${sp.level === 0 ? "C" : sp.level}${sp.higher ? "+" : ""}</td>` +
+        return `<tr><td>${esc(sp.name)}</td><td>${sp.level === 0 ? "C" : sp.level}${sp.higherLevels ? "+" : ""}</td>` +
           `<td>${esc(head)}</td><td>${esc(sp.range)}</td><td>${esc(hit)}</td><td>${esc(spellEffect(sp))}</td>` +
           `<td>${esc([sp.use, sp.from, sp.ability ? sp.ability.toUpperCase() : null,
-            sp.ritual && "ritual", sp.conc && "conc",
+            sp.ritual && "ritual", sp.concentration && "conc",
             trigger && `trigger: ${trigger.toLowerCase()}`].filter(Boolean).join(", "))}</td></tr>`;
       }).join("")}</tbody></table>
       ${ancestrySpells.some((sp) => !sp.ability && (sp.atk || sp.save))
@@ -180,21 +166,20 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
         <span>Attack <b>${fmt(casting.attack)}</b></span>
         <span>Ability <b>${casting.ability.toUpperCase()}</b></span>
         ${(casting.slots || []).map((n, i) => `<span>${i + 1}${["st", "nd", "rd"][i] || "th"} <b>${n}</b></span>`).join("")}
-        ${casting.pact ? `<span>Pact <b>${casting.pact.n} @ level ${casting.pact.lvl}</b></span>` : ""}
+        ${casting.pact ? `<span>Pact <b>${casting.pact.count} @ level ${casting.pact.level}</b></span>` : ""}
         ${casting.prepared != null ? `<span>Prepared <b>${casting.prepared}</b></span>` : ""}
         ${casting.known != null ? `<span>Known <b>${casting.known}</b></span>` : ""}
       </div>
       ${chosenSpells.length ? `
       <table class="atk"><thead><tr><th>Name</th><th>Lvl</th><th>Time</th><th>Range</th><th>Hit/DC</th><th>Effect</th><th>Notes</th></tr></thead>
-      <tbody>${chosenSpells.map((sp) => `<tr><td>${esc(sp.name)}${spellMark(sp) ? ` ${spellMark(sp)}` : ""}</td>` +
-        `<td>${sp.level === 0 ? "C" : sp.level}${sp.higher ? "+" : ""}</td>` +
+      <tbody>${chosenSpells.map((sp) => `<tr><td>${esc(sp.name)}</td>` +
+        `<td>${sp.level === 0 ? "C" : sp.level}${sp.higherLevels ? "+" : ""}</td>` +
         `<td>${esc(splitCastingTime(sp.time).head)}</td><td>${esc(sp.range)}</td><td>${esc(spellHitDC(sp))}</td>` +
-        `<td>${esc(spellEffect(sp))}</td><td>${[sp.ritual && "ritual", sp.conc && "conc",
+        `<td>${esc(spellEffect(sp))}</td><td>${[sp.ritual && "ritual", sp.concentration && "conc",
           splitCastingTime(sp.time).trigger && `trigger: ${splitCastingTime(sp.time).trigger.toLowerCase()}`,
         ].filter(Boolean).map(esc).join(", ") || "—"}</td></tr>`).join("")}</tbody></table>` : ""}
       ${otherSpells.trim() ? `<p><b>Other.</b> ${otherSpells.split("\n").map((x) => esc(x.trim())).filter(Boolean).join(", ")}</p>` : ""}
       ${spellLegend}
-      ${spellMarkNotes(chosenSpells).map((n) => `<p class="mut">${esc(n)}</p>`).join("")}
       </section>` : "";
 
     const groups = [...new Set(appendix.map((a) => a.group))];
@@ -296,7 +281,6 @@ ${castBlock}
 ${ancestrySpellBlock}
 <section><h4>Ancestry traits — ${esc(ancestry.name)}</h4>${traits}${dropped}</section>
 ${classFeats ? `<section><h4>${esc(klass.name)} features</h4>${classFeats}</section>` : ""}
-${feats ? `<section><h4>${esc(subclass.name)} — ${esc(subclass.group)}</h4>${feats}</section>` : ""}
 ${featsHtml ? `<section><h4>Feats</h4>${featsHtml}</section>` : ""}
 ${bg ? `<section><h4>Background — ${esc(background.name)}</h4>${bg}</section>` : ""}
 ${inventoryHtml ? `<section><h4>Inventory</h4>${inventoryHtml}</section>` : ""}

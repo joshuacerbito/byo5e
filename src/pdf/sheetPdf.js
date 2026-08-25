@@ -1,6 +1,6 @@
-import { ABILITIES } from '../data/progression.js';
-import { mod, fmt, groupWeapons, parseStartingGold, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
-  spellMark, spellMarkNotes, spellHitDC as hitDC, spellEffect, ABIL_LABEL } from '../lib/derive.js';
+import { ABILITIES, mod, fmt } from '../rules/abilities.js';
+import { groupWeapons, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
+  spellHitDC as hitDC, spellEffect, ABIL_LABEL } from '../lib/derive.js';
 import { saveFile, sheetFileName } from './saveFile.js';
 
 /* Real vector PDF, built in the browser from the same sheetCtx that feeds
@@ -106,9 +106,9 @@ export function buildSheetDocDefinition(ctx) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
-    savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, bgChoice, ancestrySpells,
-    finalScore, attackRows, masteryEnabled, carriedWeapons, actions, chosenFeats, classFeatures,
-    backstory,
+    savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, ancestrySpells,
+    finalScore, attackRows, carriedWeapons, actions, chosenFeats, classFeatures,
+    backstory, startingGold, gearList, toolsList,
   } = ctx;
 
   const charName = name.trim() || 'Unnamed';
@@ -223,9 +223,6 @@ export function buildSheetDocDefinition(ctx) {
       layout: ROWS,
       style: 'tbl',
     });
-    if (masteryEnabled) {
-      content.push({ text: 'Weapon Mastery notes are 2024, not the 2014 chassis this sheet otherwise uses — informational only.', style: 'mut' });
-    }
   }
 
   /* ---- class actions: name only, pointing at the full text further down ---- */
@@ -246,7 +243,7 @@ export function buildSheetDocDefinition(ctx) {
     content.push(...heading(`Spellcasting — ${casting.label}`));
     const stats = [['Save DC', casting.saveDC], ['Attack', fmt(casting.attack)], ['Ability', casting.ability.toUpperCase()],
       ...(casting.slots || []).map((n, i) => [`${i + 1}${['st', 'nd', 'rd'][i] || 'th'}`, n]),
-      casting.pact && ['Pact', `${casting.pact.n} @ level ${casting.pact.lvl}`],
+      casting.pact && ['Pact', `${casting.pact.count} @ level ${casting.pact.level}`],
       casting.prepared != null && ['Prepared', casting.prepared],
       casting.known != null && ['Known', casting.known],
     ].filter(Boolean);
@@ -265,10 +262,10 @@ export function buildSheetDocDefinition(ctx) {
             ...chosenSpells.map((sp) => {
               const { head, trigger } = splitCastingTime(sp.time);
               return [
-                sp.name + (spellMark(sp) ? ` ${spellMark(sp)}` : ''),
-                `${sp.level === 0 ? 'C' : sp.level}${sp.higher ? '+' : ''}`,
+                sp.name,
+                `${sp.level === 0 ? 'C' : sp.level}${sp.higherLevels ? '+' : ''}`,
                 head, sp.range, spellHitDC(sp), spellEffect(sp),
-                [sp.ritual && 'ritual', sp.conc && 'conc',
+                [sp.ritual && 'ritual', sp.concentration && 'conc',
                   trigger && `trigger: ${trigger.toLowerCase()}`].filter(Boolean).join(', ') || '—',
               ];
             }),
@@ -283,13 +280,10 @@ export function buildSheetDocDefinition(ctx) {
     }
     const legend = [
       chosenSpells.some((x) => x.level === 0) && 'C is a cantrip',
-      chosenSpells.some((x) => x.higher)
+      chosenSpells.some((x) => x.higherLevels)
         && 'a + means the spell does more cast with a higher slot — the reference below says what',
     ].filter(Boolean);
     if (legend.length) content.push({ text: `Lvl: ${legend.join('; ')}.`, style: 'mut' });
-    for (const note of spellMarkNotes(chosenSpells)) {
-      content.push({ text: note, style: 'mut' });
-    }
   }
 
   /* ---- ancestry spells ---- */
@@ -312,10 +306,10 @@ export function buildSheetDocDefinition(ctx) {
               : sp.dmg ? `${sp.dmg}${sp.dmgType ? ` ${sp.dmgType}` : ''}`
               : sp.cond ? sp.cond[0].toUpperCase() + sp.cond.slice(1) : '—';
             return [
-              sp.name, `${sp.level === 0 ? 'C' : sp.level}${sp.higher ? '+' : ''}`,
+              sp.name, `${sp.level === 0 ? 'C' : sp.level}${sp.higherLevels ? '+' : ''}`,
               head, sp.range, hit, effect,
               [sp.use, sp.from, sp.ability ? sp.ability.toUpperCase() : null,
-                sp.ritual && 'ritual', sp.conc && 'conc',
+                sp.ritual && 'ritual', sp.concentration && 'conc',
                 trigger && `trigger: ${trigger.toLowerCase()}`].filter(Boolean).join(', '),
             ];
           }),
@@ -337,19 +331,10 @@ export function buildSheetDocDefinition(ctx) {
   }
 
   if (klass) {
-    const feats = (classFeatures || []).filter((f) => f[0] <= level);
+    const feats = classFeatures || [];
     if (feats.length) {
       content.push(...heading(`${klass.name} features`));
-      feats.forEach((f) => content.push(para(f[1], f[2])));
-    }
-  }
-
-  if (subclass && subclassReady) {
-    const feats = subclass.features.filter((f) => f[0] <= level);
-    if (feats.length) {
-      content.push(...heading(`${subclass.name} — ${subclass.group}`));
-      feats.forEach((f) => content.push(para(f[1],
-        f[2] || `Gained at level ${f[0]}.${subclass.page ? ` See p.${subclass.page}.` : ''}`)));
+      feats.forEach((f) => content.push(para(f.name, f.text)));
     }
   }
 
@@ -357,34 +342,27 @@ export function buildSheetDocDefinition(ctx) {
      same way Class + Ancestry Actions points at the section that has it. */
   if ((chosenFeats || []).length) {
     content.push(...heading('Feats'));
-    chosenFeats.forEach(({ feat, from, ability }) => {
-      const key = feat.ability?.fixed || ability;
-      const bonus = feat.ability && key
-        ? ` +${feat.ability.amount} ${ABIL_LABEL[key]}, already in your scores.` : '';
-      content.push(para(feat.name, `${from}.${bonus} See Feats.`));
+    chosenFeats.forEach(({ feat, from, bonus }) => {
+      content.push(para(feat.name, `${from}.${bonus ? ` ${bonus}, already in your scores.` : ''} See Feats.`));
     });
   }
 
-  if (background) {
+  if (background?.feature) {
     content.push(...heading(`Background — ${background.name}`));
     content.push(para(background.feature.name, background.feature.text));
-    if (bgChoice && background.choice) content.push(para(background.choice.name, bgChoice));
-    content.push(para('Equipment', `${background.equipment.join(', ')}.`));
-    if (background.tools?.length) content.push(para('Tools', `${background.tools.join(', ')}.`));
   }
 
   /* ---- inventory ---- */
   const weaponRows = groupWeapons(carriedWeapons || []);
-  const startingGold = parseStartingGold(background);
-  const gearList = [...(klass?.startingEquipment?.gear || []), ...startingGold.items, ...(background?.tools || [])];
-  if (weaponRows.length || armor?.id !== 'none' || shieldOn || gearList.length || startingGold.gp) {
+  const gear = [...(gearList || []), ...(toolsList || [])];
+  if (weaponRows.length || armor?.id !== 'none' || shieldOn || gear.length || startingGold) {
     content.push(...heading('Inventory'));
     if (weaponRows.length) {
       content.push(para('Weapons', `${weaponRows.map((r) => r.weapon.name + (r.qty > 1 ? ` ×${r.qty}` : '')).join(', ')}.`));
     }
     content.push(para('Armor', `${armor && armor.id !== 'none' ? armor.name : 'None'}${shieldOn ? ' + shield' : ''}.`));
-    if (gearList.length) content.push(para('Gear', `${gearList.join(', ')}.`));
-    content.push(para('Currency', `${startingGold.gp} gp.`));
+    if (gear.length) content.push(para('Gear', `${gear.join(', ')}.`));
+    content.push(para('Currency', `${startingGold} gp.`));
   }
 
   /* Player-written prose. Blank lines separate paragraphs; single newlines

@@ -119,9 +119,8 @@ function buildPack(ed, shared) {
 
     spells: spellsFor(ed, spellSources),
 
-    /* Magic items are deliberately out of scope — this is a character
-       builder, and items.json is by far the largest file in the set.
-       Only the base equipment table ships. */
+    /* itemsBase.baseitem is the equipment table plus items.json's
+       mundane (rarity:"none") records, merged above — see there. */
     items: plain(itemsBase.baseitem, ed),
     /* itemProperty / itemType / itemMastery carry no SRD flag of any
        kind, so `source` is the only filter that exists for them. */
@@ -216,6 +215,15 @@ const shared = (() => {
   resolveCopies(backgrounds, backgrounds._meta?.internalCopies || [], (m) => warn(`backgrounds.json: ${m}`));
   const itemsBase = readJson("items-base.json");
   resolveCopies(itemsBase, itemsBase._meta?.internalCopies || [], (m) => warn(`items-base.json: ${m}`));
+  /* items.json is items-base's mundane gear (adventuring packs, tools,
+     spellcasting foci, quivers, ...) mixed in with every magic item in
+     the game. Magic items are deliberately out of scope — this is a
+     character builder — so only rarity:"none" records are pulled in;
+     everything from "common" up is a magic item by 5etools convention
+     and stays excluded. No name+source collides with items-base.json. */
+  const items = readJson("items.json");
+  resolveCopies(items, items._meta?.internalCopies || [], (m) => warn(`items.json: ${m}`));
+  itemsBase.baseitem = [...itemsBase.baseitem, ...items.item.filter((r) => r.rarity === "none")];
   return {
     classes: loadClassFiles(),
     races, backgrounds, itemsBase,

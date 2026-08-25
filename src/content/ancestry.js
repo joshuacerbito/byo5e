@@ -106,7 +106,11 @@ function one(race, sub, reg, mint) {
     choices: [
       ...lineageChoices(addl),
       ...skills.choices.map((c) => ({ kind: "skill", ...c })),
-      ...(abilityRaw?.choices || []).map((c) => ({ kind: "ability", ...c })),
+      /* `c` already carries its own discriminant ("pick" | "weighted",
+         see normAbilityIncrease) for src/rules/choices.js to switch on —
+         nested under `spec` rather than spread, so it can't collide with
+         and silently overwrite this choice's own "ability" kind. */
+      ...(abilityRaw?.choices || []).map((c) => ({ kind: "ability", spec: c })),
     ],
   };
 }

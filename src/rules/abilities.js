@@ -21,6 +21,23 @@ export const ABILITY_KEYS = ABILITIES.map((a) => a.key);
 
 export const ABILITY_LABEL = Object.fromEntries(ABILITIES.map((a) => [a.key, a.label]));
 
+/* Which abilities a class actually cares about, highest first: its own
+   primary ability first (what its damage/DC runs on), then its
+   spellcasting ability if that's a different stat, then its two saving
+   throw proficiencies, then everything else in the fixed order above.
+   Character-creation procedure, not content — every field it reads
+   (primaryAbility, casting.ability, saves) is already on the class view
+   model, so this never branches on a class name. */
+export function classAbilityPriority(klass) {
+  const order = [];
+  const add = (k) => { if (k && !order.includes(k)) order.push(k); };
+  (klass?.primaryAbility || []).forEach(add);
+  add(klass?.casting?.ability);
+  (klass?.saves || []).forEach(add);
+  ABILITY_KEYS.forEach(add);
+  return order;
+}
+
 /* The modifier table, as arithmetic rather than as a lookup: scores below 10
    round the same way, so Math.floor over the halved difference covers 1-30
    without a table to keep in sync. */

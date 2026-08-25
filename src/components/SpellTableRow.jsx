@@ -23,7 +23,7 @@ export default function SpellTableRow({ sp, on, full, onToggle, casting }) {
   const { head: time, trigger } = splitCastingTime(sp.time);
   /* Single letters, not words: the tags sit inline with the spell name in a
      1.5fr column, and "RITUAL CONC" pushed long names into a second line. */
-  const tags = [sp.ritual && ["R", "Ritual"], sp.conc && ["C", "Concentration"]].filter(Boolean);
+  const tags = [sp.ritual && ["R", "Ritual"], sp.concentration && ["C", "Concentration"]].filter(Boolean);
   return (
     <button className={`byo-sprow byo-sprow-tbl ${on ? "is-sel" : ""}`} onClick={onToggle}
             disabled={full} aria-pressed={on}>
@@ -37,13 +37,11 @@ export default function SpellTableRow({ sp, on, full, onToggle, casting }) {
           <span>{sp.range}</span>
           <span className="byo-atk-num">{hitOrDC(sp, casting)}</span>
           <span className={eff.icon === "heal" ? "byo-atk-num byo-heal" : "byo-atk-num"}>{eff.text}</span>
-          <span className="byo-atk-notes">{sp.page ? `${sp.src === "scc" ? "SCC " : ""}p.${sp.page}` : "PHB"}</span>
+          <span className="byo-atk-notes">{sp.page ? `p.${sp.page}` : sp.source}</span>
         </span>
         {trigger ? <span className="byo-spell-trig">Trigger: {trigger}</span> : null}
-        {sp.text
-          ? <span className="byo-spell-t">{sp.text}</span>
-          : <span className="byo-spell-t byo-spell-none">Description not loaded — see the Player's Handbook.</span>}
-        {sp.higher ? <span className="byo-spell-hl"><b>At Higher Levels.</b> {sp.higher}</span> : null}
+        <span className="byo-spell-t">{sp.text}</span>
+        {sp.higherLevels ? <span className="byo-spell-hl"><b>At Higher Levels.</b> {sp.higherLevels}</span> : null}
       </span>
     </button>
   );

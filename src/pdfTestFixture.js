@@ -1,72 +1,66 @@
 /* Fixture used by the headless export check (scripts/check-exports.mjs).
-   Not imported by the app. */
-import { CLASSES, ARMOR, classFeaturesFor } from "./data/classes.js";
-import { BACKGROUNDS } from "./data/backgrounds.js";
-import { PHB_SPELLS } from "./data/phbSpells.js";
-import { WEAPONS } from "./data/weapons.js";
-import { XGE_SPELLS } from "./data/xgeSpells.js";
-import { TCE_SPELLS } from "./data/tceSpells.js";
-import { FEATS } from "./data/feats.js";
+   Not imported by the app. Hand-literal — not built from src/content/,
+   since the point is to exercise the three sheet renderers' own field
+   contract in isolation from the wizard that normally produces it. */
 
 const scores = { str: 10, dex: 14, con: 14, int: 16, wis: 12, cha: 8 };
 
+const spell = (name, level, over = {}) => ({
+  id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+  name, level, school: "evocation", time: "1 action", range: "60 ft",
+  components: "V, S", duration: "Instantaneous", ritual: false, concentration: false,
+  atk: null, save: "dex", dmg: "3d6", dmgType: "fire", heal: null, cond: null,
+  text: `${name} does something notable in combat.`, higherLevels: null, page: 241, source: "SRD",
+  ...over,
+});
+
 export const FIXTURE = {
-  ancestry: { name: "Balete Elf" },
-  klass: CLASSES.wizard,
+  ancestry: { name: "Elf" },
+  klass: { name: "Wizard", hitDie: 6, subclassTitle: "Arcane Tradition" },
   level: 5,
-  subclass: { name: "Circle of Tides", group: "Druid Circle",
-    features: [[1, "Tidecaller", "You can speak to water."], [3, "Undertow", "You drag a creature toward you."]] },
+  subclass: { name: "School of Evocation" },
   subclassReady: true,
-  background: BACKGROUNDS[0],
-  name: "Bakunawa Test",
+  background: { name: "Sage" },
+  name: "Fixture Test",
   resolved: { size: "Medium", darkvision: 60, blindsight: 0, languages: ["Common", "Elvish"],
     traits: [{ name: "Fey Ancestry", text: "You have advantage on saving throws against being charmed, and magic cannot put you to sleep." }],
-    droppedTraits: [{ name: "Keen Senses" }] },
-  armorClass: 12, hitPoints: 32, speed: 30, initiative: 2,
+    droppedTraits: [] },
+  armorClass: 12, hitPoints: 32, speed: 30, initiative: 2, passivePerception: 11,
   passiveSkills: [{ name: "Perception", value: 11 }], pb: 3,
-  armor: ARMOR[0], shieldOn: true,
-  savingThrows: [{ label: "Strength", value: 0, proficient: false }, { label: "Intelligence", value: 6, proficient: true }],
+  armor: { id: "none", name: "None" }, shieldOn: true,
+  savingThrows: [{ key: "str", label: "Strength", value: 0, proficient: false },
+    { key: "int", label: "Intelligence", value: 6, proficient: true }],
   skillTable: ["Acrobatics", "Arcana", "Deception", "History", "Insight", "Investigation", "Medicine", "Nature", "Perception", "Stealth"]
     .map((n, i) => ({ name: n, ability: "int", value: i % 3, proficient: i % 2 === 0 })),
-  casting: { label: "Wizard", saveDC: 14, attack: 6, ability: "int", slots: [4, 3, 2], prepared: 8, pending: false },
-  /* One spell from each book, so the footnote marks on the compact
-     spell table are all exercised, plus an island-style entry with no
-     `src` at all. */
-  chosenSpells: [...PHB_SPELLS.slice(0, 8).map((s) => ({ ...s, src: "phb" })),
-    XGE_SPELLS[0], TCE_SPELLS[0],
-    { ...PHB_SPELLS[0], name: "Lava Plume", src: undefined }],
+  casting: { label: "Wizard spellcasting", saveDC: 14, attack: 6, ability: "int",
+    slots: [4, 3, 2], pact: null, prepared: 8, known: null, spellbook: 14, pending: false },
+  chosenSpells: [spell("Fire Bolt", 0), spell("Magic Missile", 1, { atk: null, save: null, dmg: "3d4", dmgType: "force" }),
+    spell("Fireball", 3, { save: "dex", higherLevels: "The damage increases by 1d6 for each slot level above 3rd." })],
   otherSpells: "",
-  /* Mirrors what the app's appendix memo builds: spells, plus a Feats
-     group carrying the rules text the sheet's own Feats section only
-     points at. Both are here so the export check catches it if the
-     text ever gets printed in both places again. */
   appendix: [
-    ...PHB_SPELLS.slice(0, 4).map((s) => ({ group: "Spells", name: s.name, text: s.text })),
-    ...["alert", "telekinetic"].map((id) => {
-      const f = FEATS.find((x) => x.id === id);
-      return { group: "Feats", name: f.name, text: `Variant Human. ${f.text}` };
-    }),
+    { group: "Spells", name: "Fireball", text: "A bright streak flashes from your pointing finger to a point you choose." },
+    { group: "Feats", name: "Alert", text: "Always on the lookout for danger, you gain the following benefits." },
+    { group: "Feats", name: "Telekinetic (+1 INT)", text: "You learn the mage hand cantrip." },
   ],
-  bgChoice: "",
+  bgChoice: null,
   finalScore: (k) => scores[k],
-  attackRows: [{ name: "Quarterstaff", proficient: true, range: "Melee 5 ft", hitOrDC: "+3", damage: "1d6", dmgType: "bludgeoning", notes: "versatile (1d8)" }],
-  masteryEnabled: false,
-  /* Tasha's optional features on, so the extra class features and the
-     invocation/metamagic option lists land in the sheet too. */
-  classFeatures: classFeaturesFor("wizard", { tceOptional: true }),
-  /* One full feat and one half-feat, the two shapes the sheet has to
-     print differently. */
-  chosenFeats: [
-    { id: "alert", ability: null, from: "Variant Human", feat: FEATS.find((f) => f.id === "alert") },
-    { id: "telekinetic", ability: "int", from: "Level 4 improvement", feat: FEATS.find((f) => f.id === "telekinetic") },
+  attackRows: [{ key: "quarterstaff", name: "Quarterstaff", proficient: true, range: "5 ft",
+    hitOrDC: "+3", damage: "1d6", dmgType: "bludgeoning", notes: "Versatile — 1d8 two-handed" }],
+  masteryEnabled: true,
+  classFeatures: [
+    { level: 1, name: "Spellcasting", text: "You have a spellbook containing spells." },
+    { level: 2, name: "Arcane Tradition", text: "You join a school of magic." },
   ],
-  carriedWeapons: [WEAPONS[0], WEAPONS[0]],
-  actions: [{ action: "action", name: "Dash", section: "Wizard features" }],
-  /* Balete Elf's real grants, ability included — the book names none for this
-     trait, so this also exercises the blank-DC branch of the table. */
-  ancestrySpells: ["Druidcraft", "Entangle", "Barkskin"].map((n) => {
-    const sp = PHB_SPELLS.find((x) => x.name === n);
-    return { ...sp, key: `Spirit of Nature-${n}`, from: "Spirit of Nature",
-      use: sp.level === 0 ? "at will" : "1/long rest", ability: null, saveDC: null, attack: null };
-  }),
+  chosenFeats: [
+    { id: "alert", feat: { id: "alert", name: "Alert", text: "Always on the lookout for danger, you gain the following benefits." }, from: "Variant Human", bonus: null },
+    { id: "telekinetic", feat: { id: "telekinetic", name: "Telekinetic", text: "You learn the mage hand cantrip." }, from: "Level 4", bonus: "+1 INT" },
+  ],
+  carriedWeapons: [{ id: "quarterstaff", name: "Quarterstaff" }, { id: "quarterstaff", name: "Quarterstaff" }],
+  actions: [{ action: "action", name: "Dash", source: "Wizard", section: "Wizard features", text: "Move up to your speed." }],
+  ancestrySpells: [spell("Druidcraft", 0, { key: "spirit-of-nature-druidcraft", from: "Spirit of Nature", use: "at will", ability: null, saveDC: null, attack: null }),
+    spell("Entangle", 1, { key: "spirit-of-nature-entangle", from: "Spirit of Nature", use: "1/long rest", ability: null, saveDC: null, attack: null })],
+  startingGold: 25,
+  gearList: ["Scholar's pack", "Ink pen"],
+  toolsList: ["Calligrapher's supplies"],
+  backstory: "Raised in the Feywild, came to the material plane to study at a college of magic.",
 };

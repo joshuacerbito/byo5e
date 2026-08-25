@@ -65,6 +65,31 @@ function collectChoices(blocks, reg, from, optionIdOf) {
   return choices;
 }
 
+/* Rewrite every `{ type:"ref", refKind, ref }` node found anywhere in
+   the block tree (blocks, block.blocks, block.items[].blocks — nested
+   to any depth, e.g. inside a section/options/list that itself sits
+   inside another section/options/list) into a resolved version. `ref`
+   itself is left untouched (raw pipe string, kept for traceability);
+   name/source/resolved are added alongside it, mirroring how
+   collectChoices resolves the same refs for `choices[].options[]`. */
+function resolveRefBlocks(blocks, reg, from) {
+  const walk = (bs) => {
+    for (const b of bs || []) {
+      if (b.type === "ref") {
+        const rec = reg.resolveRef(b.refKind, b.ref, from);
+        const parsed = REF_PARSERS[b.refKind].parse(b.ref);
+        b.name = rec ? rec.name : parsed.name;
+        b.source = rec ? rec.source : parsed.source;
+        b.resolved = !!rec;
+        continue;
+      }
+      if (b.blocks) walk(b.blocks);
+      if (b.items) b.items.forEach((it) => walk(it.blocks));
+    }
+  };
+  walk(blocks);
+}
+
 /* Refs that are NOT inside an options block are cross-pointers ("as
    described in the Rage feature"), not picks. */
 function collectReferences(blocks, refs, reg, from, choices) {
@@ -92,6 +117,7 @@ export function toFeature(rec, reg, opts = {}) {
   const from = opts.from || `feature ${rec.name}`;
   const optionIdOf = opts.optionIdOf || ((kind, r) => slugify(r.name));
   const choices = collectChoices(blocks, reg, from, optionIdOf);
+  resolveRefBlocks(blocks, reg, from);
   return {
     id: `${opts.idPrefix ? `${opts.idPrefix}-` : ""}${opts.level ?? rec.level ?? 0}-${slugify(rec.name)}`,
     level: opts.level ?? rec.level ?? 1,

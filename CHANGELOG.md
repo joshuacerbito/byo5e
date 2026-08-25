@@ -1,11 +1,72 @@
 # Changelog
 
-Notable changes to the **Sina Una Character Creator**, newest first.
+Notable changes to **Bring Your Own 5e**, newest first.
 
 No formal versioning — this is a personal-use tool for one table, not a released product.
 Dates are the day the work landed.
 
 ---
+
+## 2026-08-26
+
+### Changed
+
+- **SRD only, both editions.** The character creator now builds exclusively from the SRD 5.1
+  (2014) and SRD 5.2 (2024) content packs — no Sina Una, no Handbook, no Xanathar's, Tasha's or
+  Strixhaven anywhere in the app. That's also what was showing Sina Una subclasses next to PHB
+  ones in the Class step: the old build never filtered by source at all. `CharacterCreator.jsx`
+  and the three sheet exporters now read from `src/content/` + `src/rules/` instead of
+  `src/data/`, which is deleted along with the four `extract-*.mjs` scripts that fed it.
+- **Levels 1–20**, not 1–5. New Advancement step: an Ability Score Improvement or a feat at every
+  level a class actually grants one (both editions' own rules, not a hardcoded level 4).
+- **"Bring Your Own 5e" is now the page's most prominent text** — a big gold headline, with "Make
+  a character" demoted to a subline underneath. It used to be a 10px eyebrow above that headline.
+
+### Added
+
+- **Edition picker**, first step: SRD 5.1 (2014 rules) or SRD 5.2 (2024 rules).
+- Generic pickers for Fighting Style, Metamagic, Eldritch Invocations and Pact Boon, driven off
+  content rather than hardcoded per class.
+- 2024's background ability-score choice and granted Origin feat.
+- Real 2024 weapon mastery text on the Attacks table (informational; SRD 5.1 weapons carry none).
+
+### Known gaps
+
+- Subclass-granted spellcasting (Eldritch Knight, Arcane Trickster) isn't in the content layer
+  yet — those subclasses build as non-casters; their feature text still prints in full.
+- No hand-authored effects overlay exists yet, so subclass-granted AC formulas, bonus skills,
+  resistances etc. aren't interactive — the book's prose still prints, nothing is invented.
+- 2024 language selection ("Common + 2 of your choice") isn't wired up.
+
+## 2026-08-26 (later)
+
+### Changed
+
+- Step order is now Species/Race, Class, Abilities, Background — ancestry and class come first
+  since they drive what abilities matter, and the ancestry step is renamed "Species/Race" to
+  match 2024 wording without losing the 2014 sense.
+- The Edition selector — and every other in-step selector — no longer jumps to the next step on
+  pick. Only **Next**/**Previous** move the wizard forward or back.
+- **SRD 5.2 (2024 rules) is now the default and first-listed edition**, ahead of SRD 5.1. New
+  characters start there; 5.1 is still one click away.
+- Ancestry-granted "always prepared" spells (a Tiefling's Hellish Rebuke, a Cleric's domain
+  spells, etc.) again show up as normal options in the Spells step, so a character can still
+  choose the same spell the ordinary way. Grants that don't consume a spell slot now carry a
+  cadence note ("1/long rest" and similar) in the Spellcasting table instead.
+
+### Fixed
+
+- **Crash when changing class after picking a subclass** — `Cannot access 'prereqCtx' before
+  initialization`. One of the option-picker memos referenced a value declared later in the same
+  function; it now builds its own prerequisite context from what's already in scope.
+- **Prepared casters (Cleric, Druid, Paladin, Ranger in 2014; most classes in 2024) were only
+  ever offered cantrips.** `preparedCount()` was reading a field name (`casting.prepared`) the
+  content layer never writes; it reads `casting.preparedByLevel` now, for both the 2024 flat
+  table and the 2014 formula shape.
+- **Wizards had the same symptom for a different reason.** Wizards prepare from a spellbook, not
+  a known/prepared list, and the Spells step's budget calculation never checked that field —
+  budget came out 0, so the leveled-spell section never rendered. Fixed by including
+  `casting.spellbook` in the budget.
 
 ## 2026-08-25 (last, again)
 

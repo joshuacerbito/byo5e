@@ -11,7 +11,7 @@
 ------------------------------------------------------------------- */
 import { buildContent } from "./index.js";
 
-export const EDITIONS = ["2014", "2024"];
+export const EDITIONS = ["2024", "2014"];
 
 export const EDITION_LABEL = { 2014: "SRD 5.1 (2014 rules)", 2024: "SRD 5.2 (2024 rules)" };
 
