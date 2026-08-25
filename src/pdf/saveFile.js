@@ -39,5 +39,17 @@ export async function saveFile(blob, filename, type = 'application/pdf') {
   return 'downloaded';
 }
 
-export const sheetFileName = (name, ext) =>
-  `${(name.trim() || 'unnamed').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-sheet.${ext}`;
+/* The file is named after the character and nothing else — every export
+   route shares this, so a folder of saved sheets reads as a list of names.
+   Anything a filesystem or a share sheet could choke on is dropped rather
+   than substituted: letters, digits, spaces, hyphens and underscores
+   survive, runs of whitespace collapse to one space, and case is kept as
+   typed. A name made entirely of punctuation leaves nothing behind, hence
+   the second fallback. */
+export const sheetFileName = (name, ext) => {
+  const clean = (name || '')
+    .replace(/[^\p{L}\p{N} _-]+/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `${clean || 'Unnamed'}.${ext}`;
+};

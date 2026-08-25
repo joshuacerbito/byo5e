@@ -7,6 +7,17 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-25 (last)
+
+### Changed
+
+- **Saved sheets are named after the character.** Every download — both PDFs and the raw HTML —
+  used to come out as `juan-dela-cruz-sheet.pdf`. It is now `Juan Dela Cruz.pdf`: the name as
+  typed, with anything a filesystem would object to dropped and spare spaces tidied away. A
+  folder of saved characters reads as a list of names. A name in any script survives; a blank
+  one still saves as `Unnamed`.
+- **The Sheet step's "Name" box is labelled "Character Name"**, which is what it always meant.
+
 ## 2026-08-25 (later still, again)
 
 ### Added

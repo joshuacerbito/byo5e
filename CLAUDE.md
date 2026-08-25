@@ -86,7 +86,7 @@ src/
   pdf/
     sheetRaster.js         the HTML sheet photographed into an A4 PDF — the iOS route
     sheetPdf.js            pdfmake vector PDF — the fallback route
-    saveFile.js            share-sheet-or-download delivery, shared by both
+    saveFile.js            share-sheet-or-download delivery + sheetFileName(), shared by both
     vfsFonts.js            GENERATED — base64 Fraunces/Karla subsets pdfmake embeds
   pdfTest.js               harness for npm run check:export (not a build entry)
   pdfTestFixture.js        fixed character it renders
@@ -495,6 +495,14 @@ the download attribute, and drops the file in a tab. It hands the file to
 `navigator.share({ files })` where that exists (making "Save to Files" one tap on iOS) and falls
 back to an anchor download typed `application/octet-stream`, which Safari won't display inline.
 `navigator.share` needs transient user activation, so nothing may be awaited ahead of the render.
+
+`sheetFileName(name, ext)` in the same file names every downloaded file after the character and
+nothing else — both PDF routes and the raw-HTML link call it, so a folder of saved sheets reads
+as a list of names. It keeps letters (Unicode, so a name in any script survives), digits, spaces,
+hyphens and underscores, drops everything a filesystem or share sheet could choke on rather than
+substituting for it, collapses runs of whitespace and falls back to `Unnamed` when the name is
+empty or was all punctuation. The print route has no filename of its own — the OS dialog names
+that file.
 
 **Both PDF paths are lazy.** pdfmake, the fonts, html2canvas and jsPDF are `import()`ed on first
 use, so the wizard's initial load is unchanged and Vite emits each as its own chunk.

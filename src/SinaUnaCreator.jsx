@@ -23,6 +23,7 @@ import { mod, fmt, recommendedSpread, resolveLineage, splitCastingTime, ACTION_O
 import { buildSheetHTML } from "./lib/sheetHtml.js";
 import { saveSheetPDF } from "./pdf/sheetPdf.js";
 import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
+import { sheetFileName } from "./pdf/saveFile.js";
 import { STYLES } from "./styles.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
@@ -1006,7 +1007,7 @@ export default function SinaUnaCreator() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(name.trim() || "unnamed").toLowerCase().replace(/[^a-z0-9]+/g, "-")}-sheet.html`;
+    a.download = sheetFileName(name, "html");
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -2344,7 +2345,7 @@ export default function SinaUnaCreator() {
         {here === "Sheet" && resolved && (
           <>
             <div className="su-panel">
-              <h3>Name</h3>
+              <h3>Character Name</h3>
               <input className="su-input" value={name} onChange={(e) => setName(e.target.value)}
                      placeholder="Unnamed" aria-label="Character name" />
             </div>
