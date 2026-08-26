@@ -27,7 +27,87 @@ ruleset needs. Model each category on the shape of a normal 5e SRD data file:
 - feats: name, prerequisites, description, any mechanical benefits
 
 Keep names, numbers and rules text as close to official 5e conventions as you can, and call
-out anywhere you had to invent something. Output JSON only, no commentary.`;
+out anywhere you had to invent something. Output JSON only, no commentary.
+
+I've attached a template JSON file — follow its shape (keys, nesting, field names) exactly.
+Fill in every field the template shows an example for; omit a whole category if I don't need it.`;
+
+/* Skeleton the user attaches alongside the prompt above so their LLM has a concrete shape to
+   copy, not just a prose description. Same "provisional, replace wholesale" caveat as the
+   prompt text — this is not the real schema, just a plausible one worth aligning early attempts
+   to. One example entry per category, not a full pack. */
+const RULESET_TEMPLATE = {
+  $schema: "provisional — Bring Your Own 5e user ruleset, not yet finalized",
+  name: "My Homebrew Ruleset",
+  classes: [
+    {
+      name: "Example Class",
+      hitDie: "d8",
+      savingThrows: ["Wisdom", "Charisma"],
+      armorProficiencies: ["light"],
+      weaponProficiencies: ["simple"],
+      toolProficiencies: [],
+      startingEquipment: ["a simple weapon", "leather armor"],
+      features: [
+        { level: 1, name: "Example Feature", description: "What this feature does." }
+      ]
+    }
+  ],
+  ancestries: [
+    {
+      name: "Example Ancestry",
+      size: "Medium",
+      speed: 30,
+      abilityBonuses: { Dexterity: 2 },
+      languages: ["Common"],
+      traits: [
+        { name: "Example Trait", description: "What this trait does." }
+      ]
+    }
+  ],
+  backgrounds: [
+    {
+      name: "Example Background",
+      skillProficiencies: ["Insight", "Persuasion"],
+      toolProficiencies: [],
+      languages: [],
+      startingEquipment: ["a set of traveler's clothes", "10 gp"],
+      feature: { name: "Example Feature", description: "What this feature does." }
+    }
+  ],
+  spells: [
+    {
+      name: "Example Spell",
+      level: 1,
+      school: "Evocation",
+      castingTime: "1 action",
+      range: "60 feet",
+      components: ["V", "S"],
+      duration: "Instantaneous",
+      ritual: false,
+      concentration: false,
+      classes: ["Example Class"],
+      description: "What this spell does."
+    }
+  ],
+  items: [
+    {
+      name: "Example Item",
+      category: "weapon",
+      cost: "5 gp",
+      weight: 3,
+      damage: "1d6 slashing",
+      properties: ["light", "finesse"]
+    }
+  ],
+  feats: [
+    {
+      name: "Example Feat",
+      prerequisites: "none",
+      description: "What this feat does."
+    }
+  ]
+};
 
 /* Standalone screen — NOT one of the 9 wizard steps (see src/lib/steps.js).
    Reached from the Ruleset step's "Add Ruleset" button; CharacterCreator
@@ -66,6 +146,16 @@ export default function AddRuleset({ onBack }) {
     } catch {
       setCopied(false);
     }
+  };
+
+  const downloadTemplate = () => {
+    const blob = new Blob([JSON.stringify(RULESET_TEMPLATE, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "byo5e-ruleset-template.json";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -123,14 +213,19 @@ export default function AddRuleset({ onBack }) {
               Our ruleset JSON format doesn't exist yet, so this is a provisional prompt
               describing roughly what a ruleset should contain — classes, ancestries,
               backgrounds, spells, items, and feats, modeled on this app's own SRD packs.
-              Copy it into an LLM of your choice, then revisit this page once the real
-              schema is finalized.
+              Download the template below and attach both it and the prompt to an LLM of your
+              choice, then revisit this page once the real schema is finalized.
             </p>
             <textarea className="byo-out" readOnly rows={12} value={RULESET_PROMPT}
                       onFocus={(e) => e.target.select()} aria-label="Ruleset generation prompt" />
-            <button className="byo-btn" style={{ marginTop: 10 }} onClick={copyPrompt}>
-              {copied ? "Copied" : "Copy prompt"}
-            </button>
+            <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button className="byo-btn" onClick={copyPrompt}>
+                {copied ? "Copied" : "Copy prompt"}
+              </button>
+              <button className="byo-btn" onClick={downloadTemplate}>
+                Download JSON template
+              </button>
+            </div>
           </div>
         )}
       </div>
