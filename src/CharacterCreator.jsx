@@ -33,6 +33,7 @@ import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
 import SheetSummary from "./components/SheetSummary.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import AddRuleset from "./components/AddRuleset.jsx";
 
 const APP_TITLE = document.title;
 const saved = loadSaved();
@@ -104,6 +105,10 @@ export default function CharacterCreator() {
   const [edition, setEdition] = useState(saved?.edition ?? DEFAULTS.edition);
   const [content, setContent] = useState(null);
   const [contentError, setContentError] = useState(null);
+  /* Not one of the 9 wizard steps — reached from the Ruleset step's
+     "Add Ruleset" button, replaces the whole wizard body while open.
+     Never persisted: it's a scratch screen, not part of the character. */
+  const [showAddRuleset, setShowAddRuleset] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -782,7 +787,7 @@ export default function CharacterCreator() {
   /* Whether a named step (not necessarily the current one) is complete —
      drives both the Next button and which rail steps are done/jumpable. */
   const stepComplete = (name) => {
-    if (name === "Edition") return !!content;
+    if (name === "Ruleset") return !!content;
     if (name === "Species/Race") return !!ancestry && ancestryChoiceMade;
     if (name === "Abilities") return mode === "pointbuy" ? true : Object.keys(arrayAssign).length === 6;
     if (name === "Class") {
@@ -812,7 +817,7 @@ export default function CharacterCreator() {
      and render nothing without it, so those stay gated on ancestry;
      Spells on having a caster. */
   const stepPrereqOk = (name) => {
-    if (name === "Edition") return true;
+    if (name === "Ruleset") return true;
     if (name === "Defenses" || name === "Inventory" || name === "Sheet") return !!ancestry;
     if (name === "Spells") return !!casting;
     return !!content;
@@ -821,10 +826,10 @@ export default function CharacterCreator() {
   /* What the rail tooltip says on a step it won't let you jump to yet —
      names the actual missing thing, same list stepPrereqOk checks. */
   const stepLockedReason = (name) => {
-    if (name === "Edition") return null;
+    if (name === "Ruleset") return null;
     if (name === "Defenses" || name === "Inventory" || name === "Sheet") return ancestry ? null : "Pick a species first";
     if (name === "Spells") return casting ? null : "Pick a spellcasting class first";
-    return content ? null : "Pick an edition first";
+    return content ? null : "Pick a ruleset first";
   };
   /* Gate every download on the whole character being finished, not just
      reached — the Sheet step itself has no completeness rule of its own
@@ -994,6 +999,8 @@ export default function CharacterCreator() {
   /* ------------------------------------------------------------------
      RENDER
   ------------------------------------------------------------------- */
+  if (showAddRuleset) return <AddRuleset onBack={() => setShowAddRuleset(false)} />;
+
   return (
     <div className="byo-root">
       <div className="byo-wrap">
@@ -1057,13 +1064,14 @@ export default function CharacterCreator() {
         )}
 
         <ErrorBoundary key={here} title="This step hit an error">
-          {/* ---------------- EDITION ---------------- */}
-          {here === "Edition" && (
+          {/* ---------------- RULESET ---------------- */}
+          {here === "Ruleset" && (
             <div className="byo-panel">
               <h3>Ruleset</h3>
               <p className="byo-note" style={{ marginBottom: 10 }}>
-                Both are the free System Reference Document — CC-BY-4.0, no other content is
-                shipped. Pick one to build against; switching later restarts the character.
+                Both defaults are the free System Reference Document — CC-BY-4.0, no other
+                content is shipped. Pick one to build against; switching later restarts the
+                character.
               </p>
               <div className="byo-choice">
                 {EDITIONS.map((ed) => (
@@ -1072,6 +1080,9 @@ export default function CharacterCreator() {
                     {EDITION_LABEL[ed]}
                   </button>
                 ))}
+                <button className="byo-opt" onClick={() => setShowAddRuleset(true)}>
+                  Add Ruleset
+                </button>
               </div>
               {contentError && (
                 <p className="byo-warn">Couldn't load {EDITION_LABEL[edition]}: {String(contentError.message || contentError)}.</p>

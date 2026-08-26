@@ -13,7 +13,7 @@ import { buildContent } from "./index.js";
 
 export const EDITIONS = ["2024", "2014"];
 
-export const EDITION_LABEL = { 2014: "SRD 5.1 (2014 rules)", 2024: "SRD 5.2 (2024 rules)" };
+export const EDITION_LABEL = { 2014: "5e (2014 rules, SRD 5.1)", 2024: "5.5e (2024 rules, SRD 5.2)" };
 
 const LOADERS = {
   2014: () => import("../packs/srd-5.1.json"),
