@@ -34,6 +34,8 @@ import SpellTableRow from "./components/SpellTableRow.jsx";
 import SheetSummary from "./components/SheetSummary.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import AddRuleset from "./components/AddRuleset.jsx";
+import Terms from "./components/Terms.jsx";
+import Privacy from "./components/Privacy.jsx";
 
 const APP_TITLE = document.title;
 const saved = loadSaved();
@@ -109,6 +111,11 @@ export default function CharacterCreator() {
      "Add Ruleset" button, replaces the whole wizard body while open.
      Never persisted: it's a scratch screen, not part of the character. */
   const [showAddRuleset, setShowAddRuleset] = useState(false);
+  /* Same pattern as showAddRuleset: standalone legal screens, reached from
+     the Ruleset step's legal notices and the persistent footer link, never
+     persisted. */
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -1000,6 +1007,8 @@ export default function CharacterCreator() {
      RENDER
   ------------------------------------------------------------------- */
   if (showAddRuleset) return <AddRuleset onBack={() => setShowAddRuleset(false)} />;
+  if (showTerms) return <Terms onBack={() => setShowTerms(false)} />;
+  if (showPrivacy) return <Privacy onBack={() => setShowPrivacy(false)} />;
 
   return (
     <div className="byo-root">
@@ -1094,6 +1103,11 @@ export default function CharacterCreator() {
               <p className="byo-note" style={{ marginTop: 10, fontSize: 11 }}>
                 Bring Your Own 5e is an unofficial, fan-made tool. It is not affiliated with,
                 endorsed, sponsored, or specifically approved by Wizards of the Coast LLC.
+              </p>
+              <p className="byo-note" style={{ marginTop: 10, fontSize: 11 }}>
+                <button className="byo-linkbtn" onClick={() => setShowTerms(true)}>Terms of Service</button>
+                {" · "}
+                <button className="byo-linkbtn" onClick={() => setShowPrivacy(true)}>Privacy Policy</button>
               </p>
             </div>
           )}

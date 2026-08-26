@@ -219,6 +219,11 @@ export const STYLES = `
 .byo-warn{font-size:12.5px;color:var(--bone-dim);line-height:1.55;margin:11px 0 0;
   border-left:2px solid var(--coral);padding-left:11px;}
 
+.byo-legal-draftnote{border-color:var(--coral);}
+.byo-legal-list{margin:6px 0 0;padding-left:20px;}
+.byo-legal-list li{margin-bottom:6px;}
+.byo-legal-list li:last-child{margin-bottom:0;}
+
 .byo-vitals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
 .byo-vital{background:var(--rock);border:1px solid var(--line);border-left:3px solid var(--gold);
   border-radius:3px;padding:12px 8px;text-align:center;}
