@@ -17,3 +17,5 @@ plans/
 
 # Claude Code's local settings and slash commands
 .claude/
+
+.env

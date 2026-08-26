@@ -1072,6 +1072,9 @@ export default function CharacterCreator() {
           </div>
         )}
 
+        {((ancestry && step > at("Species/Race")) || (klass && step > at("Class"))
+          || (background && step > at("Background")) || (ancestry && step >= at("Abilities"))) && <Rule />}
+
         <ErrorBoundary key={here} title="This step hit an error">
           {/* ---------------- RULESET ---------------- */}
           {here === "Ruleset" && (
@@ -1097,10 +1100,15 @@ export default function CharacterCreator() {
                 <p className="byo-warn">Couldn't load {EDITION_LABEL[edition]}: {String(contentError.message || contentError)}.</p>
               )}
               {!content && !contentError && <p className="byo-note" style={{ marginTop: 10 }}>Loading…</p>}
+            </div>
+          )}
+
+          {here === "Ruleset" && (
+            <div className="byo-panel" style={{ marginTop: 10 }}>
               {content?.pack?.license?.notice && (
-                <p className="byo-note" style={{ marginTop: 14, fontSize: 11 }}>{content.pack.license.notice}</p>
+                <p className="byo-note" style={{ fontSize: 11 }}>{content.pack.license.notice}</p>
               )}
-              <p className="byo-note" style={{ marginTop: 10, fontSize: 11 }}>
+              <p className="byo-note" style={{ marginTop: content?.pack?.license?.notice ? 10 : 0, fontSize: 11 }}>
                 Bring Your Own 5e is an unofficial, fan-made tool. It is not affiliated with,
                 endorsed, sponsored, or specifically approved by Wizards of the Coast LLC.
               </p>
@@ -1115,27 +1123,30 @@ export default function CharacterCreator() {
           {/* ---------------- SPECIES/RACE ---------------- */}
           {here === "Species/Race" && content && (
             <>
-              {content.ancestries.map((a) => {
-                const sel = a.id === ancestryId;
-                const asiStr = a.abilityIncreases
-                  ? Object.entries(a.abilityIncreases.fixed).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(" ")
-                  : null;
-                return (
-                  <button key={a.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                          onClick={() => pickAncestry(a.id)} aria-pressed={sel}>
-                    <div className="byo-card-top">
-                      <span className="byo-card-name">{a.name}</span>
-                      <span className="byo-card-kind">{a.size}{a.page ? ` · p.${a.page}` : ""}</span>
-                    </div>
-                    <div className="byo-pills" style={{ marginTop: 8 }}>
-                      {asiStr ? <span className="byo-pill">{asiStr}</span>
-                        : <span className="byo-pill alt">increases come from background</span>}
-                      <span className="byo-pill alt">speed {a.speed.walk}</span>
-                      {a.darkvision > 0 && <span className="byo-pill alt">darkvision {a.darkvision}</span>}
-                    </div>
-                  </button>
-                );
-              })}
+              <div className="byo-card-grid">
+                {content.ancestries.map((a) => {
+                  const sel = a.id === ancestryId;
+                  const asiStr = a.abilityIncreases
+                    ? Object.entries(a.abilityIncreases.fixed).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(" ")
+                    : null;
+                  return (
+                    <button key={a.id} className={`byo-card ${sel ? "is-sel" : ""}`}
+                            onClick={() => pickAncestry(a.id)} aria-pressed={sel}>
+                      <div className="byo-card-top">
+                        <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
+                        <span className="byo-card-name">{a.name}</span>
+                        <span className="byo-card-kind">{a.size}{a.page ? ` · p.${a.page}` : ""}</span>
+                      </div>
+                      <div className="byo-pills" style={{ marginTop: 8 }}>
+                        {asiStr ? <span className="byo-pill">{asiStr}</span>
+                          : <span className="byo-pill alt">increases come from background</span>}
+                        <span className="byo-pill alt">speed {a.speed.walk}</span>
+                        {a.darkvision > 0 && <span className="byo-pill alt">darkvision {a.darkvision}</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
 
               {ancestry && ancestryChoiceGroups.filter((g) => !g.auto).map((g) => (
                 <React.Fragment key={g.ci}>
@@ -1254,22 +1265,25 @@ export default function CharacterCreator() {
                 </div>
               </div>
 
-              {content.classes.map((c) => {
-                const sel = c.id === classId;
-                return (
-                  <button key={c.id} className={`byo-card ${sel ? "is-sel" : ""}`} style={{ marginTop: 8 }}
-                          onClick={() => pickClass(c.id)} aria-pressed={sel}>
-                    <div className="byo-card-top">
-                      <span className="byo-card-name">{c.name}</span>
-                      <span className="byo-card-kind">d{c.hitDie} hit die</span>
-                    </div>
-                    <p className="byo-card-blurb">
-                      Saves: {c.saves.map((s) => s.toUpperCase()).join(", ")} · {c.skillChoices.count} skills ·{" "}
-                      {c.subclasses.length ? `${c.subclassTitle || "subclass"} at ${c.subclassLevel}` : "no subclass"}
-                    </p>
-                  </button>
-                );
-              })}
+              <div className="byo-card-grid" style={{ marginTop: 8 }}>
+                {content.classes.map((c) => {
+                  const sel = c.id === classId;
+                  return (
+                    <button key={c.id} className={`byo-card ${sel ? "is-sel" : ""}`}
+                            onClick={() => pickClass(c.id)} aria-pressed={sel}>
+                      <div className="byo-card-top">
+                        <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
+                        <span className="byo-card-name">{c.name}</span>
+                        <span className="byo-card-kind">d{c.hitDie} hit die</span>
+                      </div>
+                      <p className="byo-card-blurb">
+                        Saves: {c.saves.map((s) => s.toUpperCase()).join(", ")} · {c.skillChoices.count} skills ·{" "}
+                        {c.subclasses.length ? `${c.subclassTitle || "subclass"} at ${c.subclassLevel}` : "no subclass"}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
 
               {klass && (
                 <>
@@ -1279,23 +1293,26 @@ export default function CharacterCreator() {
                     {!subclassOn ? (
                       <p className="byo-note">{klass.name}s choose at level {klass.subclassLevel}. You're level {level}, so nothing to decide yet.</p>
                     ) : (
-                      klass.subclasses.map((s) => {
-                        const sel = s.id === subclassId;
-                        const now = featuresAtLevel(s.features, level);
-                        return (
-                          <button key={s.id} className={`byo-card ${sel ? "is-sel" : ""}`} style={{ marginTop: 8 }}
-                                  onClick={() => { setSubclassId(s.id); setOptionPicks({}); }} aria-pressed={sel}>
-                            <div className="byo-card-top">
-                              <span className="byo-card-name">{s.name}</span>
-                              {s.page && <span className="byo-card-kind">p.{s.page}</span>}
-                            </div>
-                            <div className="byo-pills" style={{ marginTop: 8 }}>
-                              {now.length ? now.map((f) => <span className="byo-pill" key={f.id}>{f.name}</span>)
-                                : <span className="byo-pill alt">no features yet</span>}
-                            </div>
-                          </button>
-                        );
-                      })
+                      <div className="byo-card-grid" style={{ marginTop: 8 }}>
+                        {klass.subclasses.map((s) => {
+                          const sel = s.id === subclassId;
+                          const now = featuresAtLevel(s.features, level);
+                          return (
+                            <button key={s.id} className={`byo-card ${sel ? "is-sel" : ""}`}
+                                    onClick={() => { setSubclassId(s.id); setOptionPicks({}); }} aria-pressed={sel}>
+                              <div className="byo-card-top">
+                                <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
+                                <span className="byo-card-name">{s.name}</span>
+                                {s.page && <span className="byo-card-kind">p.{s.page}</span>}
+                              </div>
+                              <div className="byo-pills" style={{ marginTop: 8 }}>
+                                {now.length ? now.map((f) => <span className="byo-pill" key={f.id}>{f.name}</span>)
+                                  : <span className="byo-pill alt">no features yet</span>}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
 
@@ -1354,24 +1371,27 @@ export default function CharacterCreator() {
           {/* ---------------- BACKGROUND ---------------- */}
           {here === "Background" && content && (
             <>
-              {content.backgrounds.map((b) => {
-                const sel = b.id === bgId;
-                const sk = b.skills.fixed.length ? b.skills.fixed.join(", ")
-                  : b.skills.choices[0] ? `${b.skills.choices[0].count} of your choice` : "";
-                return (
-                  <button key={b.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                          onClick={() => pickBackground(b.id)} aria-pressed={sel}>
-                    <div className="byo-card-top">
-                      <span className="byo-card-name">{b.name}</span>
-                      <span className="byo-card-kind">p.{b.page}</span>
-                    </div>
-                    <div className="byo-pills">
-                      {b.feature && <span className="byo-pill">{b.feature.name}</span>}
-                      {sk && <span className="byo-pill alt">{sk}</span>}
-                    </div>
-                  </button>
-                );
-              })}
+              <div className="byo-card-grid">
+                {content.backgrounds.map((b) => {
+                  const sel = b.id === bgId;
+                  const sk = b.skills.fixed.length ? b.skills.fixed.join(", ")
+                    : b.skills.choices[0] ? `${b.skills.choices[0].count} of your choice` : "";
+                  return (
+                    <button key={b.id} className={`byo-card ${sel ? "is-sel" : ""}`}
+                            onClick={() => pickBackground(b.id)} aria-pressed={sel}>
+                      <div className="byo-card-top">
+                        <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
+                        <span className="byo-card-name">{b.name}</span>
+                        <span className="byo-card-kind">p.{b.page}</span>
+                      </div>
+                      <div className="byo-pills">
+                        {b.feature && <span className="byo-pill">{b.feature.name}</span>}
+                        {sk && <span className="byo-pill alt">{sk}</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
 
               {background && (
                 <>
@@ -1626,22 +1646,24 @@ export default function CharacterCreator() {
                     </div>
                   )}
 
-                  <div className="byo-panel">
-                    <h3>Saving throws <span className="byo-count">proficiency {fmt(pb)}</span></h3>
-                    {saveThrowRows.map((s) => (
-                      <div className="byo-row" key={s.key}>
-                        <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-                        <span className="byo-row-label">{ABILITIES.find((a) => a.key === s.key)?.label}</span>
-                        <span className="byo-final">{fmt(s.value)}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <div className="byo-panel-grid">
+                    <div className="byo-panel">
+                      <h3>Saving throws <span className="byo-count">proficiency {fmt(pb)}</span></h3>
+                      {saveThrowRows.map((s) => (
+                        <div className="byo-row" key={s.key}>
+                          <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                          <span className="byo-row-label">{ABILITIES.find((a) => a.key === s.key)?.label}</span>
+                          <span className="byo-final">{fmt(s.value)}</span>
+                        </div>
+                      ))}
+                    </div>
 
-                  <div className="byo-panel">
-                    <h3>Passive skills</h3>
-                    {passiveSkills.map((p) => (
-                      <div className="byo-row" key={p.name}><span className="byo-row-label">Passive {p.name}</span><span className="byo-final">{p.value}</span></div>
-                    ))}
+                    <div className="byo-panel">
+                      <h3>Passive skills</h3>
+                      {passiveSkills.map((p) => (
+                        <div className="byo-row" key={p.name}><span className="byo-row-label">Passive {p.name}</span><span className="byo-final">{p.value}</span></div>
+                      ))}
+                    </div>
                   </div>
 
                   {klass.startingEquipment.groups.length > 0 && (

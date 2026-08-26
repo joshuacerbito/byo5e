@@ -5,7 +5,7 @@ export const STYLES = `
 
 .byo-root, .byo-root *, .byo-root *::before, .byo-root *::after{box-sizing:border-box;}
 .byo-root{
-  --abyss:#0B1622; --rock:#132436; --rock-2:#1B3145; --line:#26445F;
+  --abyss:#0B1622; --rock:#132436; --rock-2:#1B3145; --line:#26445F; --line-bright:#3C6488;
   --gold:#D4A537; --gold-dim:#8A6B1F; --jade:#3FA98A; --coral:#D9502F;
   --bone:#E8DEC9; --bone-dim:#93A3B4;
   background:var(--abyss); color:var(--bone);
@@ -44,15 +44,16 @@ export const STYLES = `
 .byo-chev.is-todo .byo-chev-label{color:#4C6076;}
 .byo-chev:disabled .byo-chev-label{opacity:.55;}
 
-.byo-card{background:var(--rock);border:1px solid var(--line);border-radius:3px;
+.byo-card{background:var(--rock);border:1px dashed var(--line-bright);border-radius:3px;
   padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:border-color .14s,background .14s;
   text-align:left;width:100%;display:block;font:inherit;color:inherit;}
 .byo-card:hover{border-color:var(--gold-dim);background:var(--rock-2);}
-.byo-card.is-sel{border-color:var(--gold);background:var(--rock-2);
+.byo-card.is-sel{border-style:solid;border-color:var(--gold);background:var(--rock-2);
   box-shadow:inset 3px 0 0 var(--gold);}
 .byo-card:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 .byo-card-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
-.byo-card-name{font-family:'Fraunces',serif;font-weight:600;font-size:19px;color:var(--bone);}
+.byo-card-name{font-family:'Fraunces',serif;font-weight:600;font-size:19px;color:var(--bone);flex:1;}
+.byo-card-top .byo-dot{align-self:center;}
 .byo-card-kind{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--gold-dim);white-space:nowrap;}
 .byo-card-blurb{font-size:13px;color:var(--bone-dim);margin:6px 0 10px;line-height:1.45;}
@@ -63,6 +64,13 @@ export const STYLES = `
 
 .byo-panel{background:var(--rock);border:1px solid var(--line);border-radius:3px;padding:16px 18px;margin-bottom:14px;}
 .byo-panel h3{font-family:'Fraunces',serif;font-weight:600;font-size:16px;margin:0 0 10px;}
+
+/* Fluid 2-up layout: falls back to a single column when the viewport
+   doesn't have room for two, no media query needed. */
+.byo-panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;align-items:start;}
+.byo-panel-grid .byo-panel{margin-bottom:0;}
+.byo-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;}
+.byo-card-grid .byo-card{margin-bottom:0;}
 .byo-note{font-size:13px;color:var(--bone-dim);line-height:1.5;margin:0;}
 
 .byo-choice{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
