@@ -169,6 +169,12 @@ export default function AddRuleset({ onBack }) {
           here is wired into character creation yet.
         </p>
 
+        <p className="byo-warn">
+          <strong>Important:</strong> only upload or generate rulesets from books/sources you
+          own. Don't upload copyrighted material you don't have rights to, and don't ask an LLM
+          to reproduce a publisher's text — describe your own homebrew content instead.
+        </p>
+
         <div className="byo-panel">
           <h3>How do you want to start?</h3>
           <div className="byo-choice">
