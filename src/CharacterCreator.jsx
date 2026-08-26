@@ -1088,6 +1088,13 @@ export default function CharacterCreator() {
                 <p className="byo-warn">Couldn't load {EDITION_LABEL[edition]}: {String(contentError.message || contentError)}.</p>
               )}
               {!content && !contentError && <p className="byo-note" style={{ marginTop: 10 }}>Loading…</p>}
+              {content?.pack?.license?.notice && (
+                <p className="byo-note" style={{ marginTop: 14, fontSize: 11 }}>{content.pack.license.notice}</p>
+              )}
+              <p className="byo-note" style={{ marginTop: 10, fontSize: 11 }}>
+                Bring Your Own 5e is an unofficial, fan-made tool. It is not affiliated with,
+                endorsed, sponsored, or specifically approved by Wizards of the Coast LLC.
+              </p>
             </div>
           )}
 

@@ -116,6 +116,7 @@ export default function AddRuleset({ onBack }) {
   const [choice, setChoice] = useState(null); // null | "upload" | "prompt"
   const [fileState, setFileState] = useState(null); // { name, status, detail }
   const [copied, setCopied] = useState(false);
+  const [rightsAck, setRightsAck] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleFile = async (e) => {
@@ -169,27 +170,40 @@ export default function AddRuleset({ onBack }) {
           here is wired into character creation yet.
         </p>
 
-        <p className="byo-warn">
-          <strong>Important:</strong> only upload or generate rulesets from books/sources you
-          own. Don't upload copyrighted material you don't have rights to, and don't ask an LLM
-          to reproduce a publisher's text — describe your own homebrew content instead.
-        </p>
-
         <div className="byo-panel">
+          <p className="byo-warn" style={{ margin: 0 }}>
+            <strong>Important:</strong> only upload or generate rulesets from books/sources you
+            own. Don't upload copyrighted material you don't have rights to, and don't ask an
+            LLM to reproduce a publisher's text — describe your own homebrew content instead.
+          </p>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12, cursor: "pointer" }}>
+            <input type="checkbox" checked={rightsAck}
+                   onChange={(e) => { setRightsAck(e.target.checked); if (!e.target.checked) setChoice(null); }}
+                   style={{ marginTop: 3 }} />
+            <span className="byo-note">
+              I confirm I own the rights to this content, or it's my own homebrew.
+            </span>
+          </label>
+        </div>
+
+        <div className="byo-panel" aria-disabled={!rightsAck} style={!rightsAck ? { opacity: 0.5 } : undefined}>
           <h3>How do you want to start?</h3>
           <div className="byo-choice">
-            <button className={`byo-opt ${choice === "upload" ? "is-sel" : ""}`}
+            <button className={`byo-opt ${choice === "upload" ? "is-sel" : ""}`} disabled={!rightsAck}
                     onClick={() => setChoice("upload")} aria-pressed={choice === "upload"}>
               Add ruleset JSON file
             </button>
-            <button className={`byo-opt ${choice === "prompt" ? "is-sel" : ""}`}
+            <button className={`byo-opt ${choice === "prompt" ? "is-sel" : ""}`} disabled={!rightsAck}
                     onClick={() => setChoice("prompt")} aria-pressed={choice === "prompt"}>
               I don't have a ruleset JSON
             </button>
           </div>
+          {!rightsAck && (
+            <p className="byo-note" style={{ marginTop: 10 }}>Check the box above to continue.</p>
+          )}
         </div>
 
-        {choice === "upload" && (
+        {choice === "upload" && rightsAck && (
           <div className="byo-panel">
             <h3>Add ruleset JSON file</h3>
             <p className="byo-note" style={{ marginBottom: 10 }}>
@@ -212,7 +226,7 @@ export default function AddRuleset({ onBack }) {
           </div>
         )}
 
-        {choice === "prompt" && (
+        {choice === "prompt" && rightsAck && (
           <div className="byo-panel">
             <h3>Generate one with your own LLM</h3>
             <p className="byo-note" style={{ marginBottom: 10 }}>
