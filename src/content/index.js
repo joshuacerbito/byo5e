@@ -16,6 +16,7 @@
 ------------------------------------------------------------------- */
 import { buildRegistry } from "./registry.js";
 import { buildOptions, optionIdIndex } from "./options.js";
+import { slugify } from "./ids.js";
 import { buildClasses } from "./classes.js";
 import { buildAncestries } from "./ancestry.js";
 import { buildBackgrounds } from "./backgrounds.js";
@@ -31,7 +32,19 @@ export function buildContent(pack) {
      feature builder needs their minted ids. */
   const options = buildOptions(reg);
   const lookupOptionId = optionIdIndex(options);
-  const optionIdOf = (kind, rec) => (kind === "optionalFeature" ? lookupOptionId(rec.nameOriginal ?? rec.name, rec.source) : null);
+  /* Divine Order, Rune Knight's rune choices, and the like point their
+     "options" block at refClassFeature/refClassFeatureVariant nodes
+     rather than optionalFeatures — those never touch lookupOptionId, and
+     falling through to `null` gave every option in the group the same
+     id, so picking one silently "picked" all of them. slugify(name+source)
+     is unique across any such group; optionalFeature keeps the minted id
+     since several features share a name across sources (e.g. Metamagic
+     options), where the source-qualified slug alone isn't guaranteed
+     stable against the id that feats.js/options.js already minted. */
+  const optionIdOf = (kind, rec) =>
+    kind === "optionalFeature"
+      ? lookupOptionId(rec.nameOriginal ?? rec.name, rec.source)
+      : slugify(`${rec.name}-${rec.source}`);
 
   const classes = buildClasses(reg, optionIdOf);
   const ancestries = buildAncestries(reg);

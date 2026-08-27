@@ -2,6 +2,7 @@ import { ABILITIES, mod, fmt } from '../rules/abilities.js';
 import { groupWeapons, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
   spellHitDC as hitDC, spellEffect, ABIL_LABEL } from '../lib/derive.js';
 import { saveFile, sheetFileName } from './saveFile.js';
+import { formatCurrency } from '../lib/currency.js';
 
 /* Real vector PDF, built in the browser from the same sheetCtx that feeds
    buildSheetHTML(). This exists because the print route was never reliable
@@ -108,7 +109,7 @@ export function buildSheetDocDefinition(ctx) {
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
     savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, ancestrySpells,
     finalScore, attackRows, carriedWeapons, actions, chosenFeats, classFeatures,
-    backstory, startingGold, gearList, toolsList,
+    backstory, currency, gearList, toolsList,
   } = ctx;
 
   const charName = name.trim() || 'Unnamed';
@@ -355,14 +356,14 @@ export function buildSheetDocDefinition(ctx) {
   /* ---- inventory ---- */
   const weaponRows = groupWeapons(carriedWeapons || []);
   const gear = [...(gearList || []), ...(toolsList || [])];
-  if (weaponRows.length || armor?.id !== 'none' || shieldOn || gear.length || startingGold) {
+  if (weaponRows.length || armor?.id !== 'none' || shieldOn || gear.length) {
     content.push(...heading('Inventory'));
     if (weaponRows.length) {
       content.push(para('Weapons', `${weaponRows.map((r) => r.weapon.name + (r.qty > 1 ? ` ×${r.qty}` : '')).join(', ')}.`));
     }
     content.push(para('Armor', `${armor && armor.id !== 'none' ? armor.name : 'None'}${shieldOn ? ' + shield' : ''}.`));
     if (gear.length) content.push(para('Gear', `${gear.join(', ')}.`));
-    content.push(para('Currency', `${startingGold} gp.`));
+    content.push(para('Currency', `${formatCurrency(currency)}.`));
   }
 
   /* Player-written prose. Blank lines separate paragraphs; single newlines

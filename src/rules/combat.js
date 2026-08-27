@@ -13,7 +13,7 @@ import { mod } from "./abilities.js";
 
    Returned as candidates rather than one number because the sheet shows the
    working: "16 = chain mail" beside "13 = 10 + DEX + CON". */
-export function acCandidates({ armor, shield, scores, formulas = [] }) {
+export function acCandidates({ armor, shield, scores, formulas = [], bonus = 0 }) {
   const dex = mod(scores.dex);
   const out = [];
 
@@ -21,10 +21,11 @@ export function acCandidates({ armor, shield, scores, formulas = [] }) {
     const capped = armor.maxDex == null ? dex : Math.min(dex, armor.maxDex);
     const parts = [armor.name];
     if (armor.maxDex !== 0) parts.push(`DEX ${capped >= 0 ? `+${capped}` : capped}`);
+    if (armor.magicBonus) parts.push(`+${armor.magicBonus}`);
     out.push({
       id: armor.id,
       label: armor.name,
-      value: armor.ac + capped,
+      value: armor.ac + capped + (armor.magicBonus || 0),
       parts: parts.join(" + "),
     });
   } else {
@@ -44,10 +45,16 @@ export function acCandidates({ armor, shield, scores, formulas = [] }) {
     });
   }
 
-  const shieldBonus = shield ? (shield.ac ?? 2) : 0;
+  const shieldBonus = shield ? (shield.ac ?? 2) + (shield.magicBonus || 0) : 0;
   return out
     .map((c) => (shieldBonus && c.allowsShield !== false
       ? { ...c, value: c.value + shieldBonus, parts: `${c.parts} + ${shieldBonus} shield` }
+      : c))
+    /* `bonus` (Ring/Cloak of Protection and the like) stacks on top of
+       whichever candidate wins, unlike `formulas` — it isn't itself a
+       candidate, so every candidate gets it rather than competing on it. */
+    .map((c) => (bonus
+      ? { ...c, value: c.value + bonus, parts: `${c.parts} + ${bonus}` }
       : c))
     .sort((a, b) => b.value - a.value);
 }
@@ -71,17 +78,17 @@ export function weaponAbility(weapon, scores) {
 
 export function attackBonus(weapon, { scores, pb, proficient }) {
   const key = weaponAbility(weapon, scores);
-  return mod(scores[key]) + (proficient ? pb : 0);
+  return mod(scores[key]) + (proficient ? pb : 0) + (weapon.magicBonus ?? 0);
 }
 
-export const damageBonus = (weapon, scores) => mod(scores[weaponAbility(weapon, scores)]);
+export const damageBonus = (weapon, scores) => mod(scores[weaponAbility(weapon, scores)]) + (weapon.magicBonus ?? 0);
 
 /* Saving throws for all six abilities. */
-export function savingThrows({ scores, saves = [], pb }) {
+export function savingThrows({ scores, saves = [], pb, bonus = 0 }) {
   return Object.keys(scores).map((key) => ({
     key,
     proficient: saves.includes(key),
-    value: mod(scores[key]) + (saves.includes(key) ? pb : 0),
+    value: mod(scores[key]) + (saves.includes(key) ? pb : 0) + bonus,
   }));
 }
 

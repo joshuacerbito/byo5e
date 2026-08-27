@@ -7,6 +7,30 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-27
+
+### Added
+
+- **Magic item bonuses that actually apply.** Rings/Cloaks of Protection and similar flat-bonus
+  items now add to AC and saving throws for real, instead of just printing as inventory text —
+  a small hand-authored overlay (`src/content/itemEffectsOverlay.js`) covers the common
+  worn/attuned items whose bonus is a flat number the raw pack doesn't already encode.
+- **Wands, staves and other spell-granting items show what they actually cast** — charges,
+  recharge, and the spells they carry, read straight from the pack (wands/potions already encode
+  this mechanically; no hand-authoring needed there, unlike the flat-bonus items above).
+- **Currency formatting is one shared helper** (`src/lib/currency.js`) instead of copy-pasted
+  across the app and all three sheet renderers.
+- Google sign-in groundwork: `@supabase/supabase-js` added, `src/lib/sync.js` handles session
+  tracking, Google OAuth, and pushing a character to Supabase while signed in. The sign-in button
+  itself is hidden for now (`AUTH_UI_ENABLED = false` in `CharacterCreator.jsx`) — the schema
+  underneath is mid-migration from one character per account to up to three, and the code hasn't
+  caught up to that shape yet. Nothing here is reachable from the UI until it does.
+
+### Changed
+
+- `CLAUDE.md` is no longer tracked in git — stays on disk for local tooling, isn't published to
+  the repo going forward.
+
 ## 2026-08-26 (even later)
 
 ### Added

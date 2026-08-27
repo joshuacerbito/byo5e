@@ -93,6 +93,16 @@ export function buildRegistry(pack) {
     return hit || null;
   }
 
+  /* Spell uids ("fireball|xphb"), same shape as item uids — used by a
+     magic item's attachedSpells (a wand naming what it casts). */
+  function resolveSpell(uid, from) {
+    const { name, source } = splitUid(uid);
+    const n = name.toLowerCase();
+    const hit = index.spell.get(`${n}|${String(source ?? "").toLowerCase()}`) || index.spell.get(n);
+    if (!hit && from) warn("spell", String(uid), from);
+    return hit || null;
+  }
+
   /* Property/type/mastery codes, with or without a "|SOURCE" suffix. */
   function resolveCode(kind, code, from) {
     if (code == null) return null;
@@ -118,6 +128,7 @@ export function buildRegistry(pack) {
     warn,
     resolveRef,
     resolveItem,
+    resolveSpell,
     resolveCode,
   };
 }

@@ -2,6 +2,7 @@ import { ABILITIES, mod, fmt } from '../rules/abilities.js';
 import { groupWeapons, splitCastingTime, ACTION_ORDER, ACTION_LABELS,
   spellHitDC as hitDC, spellEffect, ABIL_LABEL } from './derive.js';
 import { sheetFileBase } from '../pdf/saveFile.js';
+import { formatCurrency } from './currency.js';
 
 /* Builds a standalone, printable HTML document for the character.
    Everything it needs is passed in explicitly.
@@ -15,7 +16,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, finalScore, backstory,
     attackRows, carriedWeapons, actions, ancestrySpells, chosenFeats, classFeatures,
-    startingGold, gearList, toolsList,
+    currency, gearList, toolsList,
   } = ctx;
 
     const esc = (x) => String(x ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -110,12 +111,12 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
        Background rather than up top. */
     const weaponRows = groupWeapons(carriedWeapons || []);
     const gear = [...(gearList || []), ...(toolsList || [])];
-    const inventoryHtml = (weaponRows.length || armor?.id !== "none" || shieldOn || gear.length || startingGold) ? `
+    const inventoryHtml = (weaponRows.length || armor?.id !== "none" || shieldOn || gear.length) ? `
       ${weaponRows.length ? `<p><b>Weapons.</b> ${weaponRows.map((r) =>
         esc(r.weapon.name) + (r.qty > 1 ? ` ×${r.qty}` : "")).join(", ")}.</p>` : ""}
       <p><b>Armor.</b> ${armor && armor.id !== "none" ? esc(armor.name) : "None"}${shieldOn ? " + shield" : ""}.</p>
       ${gear.length ? `<p><b>Gear.</b> ${gear.map(esc).join(", ")}.</p>` : ""}
-      <p><b>Currency.</b> ${startingGold} gp.</p>` : "";
+      <p><b>Currency.</b> ${esc(formatCurrency(currency))}.</p>` : "";
 
     /* Compact spell table — same at-a-glance intent as the Attacks table:
        Name/Time/Range/Hit-DC/Effect/Notes, no prose. Full descriptions are

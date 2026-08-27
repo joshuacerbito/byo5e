@@ -59,7 +59,7 @@ export const FIXTURE = {
   actions: [{ action: "action", name: "Dash", source: "Wizard", section: "Wizard features", text: "Move up to your speed." }],
   ancestrySpells: [spell("Druidcraft", 0, { key: "spirit-of-nature-druidcraft", from: "Spirit of Nature", use: "at will", ability: null, saveDC: null, attack: null }),
     spell("Entangle", 1, { key: "spirit-of-nature-entangle", from: "Spirit of Nature", use: "1/long rest", ability: null, saveDC: null, attack: null })],
-  startingGold: 25,
+  currency: { cp: 0, sp: 0, gp: 25, pp: 0 },
   gearList: ["Scholar's pack", "Ink pen"],
   toolsList: ["Calligrapher's supplies"],
   backstory: "Raised in the Feywild, came to the material plane to study at a college of magic.",

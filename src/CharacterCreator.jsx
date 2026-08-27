@@ -15,7 +15,10 @@ import {
   savingThrows as savingThrowsOf, skillTable as skillTableOf, passiveScore,
   spellcastingStats, hitPoints as hitPointsOf,
 } from "./rules/combat.js";
-import { deriveClassArmorProf, deriveClassWeaponProf, mergeArmorProf, mergeWeaponProf } from "./rules/effects.js";
+import {
+  deriveClassArmorProf, deriveClassWeaponProf, mergeArmorProf, mergeWeaponProf,
+  collectEffects, effectsOfType, sumEffect,
+} from "./rules/effects.js";
 import { abilityChoiceSlots, resolveAbilityChoice } from "./rules/choices.js";
 import { meetsPrerequisite } from "./rules/prereq.js";
 import { buildSteps } from "./lib/steps.js";
@@ -29,6 +32,8 @@ import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
 import { sheetFileName, sheetFileBase } from "./pdf/saveFile.js";
 import { loadSaved, saveSnapshot, clearSaved, buildCharacterExport, characterFileName }
   from "./lib/storage.js";
+import { syncEnabled, onSessionChange, signInWithGoogle, signOut, pushCharacter } from "./lib/sync.js";
+import { formatCurrency } from "./lib/currency.js";
 import Rule from "./components/Rule.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
 import SheetSummary from "./components/SheetSummary.jsx";
@@ -40,6 +45,14 @@ import Privacy from "./components/Privacy.jsx";
 const APP_TITLE = document.title;
 const saved = loadSaved();
 
+/* Sign-in UI is hidden for now — the schema underneath it is mid-migration
+   (single character per user -> up to 3, see plans/user-accounts-auth.md)
+   and sync.js's push/pull functions haven't caught up yet. The plumbing
+   underneath (sync.js, the Supabase project, session tracking) stays live;
+   this only hides the button so nobody hits half-finished multi-character
+   sync while it's being built. Flip back on once that's done. */
+const AUTH_UI_ENABLED = false;
+
 const DEFAULTS = {
   edition: "2024", step: 0,
   ancestryId: null, ancestryPicks: {}, ancestrySpellPicks: {},
@@ -50,7 +63,13 @@ const DEFAULTS = {
   bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [],
   armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {},
   pickedSpellIds: [], otherSpells: "",
+  customItems: [], currency: { cp: 0, sp: 0, gp: 0, pp: 0 },
 };
+
+/* Collection a customItems row's `kind` (the item view model's own
+   `.kind` field — "weapon"/"armor"/"gear") resolves against via
+   content.byId(). Only "weapon" differs from its collection name. */
+const KIND_COLLECTION = { weapon: "weapons", armor: "armor", gear: "gear" };
 
 /* A feature's own optionalFeature/feat choices resolve through the
    mapper (src/content/features.js). One class in the SRD does not:
@@ -91,6 +110,55 @@ function grantCadence(g) {
   return `${n}/${per}`;
 }
 
+/* "(uncommon, attuned)" — the same treatment weapon properties already
+   get appended to their name. Nothing for a mundane (rarity "none") item. */
+function magicSuffix(resolved, attuned) {
+  if (!resolved?.rarity || resolved.rarity === "none") return "";
+  return ` (${resolved.rarity}${attuned ? ", attuned" : ""})`;
+}
+
+/* "+1 AC, +1 saving throws" — the flat-bonus half of an item's effects
+   (itemEffectsOverlay.js), same summarizing job attachedSpells does for
+   the charges half. Not gated on attunement here — this is "what the
+   item does", the attunement toggle next to it is "is it doing it". */
+function itemEffectSummary(effects) {
+  const parts = [];
+  const ac = (effects || []).filter((e) => e.type === "acBonus").reduce((n, e) => n + (e.value || 0), 0);
+  if (ac) parts.push(`+${ac} AC`);
+  const save = (effects || []).filter((e) => e.type === "saveBonus").reduce((n, e) => n + (e.value || 0), 0);
+  if (save) parts.push(`+${save} saving throws`);
+  const check = (effects || []).filter((e) => e.type === "abilityCheckBonus").reduce((n, e) => n + (e.value || 0), 0);
+  if (check) parts.push(`+${check} ability checks`);
+  return parts.join(", ");
+}
+
+/* "7 charges (regains 1d6 + 1 daily at dawn) — casts Fireball (1+ charges)
+   — +1 AC, +1 saving throws" — a magic item's mechanics, read straight off
+   the item (charges/attachedSpells: items.js reads them off the raw pack
+   verbatim; acBonus/saveBonus/abilityCheckBonus: itemEffectsOverlay.js,
+   hand-authored). null when the item has none of the above, which is most
+   gear. */
+function chargesLine(resolved) {
+  if (!resolved || (resolved.charges == null && !resolved.attachedSpells?.length && !resolved.effects?.length)) return null;
+  const parts = [];
+  if (resolved.charges != null) {
+    parts.push(`${resolved.charges} charge${resolved.charges === 1 ? "" : "s"}`
+      + (resolved.rechargeAmount ? ` (regains ${resolved.rechargeAmount}${resolved.recharge ? ` at ${resolved.recharge}` : ""})` : ""));
+  }
+  for (const sp of resolved.attachedSpells || []) {
+    /* Only "charges" mode's number is a per-cast cost (Wand of
+       Fireballs: 1+ charges). "limited"'s number is a pool size, not a
+       cost — Necklace of Fireballs' 9 is how many beads it has, not how
+       many it takes to detonate one — so it's left unstated rather than
+       guessed at. */
+    const costNote = sp.mode === "charges" && sp.cost ? ` (${sp.cost}+ charge${sp.cost === 1 ? "" : "s"})` : "";
+    parts.push(`casts ${sp.name}${costNote}`);
+  }
+  const effectSummary = itemEffectSummary(resolved.effects);
+  if (effectSummary) parts.push(`${effectSummary}${resolved.reqAttune ? " (while attuned)" : ""}`);
+  return parts.join(" — ");
+}
+
 function spellsMatchingFilter(spells, filter) {
   const want = {};
   for (const part of String(filter || "").split("|")) {
@@ -116,6 +184,13 @@ export default function CharacterCreator() {
      persisted. */
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+
+  /* Account sync — fully inert with no Supabase env vars set (syncEnabled
+     false), same "lazy/optional" shape as PDF export. session is null both
+     while signed out and while sync is disabled outright, so nothing else
+     needs to branch on syncEnabled directly. */
+  const [session, setSession] = useState(null);
+  useEffect(() => onSessionChange(setSession), []);
 
   useEffect(() => {
     let live = true;
@@ -158,6 +233,8 @@ export default function CharacterCreator() {
   const [bgEquipPicks, setBgEquipPicks] = useState(saved?.bgEquipPicks ?? DEFAULTS.bgEquipPicks);
   const [pickedSpellIds, setPickedSpellIds] = useState(saved?.pickedSpellIds ?? DEFAULTS.pickedSpellIds);
   const [otherSpells, setOtherSpells] = useState(saved?.otherSpells ?? DEFAULTS.otherSpells);
+  const [customItems, setCustomItems] = useState(saved?.customItems ?? DEFAULTS.customItems);
+  const [currency, setCurrency] = useState(saved?.currency ?? DEFAULTS.currency);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const pickEdition = (ed) => {
@@ -172,6 +249,7 @@ export default function CharacterCreator() {
     setArmorId(DEFAULTS.armorId); setHasShield(DEFAULTS.hasShield);
     setClassEquipPicks(DEFAULTS.classEquipPicks); setBgEquipPicks(DEFAULTS.bgEquipPicks);
     setPickedSpellIds(DEFAULTS.pickedSpellIds); setOtherSpells(DEFAULTS.otherSpells);
+    setCustomItems(DEFAULTS.customItems); setCurrency(DEFAULTS.currency);
   };
 
   /* ------------------------------------------------------------------
@@ -309,7 +387,7 @@ export default function CharacterCreator() {
         const pool = c.options.filter((o) => o.resolved);
         if (!pool.length) return;
         groups.push({ key: `${f.id}-${ci}`, label: f.name, budget: c.count,
-          pool: pool.map((o) => ({ id: o.id, name: o.name })) });
+          pool: pool.map((o) => ({ id: o.id, name: o.name, text: o.text })) });
         seen.add(f.name.toLowerCase());
       });
     }
@@ -379,6 +457,28 @@ export default function CharacterCreator() {
     return [null, ...list];
   }, [content, armorProfCats]);
   const armor = armorOptions.find((a) => a?.id === armorId) || null;
+  /* Magic armor swelled armorOptions well past a button-grid's comfort
+     zone (216 armor records vs. a dozen mundane ones). The grid stays
+     small by default — mundane armor only, same shape this UI was
+     built for — and magic armor surfaces solely through search, capped
+     like the item browser below. Whatever's actually equipped stays
+     pinned in so switching away from a magic piece doesn't hide it. */
+  const mundaneArmorOptions = useMemo(
+    () => armorOptions.filter((a) => a === null || a.rarity === "none"),
+    [armorOptions]);
+  const [armorSearch, setArmorSearch] = useState("");
+  const ARMOR_RESULTS_CAP = 20;
+  const armorResults = useMemo(() => {
+    const q = armorSearch.trim().toLowerCase();
+    const magicMatches = q
+      ? armorOptions.filter((a) => a && a.rarity !== "none" && a.name.toLowerCase().includes(q))
+      : [];
+    const pinned = armor && armor.rarity !== "none" && !magicMatches.includes(armor) ? [armor] : [];
+    return {
+      rows: [...pinned, ...magicMatches.slice(0, ARMOR_RESULTS_CAP)],
+      total: magicMatches.length,
+    };
+  }, [armorOptions, armorSearch, armor]);
   const shieldAllowed = armorProfCats.includes("shield");
   const shieldOn = shieldAllowed && hasShield;
 
@@ -452,17 +552,90 @@ export default function CharacterCreator() {
   const bgEquipItems = useMemo(
     () => equipPickList(background?.equipment, bgEquipPicks), [background, bgEquipPicks]);
 
+  /* ------------------------------------------------------------------
+     CUSTOM ITEMS + CURRENCY — the Inventory step's add-item browser and
+     4-coin editor. Independent of class/background/ancestry: a picked-up
+     magic sword doesn't unpick itself when you change class.
+  ------------------------------------------------------------------- */
+  const customResolved = useMemo(() => customItems.map((ci) => ({
+    ...ci,
+    resolved: content?.byId(KIND_COLLECTION[ci.kind], ci.itemId) ?? null,
+  })), [customItems, content]);
+
+  const attunedCount = customItems.filter((ci) => ci.attuned).length;
+
+  /* Only attuned custom gear contributes — Ring/Cloak of Protection and
+     the like require attunement to work at all, and fixed class/background
+     starting equipment never includes an item this overlay covers (all
+     rare+, none are SRD starting kit). See itemEffectsOverlay.js. */
+  const activeItemEffects = useMemo(
+    () => collectEffects(
+      customResolved
+        .filter((ci) => ci.attuned && ci.resolved?.effects?.length)
+        .map((ci) => ({ effects: ci.resolved.effects, atLevel: 1, label: ci.resolved.name })),
+      level),
+    [customResolved, level]);
+
+  const addCustomItem = (item) => {
+    setCustomItems((prev) => {
+      const i = prev.findIndex((ci) => ci.itemId === item.id && ci.kind === item.kind);
+      if (i >= 0) {
+        const next = [...prev];
+        next[i] = { ...next[i], quantity: next[i].quantity + 1 };
+        return next;
+      }
+      return [...prev, { itemId: item.id, kind: item.kind, quantity: 1, attuned: false }];
+    });
+  };
+  const setCustomQty = (idx, qty) => {
+    setCustomItems((prev) => (qty <= 0 ? prev.filter((_, i) => i !== idx)
+      : prev.map((ci, i) => (i === idx ? { ...ci, quantity: qty } : ci))));
+  };
+  /* The cap is enforced by disabling the control below, not by a warning
+     — "filter, don't validate" per CLAUDE.md. */
+  const toggleAttune = (idx) => {
+    setCustomItems((prev) => {
+      const cur = prev[idx];
+      if (!cur.attuned && attunedCount >= 3) return prev;
+      return prev.map((ci, i) => (i === idx ? { ...ci, attuned: !ci.attuned } : ci));
+    });
+  };
+
+  const itemBrowsePool = useMemo(
+    () => content ? [...content.weapons, ...content.armor, ...content.gear] : [],
+    [content]);
+  const [itemSearch, setItemSearch] = useState("");
+  const [itemKindFilter, setItemKindFilter] = useState("all");
+  const ITEM_RESULTS_CAP = 60;
+  const itemResults = useMemo(() => {
+    const pool = itemKindFilter === "all" ? itemBrowsePool
+      : itemKindFilter === "weapon" ? (content?.weapons || [])
+        : itemKindFilter === "armor" ? (content?.armor || []) : (content?.gear || []);
+    const q = itemSearch.trim().toLowerCase();
+    const matches = (q ? pool.filter((it) => it.name.toLowerCase().includes(q)) : pool)
+      .slice().sort((a, b) => a.name.localeCompare(b.name));
+    return { rows: matches.slice(0, ITEM_RESULTS_CAP), total: matches.length };
+  }, [itemBrowsePool, itemKindFilter, itemSearch, content]);
+
+  const setCurrencyField = (k, v) => {
+    const n = Math.max(0, parseInt(v, 10) || 0);
+    setCurrency((prev) => ({ ...prev, [k]: n }));
+  };
   const carriedWeapons = useMemo(
-    () => [...classEquipItems, ...bgEquipItems]
+    () => [...classEquipItems, ...bgEquipItems, ...customResolved]
       .filter((it) => it.resolved?.kind === "weapon")
       .flatMap((it) => Array.from({ length: it.quantity || 1 }, () => it.resolved)),
-    [classEquipItems, bgEquipItems]);
+    [classEquipItems, bgEquipItems, customResolved]);
 
   const startingGold = useMemo(() => {
     const cp = [...classEquipItems, ...bgEquipItems]
       .filter((it) => it.currency).reduce((s, it) => s + it.valueCp, 0);
     return cp / 100;
   }, [classEquipItems, bgEquipItems]);
+
+  /* One-shot: fills the gp field from the derived class/background total
+     but never re-syncs on its own, so it can't clobber a manual edit. */
+  const useStartingGold = () => setCurrency((prev) => ({ ...prev, gp: startingGold }));
 
   /* ------------------------------------------------------------------
      ABILITY SCORES, all sources merged
@@ -564,30 +737,50 @@ export default function CharacterCreator() {
   const scoresForRules = Object.fromEntries(ABILITY_KEYS.map((k) => [k, finalScore(k)]));
   const acRows = useMemo(() => {
     if (!ancestry) return [];
-    return acCandidates({ armor, shield: shieldOn ? { ac: 2 } : null, scores: scoresForRules, formulas: [] });
+    return acCandidates({
+      armor, shield: shieldOn ? { ac: 2 } : null, scores: scoresForRules, formulas: [],
+      bonus: sumEffect(activeItemEffects, "acBonus"),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ancestry, armor, shieldOn, scores, arrayAssign, mode, allBonuses]);
+  }, [ancestry, armor, shieldOn, scores, arrayAssign, mode, allBonuses, activeItemEffects]);
   const bestAC = acRows[0] || { value: 10, label: "Unarmoured", parts: "" };
   const armorClass = bestAC.value;
 
   const speed = ancestry?.speed.walk || 0;
   const pb = profBonus(level);
 
-  const saveThrowRows = useMemo(() => klass
-    ? savingThrowsOf({ scores: scoresForRules, saves: klass.saves, pb })
-    : [],
+  const saveThrowRows = useMemo(
+    () => savingThrowsOf({
+      scores: scoresForRules, saves: klass?.saves || [], pb,
+      bonus: sumEffect(activeItemEffects, "saveBonus"),
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [klass, pb, scores, arrayAssign, mode, allBonuses]);
+    [klass, pb, scores, arrayAssign, mode, allBonuses, activeItemEffects]);
 
   const allSkills = useMemo(
     () => new Set([...ancestrySkillsGranted, ...skillPicks, ...bgSkillsGranted]),
     [ancestrySkillsGranted, skillPicks, bgSkillsGranted]);
 
-  const skillRows = useMemo(() => content
-    ? skillTableOf({ skills: content.skills, scores: scoresForRules, pb, proficient: allSkills })
-    : [],
+  /* abilityCheckBonus with no `skills` list (Stone of Good Luck: "ability
+     checks" broadly) applies to every skill row; one that names specific
+     skills (a future Thaumaturge-shaped effect: Arcana/Religion only)
+     applies to just those. Post-processed onto skillTableOf's output
+     rather than threaded through it — the rule itself has no notion of
+     "item effects", only ability score + proficiency. */
+  const skillRows = useMemo(() => {
+    if (!content) return [];
+    const base = skillTableOf({ skills: content.skills, scores: scoresForRules, pb, proficient: allSkills });
+    const checkEffects = effectsOfType(activeItemEffects, "abilityCheckBonus");
+    if (!checkEffects.length) return base;
+    return base.map((row) => {
+      const add = checkEffects
+        .filter((e) => !e.skills || e.skills.includes(row.id))
+        .reduce((n, e) => n + (e.value || 0), 0);
+      return add ? { ...row, value: row.value + add } : row;
+    });
+  },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [content, pb, allSkills, scores, arrayAssign, mode, allBonuses]);
+    [content, pb, allSkills, scores, arrayAssign, mode, allBonuses, activeItemEffects]);
 
   const PASSIVE_NAMES = ["Perception", "Investigation", "Insight"];
   const passiveSkills = PASSIVE_NAMES.map((name) => {
@@ -802,6 +995,7 @@ export default function CharacterCreator() {
       if (skillsLeft > 0) return false;
       if (optionChoiceGroups.some((g) => (optionPicks[g.key] || []).length < g.budget)) return false;
       if (klass.subclassLevel != null && subclassOn && !subclass) return false;
+      if (asiIncomplete) return false;
       return true;
     }
     if (name === "Background") {
@@ -810,22 +1004,21 @@ export default function CharacterCreator() {
       if (background.abilityChoices && !bgAbilitySlots.auto && bgAbilityPicks.length !== bgAbilitySlots.count) return false;
       return true;
     }
-    if (name === "Advancement") return !asiIncomplete;
     return true;
   };
   const canAdvance = () => stepComplete(here);
   /* Reachable by clicking a rail step directly: whatever that step's own
      render actually needs to show something, not "every step before it
      is done" — Class and Abilities only read `content` (an ancestry
-     bonus is just +0 until one's picked) and Advancement/Background
-     degrade to their own "pick X first" stub when visited early, so none
-     of those gate on anything upstream. Defenses, Inventory and Sheet do
-     read ancestry-derived numbers (AC, proficiencies, the whole sheet)
-     and render nothing without it, so those stay gated on ancestry;
-     Spells on having a caster. */
+     bonus is just +0 until one's picked) and Background degrades to its
+     own "pick X first" stub when visited early, so neither gates on
+     anything upstream. Inventory, Player Info and Summary do read
+     ancestry-derived numbers (AC, proficiencies, the whole sheet) and
+     render nothing without it, so those stay gated on ancestry; Spells
+     on having a caster. */
   const stepPrereqOk = (name) => {
     if (name === "Ruleset") return true;
-    if (name === "Defenses" || name === "Inventory" || name === "Sheet") return !!ancestry;
+    if (name === "Inventory" || name === "Player Info" || name === "Summary") return !!ancestry;
     if (name === "Spells") return !!casting;
     return !!content;
   };
@@ -834,14 +1027,14 @@ export default function CharacterCreator() {
      names the actual missing thing, same list stepPrereqOk checks. */
   const stepLockedReason = (name) => {
     if (name === "Ruleset") return null;
-    if (name === "Defenses" || name === "Inventory" || name === "Sheet") return ancestry ? null : "Pick a species first";
+    if (name === "Inventory" || name === "Player Info" || name === "Summary") return ancestry ? null : "Pick a species first";
     if (name === "Spells") return casting ? null : "Pick a spellcasting class first";
     return content ? null : "Pick a ruleset first";
   };
   /* Gate every download on the whole character being finished, not just
-     reached — the Sheet step itself has no completeness rule of its own
+     reached — the Summary step itself has no completeness rule of its own
      (stepComplete falls through to true for it), so it's excluded here. */
-  const allStepsDone = STEPS.every((s) => s === "Sheet" || stepComplete(s));
+  const allStepsDone = STEPS.every((s) => s === "Summary" || stepComplete(s));
 
   /* ------------------------------------------------------------------
      PERSISTENCE
@@ -850,13 +1043,22 @@ export default function CharacterCreator() {
     edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, pickedSpellIds, otherSpells,
+    classEquipPicks, bgEquipPicks, pickedSpellIds, otherSpells, customItems, currency,
   }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, pickedSpellIds, otherSpells]);
+    classEquipPicks, bgEquipPicks, pickedSpellIds, otherSpells, customItems, currency]);
 
   useEffect(() => { saveSnapshot(snapshot); }, [snapshot]);
+
+  /* Local write above never waits on this. Debounced so picking through a
+     dozen fields in a row fires one push, not a dozen — the network trip
+     is a nice-to-have backup, not something any interaction should feel. */
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const t = setTimeout(() => { pushCharacter(session.user.id, snapshot); }, 1500);
+    return () => clearTimeout(t);
+  }, [snapshot, session]);
 
   const resetAll = () => {
     clearSaved();
@@ -889,10 +1091,14 @@ export default function CharacterCreator() {
       proficient: s.proficient, value: s.value })),
     skillTable: skillRows, casting, chosenSpells: pickedSpells, otherSpells, appendix,
     bgChoice: null, finalScore, attackRows, carriedWeapons, masteryEnabled: true,
-    startingGold,
-    gearList: [...classEquipItems, ...bgEquipItems]
-      .filter((it) => !it.currency && it.resolved?.kind !== "weapon" && it.resolved?.kind !== "armor")
-      .map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`),
+    startingGold, currency,
+    gearList: [
+      ...[...classEquipItems, ...bgEquipItems]
+        .filter((it) => !it.currency && it.resolved?.kind !== "weapon" && it.resolved?.kind !== "armor")
+        .map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`),
+      ...customResolved.filter((ci) => ci.resolved?.kind === "gear")
+        .map((ci) => `${ci.resolved.name}${ci.quantity > 1 ? ` ×${ci.quantity}` : ""}${magicSuffix(ci.resolved, ci.attuned)}`),
+    ],
     toolsList: background?.tools.fixed || [],
     ancestrySpells: ancestrySpellGrants.map((g) => ({ ...g.sp, key: g.key, from: g.from, use: g.use,
       ability: g.abilityMod != null ? casting?.ability : null,
@@ -1013,15 +1219,28 @@ export default function CharacterCreator() {
   return (
     <div className="byo-root">
       <div className="byo-wrap">
+        {AUTH_UI_ENABLED && syncEnabled && (
+          <div className="byo-account">
+            {session ? (
+              <>
+                <span className="byo-account-email">{session.user.email}</span>
+                <button className="byo-linkbtn" onClick={signOut}>Sign out</button>
+              </>
+            ) : (
+              <button className="byo-btn byo-btn-alt" onClick={signInWithGoogle}>Sign in with Google</button>
+            )}
+          </div>
+        )}
+
         <h1 className="byo-h1">Bring Your Own 5e</h1>
         <p className="byo-h2">Character Creator</p>
         <p className="byo-sub">{STEPS.length} steps. Only legal options are shown.</p>
 
         <div className="byo-rail">
           {STEPS.map((s, i) => {
-            /* A step with no completeness rule of its own (Advancement at
-               level 1, Defenses, Inventory, Sheet) falls through to "true"
-               in stepComplete — right for gating Next, wrong for the rail:
+            /* A step with no completeness rule of its own (Inventory, Sheet)
+               falls through to "true" in stepComplete — right for gating
+               Next, wrong for the rail:
                it would show jade before you've ever been there. Only count
                a step done once you've actually reached it. */
             const state = i === step ? "is-now" : i <= maxStep && stepComplete(s) ? "is-done" : "is-todo";
@@ -1037,6 +1256,30 @@ export default function CharacterCreator() {
             );
           })}
         </div>
+
+        {/* Same step list, collapsed to a native <select> — swapped in for
+            .byo-rail below the phone breakpoint (CSS-only toggle, so there's
+            no layout flash and no matchMedia state to keep in sync). A
+            native select is also the one control that gets a free, fully
+            accessible picker UI on a phone for nothing. */}
+        <select className="byo-rail-select" aria-label="Jump to step" value={step}
+                onChange={(e) => {
+                  const i = Number(e.target.value);
+                  if (i === step || !stepReachable(i)) return;
+                  setStep(i);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}>
+          {STEPS.map((s, i) => {
+            const state = i === step ? "is-now" : i <= maxStep && stepComplete(s) ? "is-done" : "is-todo";
+            const jumpable = i === step || stepReachable(i);
+            const mark = state === "is-done" ? "✓ " : state === "is-now" ? "› " : "";
+            return (
+              <option key={s} value={i} disabled={!jumpable}>
+                {mark}{i + 1}. {s}
+              </option>
+            );
+          })}
+        </select>
 
         {ancestry && step > at("Species/Race") && (
           <div className="byo-chip">
@@ -1060,7 +1303,10 @@ export default function CharacterCreator() {
           </div>
         )}
 
-        {ancestry && step >= at("Abilities") && (
+        {/* Final ability scores — a running header on every step used to
+            repeat what Abilities already showed; now it's Summary-only,
+            where it's the one place recapping the whole build. */}
+        {ancestry && here === "Summary" && (
           <div className="byo-sum">
             {ABILITIES.map(({ key }) => (
               <div className="byo-sum-c" key={key}>
@@ -1073,7 +1319,7 @@ export default function CharacterCreator() {
         )}
 
         {((ancestry && step > at("Species/Race")) || (klass && step > at("Class"))
-          || (background && step > at("Background")) || (ancestry && step >= at("Abilities"))) && <Rule />}
+          || (background && step > at("Background")) || (ancestry && here === "Summary")) && <Rule />}
 
         <ErrorBoundary key={here} title="This step hit an error">
           {/* ---------------- RULESET ---------------- */}
@@ -1250,6 +1496,27 @@ export default function CharacterCreator() {
                 })}
               </div>
               <p className="byo-note">Ancestry/background bonuses already applied. Point buy caps each score at 15 before bonuses.</p>
+
+              <div className="byo-panel-grid">
+                <div className="byo-panel">
+                  <h3>Saving throws <span className="byo-count">proficiency {fmt(pb)}</span></h3>
+                  {!klass && <p className="byo-note" style={{ marginBottom: 10 }}>No class picked yet — shown below without proficiency.</p>}
+                  {saveThrowRows.map((s) => (
+                    <div className="byo-row" key={s.key}>
+                      <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                      <span className="byo-row-label">{ABILITIES.find((a) => a.key === s.key)?.label}</span>
+                      <span className="byo-final">{fmt(s.value)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="byo-panel">
+                  <h3>Passive skills</h3>
+                  {passiveSkills.map((p) => (
+                    <div className="byo-row" key={p.name}><span className="byo-row-label">Passive {p.name}</span><span className="byo-final">{p.value}</span></div>
+                  ))}
+                </div>
+              </div>
             </>
           )}
 
@@ -1351,6 +1618,19 @@ export default function CharacterCreator() {
                           );
                         })}
                       </div>
+                      {/* What each pick actually grants — shown for whichever
+                          option(s) are currently selected, not the whole pool,
+                          so this stays short even for a big list like Fighting
+                          Style. */}
+                      {(optionPicks[g.key] || []).map((id) => {
+                        const o = g.pool.find((x) => x.id === id);
+                        if (!o?.text) return null;
+                        return (
+                          <p className="byo-note" key={id} style={{ marginTop: 10 }}>
+                            <b>{o.name}.</b> {o.text}
+                          </p>
+                        );
+                      })}
                     </div>
                   ))}
 
@@ -1363,6 +1643,67 @@ export default function CharacterCreator() {
                     <div className="byo-row"><span className="byo-row-label">Saving throws</span>
                       <span className="byo-mod" style={{ width: "auto" }}>{klass.saves.map((s) => s.toUpperCase()).join(", ")}</span></div>
                   </div>
+
+                  {/* ---- Advancement: ASI / feat picks, at every level the
+                      class's own feature list earns one ---- */}
+                  {asiLevelsReached.length === 0 ? (
+                    <div className="byo-stub">
+                      <p className="byo-stub-t">Nothing yet</p>
+                      <p className="byo-stub-s">
+                        {klass.name}s get their first Ability Score Improvement at level {klass.asiLevels[0] ?? "—"}.
+                      </p>
+                    </div>
+                  ) : asiLevelsReached.map((atLevel) => {
+                    const entry = asiPicks[atLevel];
+                    const pool = asiFeatPool(atLevel);
+                    const feat = pool.find((f) => f.id === entry?.featId);
+                    return (
+                      <div className="byo-panel" key={atLevel}>
+                        <h3>Level {atLevel} <span className="byo-count">{asiComplete(atLevel) ? "done" : "to pick"}</span></h3>
+                        <div className="byo-skills">
+                          {pool.map((f) => {
+                            const sel = entry?.featId === f.id;
+                            return (
+                              <button key={f.id} className={`byo-skill ${sel ? "is-sel" : ""}`}
+                                      onClick={() => pickAsiFeat(atLevel, f.id)} aria-pressed={sel}>{f.name}</button>
+                            );
+                          })}
+                        </div>
+                        {feat && (
+                          <div style={{ marginTop: 10 }}>
+                            <p className="byo-note">{feat.text}</p>
+                            {feat.ability && (
+                              <>
+                                <div className="byo-choice" style={{ margin: "8px 0" }}>
+                                  {feat.ability.choices.map((alt, ai) => {
+                                    const slots = abilityChoiceSlots(alt);
+                                    const label = `${slots.amountAt(0)}${slots.count > 1 ? ` to ${slots.count}` : " to one"}`;
+                                    return (
+                                      <button key={ai} className={`byo-opt ${entry.abilityAlt === ai ? "is-sel" : ""}`}
+                                              onClick={() => pickAsiAlt(atLevel, ai)} aria-pressed={entry.abilityAlt === ai}>+{label}</button>
+                                    );
+                                  })}
+                                </div>
+                                <div className="byo-choice">
+                                  {abilityChoiceSlots(entry.abilitySpec).from.map((k) => {
+                                    const idx = (entry.abilityPicks || []).indexOf(k);
+                                    const on = idx >= 0;
+                                    const maxed = !on && prereqScoreExcluding(k, 0) + abilityChoiceSlots(entry.abilitySpec).amountAt((entry.abilityPicks || []).length) > 20;
+                                    return (
+                                      <button key={k} className={`byo-opt ${on ? "is-sel" : ""}`} disabled={maxed}
+                                              onClick={() => toggleAsiAbilityPick(atLevel, k)} aria-pressed={on}>
+                                        {ABILITIES.find((a) => a.key === k)?.label}{on ? ` +${abilityChoiceSlots(entry.abilitySpec).amountAt(idx)}` : maxed ? " · at 20" : ""}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </>
               )}
             </>
@@ -1488,26 +1829,9 @@ export default function CharacterCreator() {
                     </div>
                   )}
 
-                  {background.equipment.length > 0 && (
-                    <div className="byo-panel">
-                      <h3>Starting equipment</h3>
-                      {background.equipment.map((g, gi) => (
-                        <div key={gi} style={{ marginBottom: 8 }}>
-                          <div className="byo-skills">
-                            {g.options.map((o) => {
-                              const sel = (bgEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key) === o.key;
-                              const label = o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");
-                              return (
-                                <button key={o.key} className={`byo-skill ${sel ? "is-sel" : ""}`}
-                                        onClick={() => setBgEquipPicks((p) => ({ ...p, [gi]: o.key }))}
-                                        disabled={o.fixed} aria-pressed={sel}>{label}</button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* Starting equipment for this background is chosen on the
+                      Inventory step now, alongside the class's own pick — one
+                      combined panel instead of two steps each holding half. */}
 
                   {background.tools.fixed.length > 0 && (
                     <div className="byo-panel">
@@ -1520,73 +1844,8 @@ export default function CharacterCreator() {
             </>
           )}
 
-          {/* ---------------- ADVANCEMENT ---------------- */}
-          {here === "Advancement" && (
-            <>
-              {asiLevelsReached.length === 0 ? (
-                <div className="byo-stub">
-                  <p className="byo-stub-t">Nothing yet</p>
-                  <p className="byo-stub-s">
-                    {klass ? `${klass.name}s get their first Ability Score Improvement at level ${klass.asiLevels[0] ?? "—"}.`
-                      : "Pick a class first."}
-                  </p>
-                </div>
-              ) : asiLevelsReached.map((atLevel) => {
-                const entry = asiPicks[atLevel];
-                const pool = asiFeatPool(atLevel);
-                const feat = pool.find((f) => f.id === entry?.featId);
-                return (
-                  <div className="byo-panel" key={atLevel}>
-                    <h3>Level {atLevel} <span className="byo-count">{asiComplete(atLevel) ? "done" : "to pick"}</span></h3>
-                    <div className="byo-skills">
-                      {pool.map((f) => {
-                        const sel = entry?.featId === f.id;
-                        return (
-                          <button key={f.id} className={`byo-skill ${sel ? "is-sel" : ""}`}
-                                  onClick={() => pickAsiFeat(atLevel, f.id)} aria-pressed={sel}>{f.name}</button>
-                        );
-                      })}
-                    </div>
-                    {feat && (
-                      <div style={{ marginTop: 10 }}>
-                        <p className="byo-note">{feat.text}</p>
-                        {feat.ability && (
-                          <>
-                            <div className="byo-choice" style={{ margin: "8px 0" }}>
-                              {feat.ability.choices.map((alt, ai) => {
-                                const slots = abilityChoiceSlots(alt);
-                                const label = `${slots.amountAt(0)}${slots.count > 1 ? ` to ${slots.count}` : " to one"}`;
-                                return (
-                                  <button key={ai} className={`byo-opt ${entry.abilityAlt === ai ? "is-sel" : ""}`}
-                                          onClick={() => pickAsiAlt(atLevel, ai)} aria-pressed={entry.abilityAlt === ai}>+{label}</button>
-                                );
-                              })}
-                            </div>
-                            <div className="byo-choice">
-                              {abilityChoiceSlots(entry.abilitySpec).from.map((k) => {
-                                const idx = (entry.abilityPicks || []).indexOf(k);
-                                const on = idx >= 0;
-                                const maxed = !on && prereqScoreExcluding(k, 0) + abilityChoiceSlots(entry.abilitySpec).amountAt((entry.abilityPicks || []).length) > 20;
-                                return (
-                                  <button key={k} className={`byo-opt ${on ? "is-sel" : ""}`} disabled={maxed}
-                                          onClick={() => toggleAsiAbilityPick(atLevel, k)} aria-pressed={on}>
-                                    {ABILITIES.find((a) => a.key === k)?.label}{on ? ` +${abilityChoiceSlots(entry.abilitySpec).amountAt(idx)}` : maxed ? " · at 20" : ""}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </>
-          )}
-
-          {/* ---------------- DEFENSES ---------------- */}
-          {here === "Defenses" && ancestry && (
+          {/* ---------------- INVENTORY ---------------- */}
+          {here === "Inventory" && ancestry && (
             <>
               <div className="byo-vitals">
                 <div className="byo-vital"><div className="byo-vital-n">{armorClass}</div><div className="byo-vital-l">Armor Class</div>
@@ -1608,14 +1867,38 @@ export default function CharacterCreator() {
                     {armorOptions.length === 1 ? (
                       <p className="byo-note">{klass.name}s aren't proficient with any armor.</p>
                     ) : (
-                      <div className="byo-skills">
-                        {armorOptions.map((a) => (
-                          <button key={a?.id ?? "none"} className={`byo-skill ${(armor?.id ?? null) === (a?.id ?? null) ? "is-sel" : ""}`}
-                                  onClick={() => setArmorId(a?.id ?? null)} aria-pressed={(armor?.id ?? null) === (a?.id ?? null)}>
-                            {a ? `${a.name} ${a.ac}` : "None"}
-                          </button>
-                        ))}
-                      </div>
+                      <>
+                        {armor && armor.rarity !== "none" && (
+                          <p className="byo-note" style={{ marginBottom: 10 }}>Wearing <b>{armor.name}</b> — search below to change it.</p>
+                        )}
+                        <div className="byo-skills">
+                          {mundaneArmorOptions.map((a) => (
+                            <button key={a?.id ?? "none"} className={`byo-skill ${(armor?.id ?? null) === (a?.id ?? null) ? "is-sel" : ""}`}
+                                    onClick={() => setArmorId(a?.id ?? null)} aria-pressed={(armor?.id ?? null) === (a?.id ?? null)}>
+                              {a ? `${a.name} ${a.ac}` : "None"}
+                            </button>
+                          ))}
+                        </div>
+                        <input className="byo-input" style={{ fontSize: 15, margin: "12px 0 10px" }} value={armorSearch}
+                               onChange={(e) => setArmorSearch(e.target.value)} placeholder="Search magic armor…"
+                               aria-label="Search magic armor" />
+                        {armorSearch.trim() && (
+                          <div className="byo-skills byo-scroll-y">
+                            {armorResults.rows.map((a) => (
+                              <button key={a.id} className={`byo-skill ${armor?.id === a.id ? "is-sel" : ""}`}
+                                      onClick={() => setArmorId(a.id)} aria-pressed={armor?.id === a.id}>
+                                {a.name} {a.ac}
+                              </button>
+                            ))}
+                            {armorResults.rows.length === 0 && <p className="byo-note">No magic armor matches "{armorSearch}".</p>}
+                            {armorResults.total > ARMOR_RESULTS_CAP && (
+                              <p className="byo-note" style={{ width: "100%" }}>
+                                {armorResults.total - ARMOR_RESULTS_CAP} more — narrow your search to see them.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                     {armorProfDerived.noMetal && (
                       <p className="byo-note" style={{ marginTop: 10 }}>{klass.name}s traditionally refuse metal armor and shields — a table-by-table call, not enforced here.</p>
@@ -1646,46 +1929,155 @@ export default function CharacterCreator() {
                     </div>
                   )}
 
-                  <div className="byo-panel-grid">
+                  {/* Class and background each grant their own starting-equipment
+                      choice — two independent picks, not one merged pool — but
+                      they used to live on two different steps (this one, and
+                      Background), so a player working through Inventory never
+                      saw the background half at all. One panel, two labelled
+                      groups, each still keyed to its own pick state. */}
+                  {(klass.startingEquipment.groups.length > 0 || background) && (
                     <div className="byo-panel">
-                      <h3>Saving throws <span className="byo-count">proficiency {fmt(pb)}</span></h3>
-                      {saveThrowRows.map((s) => (
-                        <div className="byo-row" key={s.key}>
-                          <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-                          <span className="byo-row-label">{ABILITIES.find((a) => a.key === s.key)?.label}</span>
-                          <span className="byo-final">{fmt(s.value)}</span>
+                      <h3>Starting Equipment</h3>
+                      {klass.startingEquipment.groups.length > 0 && (
+                        <div style={{ marginBottom: background?.equipment.length ? 14 : 0 }}>
+                          <div className="byo-actgroup-l">Class — {klass.name}</div>
+                          {klass.startingEquipment.groups.map((g, gi) => (
+                            <div key={gi} style={{ marginBottom: 8 }}>
+                              <div className="byo-skills">
+                                {g.options.map((o) => {
+                                  const sel = (classEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key) === o.key;
+                                  const label = o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");
+                                  return (
+                                    <button key={o.key} className={`byo-skill ${sel ? "is-sel" : ""}`}
+                                            onClick={() => setClassEquipPicks((p) => ({ ...p, [gi]: o.key }))}
+                                            disabled={o.fixed} aria-pressed={sel}>{label}</button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
                         </div>
+                      )}
+                      {background && background.equipment.length > 0 && (
+                        <div>
+                          <div className="byo-actgroup-l">Background — {background.name}</div>
+                          {background.equipment.map((g, gi) => (
+                            <div key={gi} style={{ marginBottom: 8 }}>
+                              <div className="byo-skills">
+                                {g.options.map((o) => {
+                                  const sel = (bgEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key) === o.key;
+                                  const label = o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");
+                                  return (
+                                    <button key={o.key} className={`byo-skill ${sel ? "is-sel" : ""}`}
+                                            onClick={() => setBgEquipPicks((p) => ({ ...p, [gi]: o.key }))}
+                                            disabled={o.fixed} aria-pressed={sel}>{label}</button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!background && (
+                        <p className="byo-note" style={{ marginTop: 10 }}>Pick a background to see its starting equipment options too.</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="byo-panel">
+                    <h3>Weapons</h3>
+                    {groupWeapons(carriedWeapons).length > 0 ? groupWeapons(carriedWeapons).map(({ weapon, qty }) => {
+                      const custom = customItems.find((ci) => ci.itemId === weapon.id && ci.kind === "weapon");
+                      return (
+                        <div className="byo-row" key={weapon.id}>
+                          <span className="byo-row-label">{weapon.name}{magicSuffix(weapon, custom?.attuned)}</span>
+                          {qty > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{qty}</span>}
+                        </div>
+                      );
+                    }) : <p className="byo-note">Nothing yet — pick starting equipment above, or add one below.</p>}
+                  </div>
+
+                  <div className="byo-panel">
+                    <h3>Gear <span className="byo-count">{attunedCount}/3 attuned</span></h3>
+                    {[...classEquipItems, ...bgEquipItems].filter((it) => !it.currency && it.resolved?.kind !== "weapon" && it.resolved?.kind !== "armor").map((it, i) => (
+                      <div className="byo-row" key={`fixed-${i}`} style={{ flexWrap: "wrap" }}>
+                        <span className="byo-row-label">{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ""}{!it.resolved && !it.currency ? " (choose specific item at the table)" : ""}
+                          {chargesLine(it.resolved) && <span className="byo-item-mech">{chargesLine(it.resolved)}</span>}
+                        </span>
+                      </div>
+                    ))}
+                    {customResolved.map((ci, idx) => {
+                      if (!ci.resolved || ci.kind === "weapon") return null;
+                      const attunable = !!ci.resolved.reqAttune;
+                      return (
+                        <div className="byo-row" key={`custom-${idx}`} style={{ flexWrap: "wrap" }}>
+                          <span className="byo-row-label">{ci.resolved.name}{ci.quantity > 1 ? ` ×${ci.quantity}` : ""}{magicSuffix(ci.resolved, ci.attuned)}
+                            {chargesLine(ci.resolved) && <span className="byo-item-mech">{chargesLine(ci.resolved)}</span>}
+                          </span>
+                          <div className="byo-step">
+                            <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity - 1)} aria-label={`Fewer ${ci.resolved.name}`}>−</button>
+                            <span className="byo-num">{ci.quantity}</span>
+                            <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity + 1)} aria-label={`More ${ci.resolved.name}`}>+</button>
+                          </div>
+                          {attunable && (
+                            <button className={`byo-opt ${ci.attuned ? "is-sel" : ""}`}
+                                    disabled={!ci.attuned && attunedCount >= 3}
+                                    onClick={() => toggleAttune(idx)} aria-pressed={ci.attuned}>
+                              {ci.attuned ? "Attuned" : "Attune"}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {!klass && !background && !customItems.length && <p className="byo-note">Pick a class and background to see starting gear.</p>}
+                  </div>
+
+                  <div className="byo-panel">
+                    <h3>Add an item</h3>
+                    <input className="byo-input" style={{ fontSize: 15, marginBottom: 10 }} value={itemSearch}
+                           onChange={(e) => setItemSearch(e.target.value)} placeholder="Search weapons, armor, gear…"
+                           aria-label="Search items" />
+                    <div className="byo-choice" style={{ marginTop: 0, marginBottom: 10 }}>
+                      {[["all", "All"], ["weapon", "Weapons"], ["armor", "Armor"], ["gear", "Gear"]].map(([k, kLabel]) => (
+                        <button key={k} className={`byo-opt ${itemKindFilter === k ? "is-sel" : ""}`}
+                                onClick={() => setItemKindFilter(k)} aria-pressed={itemKindFilter === k}>{kLabel}</button>
                       ))}
                     </div>
-
-                    <div className="byo-panel">
-                      <h3>Passive skills</h3>
-                      {passiveSkills.map((p) => (
-                        <div className="byo-row" key={p.name}><span className="byo-row-label">Passive {p.name}</span><span className="byo-final">{p.value}</span></div>
+                    <div className="byo-scroll-y">
+                      {itemResults.rows.map((it) => (
+                        <div className="byo-row" key={it.id}>
+                          <span className="byo-row-label">{it.name}
+                            {it.rarity !== "none" && <span className="byo-tag" style={{ marginLeft: 8 }}>{it.rarity}{it.reqAttune ? " · attunement" : ""}</span>}
+                          </span>
+                          <button className="byo-chip-b" onClick={() => addCustomItem(it)}>Add</button>
+                        </div>
                       ))}
+                      {itemResults.total > itemResults.rows.length && (
+                        <p className="byo-note" style={{ marginTop: 8 }}>
+                          {itemResults.total - itemResults.rows.length} more — narrow your search to see them.
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {klass.startingEquipment.groups.length > 0 && (
-                    <div className="byo-panel">
-                      <h3>Starting Equipment</h3>
-                      {klass.startingEquipment.groups.map((g, gi) => (
-                        <div key={gi} style={{ marginBottom: 8 }}>
-                          <div className="byo-skills">
-                            {g.options.map((o) => {
-                              const sel = (classEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key) === o.key;
-                              const label = o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");
-                              return (
-                                <button key={o.key} className={`byo-skill ${sel ? "is-sel" : ""}`}
-                                        onClick={() => setClassEquipPicks((p) => ({ ...p, [gi]: o.key }))}
-                                        disabled={o.fixed} aria-pressed={sel}>{label}</button>
-                              );
-                            })}
-                          </div>
-                        </div>
+                  <div className="byo-panel">
+                    <h3>Currency</h3>
+                    <div className="byo-currency">
+                      {[["pp", "Platinum"], ["gp", "Gold"], ["sp", "Silver"], ["cp", "Copper"]].map(([k, label]) => (
+                        <span key={k} className="byo-currency-f">
+                          <input className="byo-sel" type="number" min={0} value={currency[k]}
+                                 onChange={(e) => setCurrencyField(k, e.target.value)} aria-label={label} />
+                          <span className="byo-note">{k}</span>
+                        </span>
                       ))}
                     </div>
-                  )}
+                    {background && (
+                      <p className="byo-note" style={{ marginTop: 10 }}>
+                        Starting gold from class + background: <b>{startingGold} gp</b>.{" "}
+                        <button className="byo-linkbtn" onClick={useStartingGold}>Use this</button>
+                      </p>
+                    )}
+                  </div>
 
                   <div className="byo-panel">
                     <h3>Attacks</h3>
@@ -1848,47 +2240,8 @@ export default function CharacterCreator() {
             </>
           )}
 
-          {/* ---------------- INVENTORY ---------------- */}
-          {here === "Inventory" && ancestry && (
-            <>
-              <div className="byo-panel">
-                <h3>Weapons</h3>
-                {groupWeapons(carriedWeapons).length > 0 ? groupWeapons(carriedWeapons).map(({ weapon, qty }) => (
-                  <div className="byo-row" key={weapon.id}><span className="byo-row-label">{weapon.name}</span>
-                    {qty > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{qty}</span>}</div>
-                )) : (
-                  <p className="byo-note">Nothing picked yet. <button className="byo-linkbtn" onClick={() => setStep(at("Defenses"))}>Choose starting weapons</button> on the Defenses step.</p>
-                )}
-              </div>
-
-              <div className="byo-panel">
-                <h3>Armor</h3>
-                <div className="byo-row"><span className="byo-row-label">Worn</span><span className="byo-mod" style={{ width: "auto" }}>{armor ? armor.name : "None"}</span></div>
-                <div className="byo-row"><span className="byo-row-label">Shield</span><span className="byo-mod" style={{ width: "auto" }}>{shieldOn ? "Carrying" : "None"}</span></div>
-                <p className="byo-note" style={{ marginTop: 6 }}><button className="byo-linkbtn" onClick={() => setStep(at("Defenses"))}>Change armor</button> on the Defenses step.</p>
-              </div>
-
-              <div className="byo-panel">
-                <h3>Gear</h3>
-                {[...classEquipItems, ...bgEquipItems].filter((it) => !it.currency && it.resolved?.kind !== "weapon" && it.resolved?.kind !== "armor").map((it, i) => (
-                  <div className="byo-row" key={i}><span className="byo-row-label">{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ""}{!it.resolved && !it.currency ? " (choose specific item at the table)" : ""}</span></div>
-                ))}
-                {!klass && !background && <p className="byo-note">Pick a class and background to see starting gear.</p>}
-              </div>
-
-              <div className="byo-panel">
-                <h3>Currency</h3>
-                {background ? (
-                  <div className="byo-vitals" style={{ gridTemplateColumns: "1fr" }}>
-                    <div className="byo-vital"><div className="byo-vital-n">{startingGold} gp</div><div className="byo-vital-l">Starting gold</div></div>
-                  </div>
-                ) : <p className="byo-note">Pick a background to see starting gold.</p>}
-              </div>
-            </>
-          )}
-
-          {/* ---------------- SHEET / EXPORT ---------------- */}
-          {here === "Sheet" && ancestry && (
+          {/* ---------------- PLAYER INFO ---------------- */}
+          {here === "Player Info" && ancestry && (
             <>
               <div className="byo-panel">
                 <h3>Character Name</h3>
@@ -1900,8 +2253,12 @@ export default function CharacterCreator() {
                 <p className="byo-note">Free text — who they are, where they come from, why they left. Prints with the sheet.</p>
                 <textarea className="byo-out" rows={6} value={backstory} onChange={(e) => setBackstory(e.target.value)} placeholder="Optional." aria-label="Backstory" />
               </div>
+            </>
+          )}
 
-              <Rule />
+          {/* ---------------- SUMMARY / EXPORT ---------------- */}
+          {here === "Summary" && ancestry && (
+            <>
               <SheetSummary ctx={sheetCtx} />
               <Rule />
 
@@ -1973,8 +2330,8 @@ export default function CharacterCreator() {
           {here === "Class" && !klass && <span className="byo-hint">Pick a class</span>}
           {here === "Class" && klass && subclassOn && !subclass && <span className="byo-hint">Pick a subclass</span>}
           {here === "Class" && klass && skillsLeft > 0 && <span className="byo-hint">{skillsLeft} more skill{skillsLeft > 1 ? "s" : ""}</span>}
+          {here === "Class" && klass && asiIncomplete && <span className="byo-hint">Finish your improvement</span>}
           {here === "Background" && !background && <span className="byo-hint">Pick a background</span>}
-          {here === "Advancement" && asiIncomplete && <span className="byo-hint">Finish your improvement</span>}
           {here === "Spells" && cantripBudget > 0 && pickedCantrips.length === 0 && <span className="byo-hint">Pick your cantrips</span>}
           <button className="byo-btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>
           <button className="byo-btn byo-btn-go"

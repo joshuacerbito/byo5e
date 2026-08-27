@@ -72,7 +72,7 @@ if (!importIssues) console.log("  ✓ every cross-module import resolves");
 
 /* 3 — no identifier used without being imported or declared */
 console.log("Bindings");
-const GLOBALS = new Set(["React", "window", "document", "Blob", "URL", "setTimeout",
+const GLOBALS = new Set(["React", "window", "document", "Blob", "URL", "setTimeout", "clearTimeout",
   "console", "Math", "Object", "Array", "JSON", "Set", "Map", "Number", "String",
   "Boolean", "undefined", "isNaN", "parseInt", "parseFloat", "localStorage",
   "Promise", "Error", "File", "navigator", "Date", "Uint8Array", "btoa"]);

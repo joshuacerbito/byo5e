@@ -1,6 +1,7 @@
 import React from "react";
 import { fmt } from "../rules/abilities.js";
 import { groupWeapons, splitCastingTime, ACTION_ORDER, ACTION_LABELS, spellHitDC, spellEffect } from "../lib/derive.js";
+import { formatCurrency } from "../lib/currency.js";
 
 /* ------------------------------------------------------------------
    The Sheet step's on-screen summary: everything the printed sheet
@@ -25,7 +26,7 @@ export default function SheetSummary({ ctx }) {
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
     savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, backstory,
     finalScore, attackRows, carriedWeapons, actions, ancestrySpells,
-    chosenFeats, classFeatures, startingGold, gearList, toolsList,
+    chosenFeats, classFeatures, currency, gearList, toolsList,
   } = ctx;
 
   const head = [ancestry?.name, klass ? `${klass.name} ${level}` : null,
@@ -284,7 +285,7 @@ export default function SheetSummary({ ctx }) {
           ? `${armor.name}${shieldOn ? " + shield" : ""}`
           : (shieldOn ? "Shield only" : "None")} />
         {gear.length > 0 && <Row label="Gear" value={gear.join(", ")} />}
-        <Row label="Currency" value={`${startingGold} gp`} />
+        <Row label="Currency" value={formatCurrency(currency)} />
       </div>
 
       {(backstory || "").trim() && (

@@ -29,7 +29,7 @@ export default function SpellTableRow({ sp, on, full, onToggle, casting }) {
             disabled={full} aria-pressed={on}>
       <span className={`byo-dot at-top${on ? " is-on" : ""}`} aria-hidden="true" />
       <span className="byo-atk-table" style={{ flex: 1 }}>
-        <span className="byo-atk-row" style={{ gridTemplateColumns: "1.5fr .7fr .8fr .7fr .9fr 1fr" }}>
+        <span className="byo-atk-row byo-atk-row-spell">
           <span className="byo-spell-n">{sp.name}{tags.map(([short, full]) => (
             <span className="byo-tag one" key={short} title={full} aria-label={full}>{short}</span>
           ))}</span>

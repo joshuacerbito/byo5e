@@ -50,6 +50,12 @@ function collectChoices(blocks, reg, from, optionIdOf) {
                 name: rec ? rec.name : parsed.name,
                 source: rec ? rec.source : parsed.source,
                 resolved: !!rec,
+                /* What picking this one actually grants — e.g. Divine
+                   Order's Protector vs Thaumaturge are each a full
+                   classFeature record with their own entries, same as
+                   any other feature; flatten it the same way toFeature
+                   does rather than leaving the pick unexplained. */
+                text: rec ? flatten(rec.entries || []).text : null,
               };
             }),
           });

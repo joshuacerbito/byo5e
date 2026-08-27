@@ -38,6 +38,14 @@ export const EFFECT_TYPES = [
   "preparedBonus",  // { value }
   "grantedSpells",  // { spells: [{ id, atLevel, use }] }
   "abilityIncrease",// { key, amount } — feats and ASIs
+  "acBonus",        // { value } — stacks on top of whatever AC candidate wins
+                     // (Ring/Cloak of Protection), unlike acFormula which IS
+                     // a candidate and competes with the others for best
+  "saveBonus",      // { value, condition? } — flat add to every saving throw
+  "abilityCheckBonus", // { value, skills?: [skillIds] } — flat add to the
+                     // named skills' checks, or every skill when omitted
+                     // (Stone of Good Luck); Thaumaturge's Arcana/Religion
+                     // bonus is this same shape once features carry effects
 ];
 
 const KNOWN = new Set(EFFECT_TYPES);

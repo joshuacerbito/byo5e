@@ -13,11 +13,17 @@ export const STYLES = `
   padding:28px 18px 120px; -webkit-font-smoothing:antialiased;
 }
 .byo-wrap{max-width:min(94vw,1180px);margin:0 auto;}
+.byo-account{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-bottom:8px;}
+.byo-account-email{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--bone-dim);}
 .byo-h1{font-family:'Fraunces',serif;font-weight:800;font-size:38px;line-height:1.05;
   margin:0 0 4px;color:var(--gold);letter-spacing:-.01em;}
 .byo-h2{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;
   text-transform:uppercase;color:var(--bone-dim);margin:10px 0 22px;}
 .byo-sub{color:var(--bone-dim);font-size:14px;margin:0 0 22px;}
+@media(max-width:430px){
+  .byo-root{padding:20px 14px 130px;}
+  .byo-h1{font-size:29px;}
+}
 
 /* Step rail — numbered, one line always. Fits flat on a wide viewport
    since .byo-wrap grows with it; too narrow for that and it scrolls
@@ -43,6 +49,20 @@ export const STYLES = `
 .byo-chev.is-done .byo-chev-label{color:var(--jade);}
 .byo-chev.is-todo .byo-chev-label{color:#4C6076;}
 .byo-chev:disabled .byo-chev-label{opacity:.55;}
+
+/* Below the phone breakpoint the rail becomes a native select — one
+   thumb-reachable row instead of a horizontally-scrolling strip of
+   12+ chevrons that hides most of its own state off-screen. */
+.byo-rail-select{display:none;}
+@media(max-width:640px){
+  .byo-rail{display:none;}
+  .byo-rail-select{display:block;width:100%;margin:0 0 22px;appearance:none;
+    background:var(--rock) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="%23D4A537"/></svg>') no-repeat right 14px center;
+    border:1px solid var(--gold-dim);border-radius:3px;color:var(--gold);
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.05em;
+    padding:12px 34px 12px 14px;min-height:44px;}
+  .byo-rail-select:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+}
 
 .byo-card{background:var(--rock);border:1px dashed var(--line-bright);border-radius:3px;
   padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:border-color .14s,background .14s;
@@ -84,6 +104,10 @@ export const STYLES = `
 .byo-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);}
 .byo-row:last-child{border-bottom:none;}
 .byo-row-label{flex:1;font-size:14px;}
+/* A wand's charges/casts-what line, under its name in the Gear row —
+   same treatment as .byo-note but block-level so it wraps onto its own
+   line rather than running into the name on a narrow screen. */
+.byo-item-mech{display:block;font-size:11.5px;color:var(--gold-dim);margin-top:2px;}
 /* Skills on the Sheet step's summary, two tracks like the printed sheet's
    .sk grid. The column gap needs its own hairline-free edge, so the rows
    keep their own bottom border and only the true last row loses it. */
@@ -103,6 +127,15 @@ export const STYLES = `
 .byo-mod{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--bone-dim);width:32px;text-align:right;}
 .byo-sel{background:var(--rock-2);border:1px solid var(--line);color:var(--bone);
   font-family:'JetBrains Mono',monospace;font-size:13px;padding:6px 8px;border-radius:2px;}
+
+/* pp/gp/sp/cp fields — four-across on a wide panel, but the panel itself
+   narrows to a phone's width long before the row does, so at 4-up each
+   field's label gets crushed against the next field's input. 2-up keeps
+   every field readable at any width. */
+.byo-currency{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.byo-currency-f{display:flex;align-items:center;gap:6px;}
+.byo-currency-f .byo-sel{width:100%;min-width:0;}
+@media(max-width:480px){.byo-currency{grid-template-columns:repeat(2,1fr);}}
 
 .byo-budget{display:flex;justify-content:space-between;align-items:baseline;
   border:1px solid var(--line);border-radius:3px;padding:10px 14px;margin-bottom:12px;
@@ -213,6 +246,8 @@ export const STYLES = `
 .byo-count{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--gold);margin-left:8px;font-weight:400;}
 .byo-skills{display:flex;gap:6px;flex-wrap:wrap;}
+.byo-scroll-y{max-height:280px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;
+  -webkit-overflow-scrolling:touch;padding-right:2px;}
 .byo-skill{font-family:'Karla',sans-serif;font-size:12.5px;font-weight:500;
   background:transparent;border:1px solid var(--line);color:var(--bone-dim);
   padding:7px 11px;border-radius:2px;cursor:pointer;transition:border-color .12s,color .12s;}
@@ -293,8 +328,13 @@ export const STYLES = `
 .byo-atk-num{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--gold);}
 .byo-atk-notes{color:var(--bone-dim);}
 @media (max-width:520px){
-  .byo-atk-row{grid-template-columns:1.2fr .7fr .6fr;}
-  .byo-atk-row span:nth-child(4),.byo-atk-row span:nth-child(5){grid-column:1/-1;}
+  /* Weapon attack table only — :not() keeps this off spell rows, which
+     carry .byo-atk-row too but define their own mobile layout below;
+     without it this used to win anyway (same specificity, wrong cells
+     forced full-width) and broke the spell table's 3-across regroup. */
+  .byo-atk-row:not(.byo-atk-row-spell){grid-template-columns:1.2fr .7fr .6fr;}
+  .byo-atk-row:not(.byo-atk-row-spell) span:nth-child(4),
+  .byo-atk-row:not(.byo-atk-row-spell) span:nth-child(5){grid-column:1/-1;}
 }
 .byo-spell-t{display:block;font-size:12.5px;color:var(--bone-dim);line-height:1.5;
   margin-top:6px;}
@@ -309,6 +349,20 @@ export const STYLES = `
 .byo-sprow.is-sel .byo-spell-n{color:var(--gold);}
 .byo-sprow-tbl .byo-atk-row{border-bottom:none;padding:0;font-size:12px;}
 .byo-sprow-tbl .byo-spell-n{display:flex;align-items:center;gap:5px;font-size:14px;}
+/* Spell rows carry one more column than the weapon attack table (time
+   AND range, not just range), so they get their own ratio rather than
+   the shared 5-up .byo-atk-row default — this used to be an inline
+   style, which no media query can ever win against, so the table stayed
+   stuck at 6 cramped columns on a phone no matter what. */
+.byo-atk-row.byo-atk-row-spell{grid-template-columns:1.5fr .7fr .8fr .7fr .9fr 1fr;}
+@media(max-width:640px){
+  /* 6 columns of a phone's width each fit only a couple of characters,
+     wrapping every cell onto its own stack of lines. 3-across regroups
+     name on its own full-width row, then two rows of three — every cell
+     gets enough room for its longest value ("1 action", "Touch"). */
+  .byo-atk-row.byo-atk-row-spell{grid-template-columns:repeat(3,1fr);row-gap:5px;column-gap:6px;}
+  .byo-atk-row.byo-atk-row-spell>*:first-child{grid-column:1/-1;}
+}
 .byo-spell-trig{display:block;margin-top:6px;font-size:12px;color:var(--gold);
   font-style:italic;line-height:1.5;}
 .byo-heal{color:var(--jade);}

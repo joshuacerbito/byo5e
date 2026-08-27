@@ -92,6 +92,149 @@ const classTied = (arr, ed) =>
 
 const plain = (arr, ed) => arr.filter((r) => isSrd(r, ed.flag) && r.source === ed.book);
 
+/* Items specifically: the equipment chapter is split across the Handbook
+   and the DMG in 5etools' own data (see `itemBooks` on EDITIONS, used
+   below for itemProperty/itemType/itemMastery already). `plain()` above
+   filters on the single `ed.book`, which is fine for mundane PHB/XPHB
+   gear but would silently drop almost every magic item — those are
+   overwhelmingly DMG/XDMG-sourced. */
+const itemsFor = (arr, ed) => arr.filter((r) => isSrd(r, ed.flag) && ed.itemBooks.includes(r.source));
+
+/* ------------------------------------------------------------------
+   Magic items
+
+   items.json carries every magic item in the game; only two shapes of
+   it are SRD content:
+     - "static" records (+1 Wand of the War Mage, Bag of Holding, ...):
+       pulled in below alongside the mundane rarity:"none" records,
+       filtered the same way by their own srd/srd52 flag.
+     - "generic variants" (magicvariants.json): templates applied to
+       every matching base item rather than written out once each. Only
+       the numeric-bonus families (+1/+2/+3 Weapon/Armor/Shield/
+       Ammunition) plus a handful of flavour-only armours (Adamantine,
+       Mithral, Elven Chain, Dwarven Plate, Barding, the elemental-
+       resistance armours) are expanded here. 5etools encodes narrative
+       named weapons (Vorpal Sword, Holy Avenger, Flame Tongue, ...) the
+       same mechanism, but their "bonus" is a special ability rather
+       than a flat number — modelling that is a follow-up, not this.
+------------------------------------------------------------------- */
+const NUMBERED_VARIANT_RE = /^\+[123] (Weapon|Armor|Shield \(\*\)|Ammunition)$/;
+const FLAVOR_ARMOR_VARIANTS = new Set([
+  "Adamantine Armor", "Mithral Armor", "Elven Chain", "Dwarven Plate", "Barding",
+  "Armor of Acid Resistance", "Armor of Cold Resistance", "Armor of Fire Resistance",
+  "Armor of Force Resistance", "Armor of Lightning Resistance", "Armor of Necrotic Resistance",
+  "Armor of Poison Resistance", "Armor of Psychic Resistance", "Armor of Radiant Resistance",
+  "Armor of Thunder Resistance",
+]);
+const isAllowedVariant = (name) => NUMBERED_VARIANT_RE.test(name) || FLAVOR_ARMOR_VARIANTS.has(name);
+
+const typeCode = (t) => String(t ?? "").split("|")[0];
+
+/* `requires`/`excludes` nodes only ever use the shapes the allowed
+   variant families actually carry — weapon/armor flags, a type code, or
+   a specific name+source (Elven Chain names "Chain Mail"/"Chain Shirt"
+   rather than every medium+heavy armor). */
+const matchesRequire = (base, req) => {
+  if (req.armor) return !!base.armor;
+  if (req.weapon) return !!base.weapon;
+  if (req.type) return typeCode(base.type) === typeCode(req.type);
+  if (req.name) return base.name === req.name && (!req.source || base.source === req.source);
+  return false;
+};
+const matchesExclude = (base, excl) => {
+  if (!excl) return false;
+  if (excl.net) return !!base.net;
+  if (excl.name) return base.name === excl.name;
+  return false;
+};
+
+/* "acid and cold" style join — one of the two {{...}} template
+   substitutions any item pointing at a shared itemEntry record needs
+   (see resolveItemEntries below). */
+const resistJoin = (resist) => {
+  const r = resist || [];
+  if (r.length < 2) return r[0] || "";
+  return `${r.slice(0, -1).join(", ")} and ${r[r.length - 1]}`;
+};
+
+/* `{=bonusWeapon}` / `{=bonusAc}` are the generic-variant mechanism's own
+   inline placeholders — 5etools fills them from the record's own
+   bonusWeapon/bonusAc when it applies a variant to a base item. */
+const substituteBonusVars = (str, item) => str
+  .replace(/\{=bonusWeapon\}/g, item.bonusWeapon || "")
+  .replace(/\{=bonusAc\}/g, item.bonusAc || "");
+
+/* A handful of items — generic-variant expansions AND static records
+   alike (the ten Dragon Scale Mails, the Resistance armors) — don't
+   spell their rules text out inline. They point at a SHARED record in
+   items-base.json's itemEntry array via `{#itemEntry Name|Source}`,
+   with `{{item.resist}}` / `{{item.detail1}}` filled in from the
+   pointing item's own fields. Resolved here, at build time, because
+   `{#itemEntry}` / `{{...}}` / `{=...}` are 5etools shapes the mapper
+   layer must never see (it only ever strips `{@tag}`). */
+function resolveItemEntries(item, itemEntryIndex) {
+  const walk = (node) => {
+    if (typeof node === "string") {
+      const withVars = substituteBonusVars(node, item);
+      const m = /^\{#itemEntry ([^|}]+)(?:\|([^}]+))?\}$/.exec(withVars);
+      if (!m) return [withVars];
+      const [, entryName, entrySource] = m;
+      const rec = itemEntryIndex.get(`${entryName.toLowerCase()}|${(entrySource || item.source).toLowerCase()}`);
+      if (!rec) return [withVars];
+      return (rec.entriesTemplate || []).map((t) => substituteBonusVars(t, item)
+        .replace(/\{\{getFullImmRes item\.resist\}\}/g, resistJoin(item.resist))
+        .replace(/\{\{item\.resist\}\}/g, resistJoin(item.resist))
+        .replace(/\{\{item\.detail1\}\}/g, item.detail1 ?? ""));
+    }
+    if (Array.isArray(node)) return node.flatMap(walk);
+    /* A nested { type:"entries", entries:[...] } node — resolve inside it
+       without disturbing the wrapper. None of the allowed families nest
+       this deep today, but a directive could in principle appear there. */
+    if (node && typeof node === "object" && Array.isArray(node.entries)) {
+      return [{ ...node, entries: node.entries.flatMap(walk) }];
+    }
+    return [node];
+  };
+  return (item.entries || []).flatMap(walk);
+}
+
+/* One merged record per (allowed variant x matching base item). `srcItems`
+   is the edition's OWN already-SRD-filtered item list, so the expansion
+   never reaches past the pack's own boundary — a non-SRD base item (a
+   DMG optional firearm, say) can't grow a +1 version here. `entries` is
+   copied verbatim from `inherits` — resolveItemEntries() below runs over
+   every item, generated and static alike, in one pass. */
+function expandVariants(variants, ed, srcItems) {
+  const out = [];
+  for (const v of variants) {
+    if (!isAllowedVariant(v.name) || !v.inherits[ed.flag]) continue;
+    const inh = v.inherits;
+    const matched = srcItems.filter((b) =>
+      (v.requires || []).some((r) => matchesRequire(b, r)) && !matchesExclude(b, v.excludes));
+    for (const base of matched) {
+      let baseName = base.name;
+      if (inh.nameRemove) baseName = baseName.split(inh.nameRemove).join("");
+      const rec = {
+        ...base,
+        name: `${inh.namePrefix || ""}${baseName}${inh.nameSuffix || ""}`,
+        rarity: inh.rarity,
+        reqAttune: inh.reqAttune ?? null,
+        bonusWeapon: inh.bonusWeapon ?? null,
+        bonusAc: inh.bonusAc ?? null,
+        resist: inh.resist ?? null,
+        detail1: inh.detail1 ?? null,
+        entries: inh.entries,
+        source: inh.source,
+        page: inh.page ?? null,
+      };
+      delete rec.srd; delete rec.srd52;
+      rec[ed.flag] = true;
+      out.push(rec);
+    }
+  }
+  return out;
+}
+
 function spellsFor(ed, spellSources) {
   const raw = readJson(ed.spellFile).spell;
   const block = spellSources[ed.book] || {};
@@ -115,7 +258,18 @@ function spellsFor(ed, spellSources) {
    Build one pack
 ------------------------------------------------------------------- */
 function buildPack(ed, shared) {
-  const { classes, races, backgrounds, feats, optFeatures, itemsBase, skills, languages, conditions, spellSources } = shared;
+  const { classes, races, backgrounds, feats, optFeatures, itemsBase, magicvariants, itemEntryIndex,
+    skills, languages, conditions, spellSources } = shared;
+
+  /* Base items (mundane + static magic) for this edition, then the
+     generic-variant expansion over that same set — see the "Magic items"
+     block above. */
+  const baseSrdItems = itemsFor(itemsBase.baseitem, ed);
+  const itemsWithVariants = [...baseSrdItems, ...expandVariants(magicvariants.magicvariant, ed, baseSrdItems)];
+  /* One pass, over every item (static and generated alike), resolving
+     any {#itemEntry}/{{...}}/{=...} directive it carries — see
+     resolveItemEntries() above. */
+  const items = itemsWithVariants.map((it) => ({ ...it, entries: resolveItemEntries(it, itemEntryIndex) }));
 
   const content = {
     classes: plain(classes.class, ed),
@@ -134,8 +288,10 @@ function buildPack(ed, shared) {
     spells: spellsFor(ed, spellSources),
 
     /* itemsBase.baseitem is the equipment table plus items.json's
-       mundane (rarity:"none") records, merged above — see there. */
-    items: plain(itemsBase.baseitem, ed),
+       mundane (rarity:"none") and magic (rarity!=="none") records,
+       merged above, plus the generic-variant expansion computed just
+       above this object. */
+    items,
     /* itemProperty / itemType / itemMastery carry no SRD flag of any
        kind, so `source` is the only filter that exists for them. */
     itemProperties: (itemsBase.itemProperty || []).filter((r) => ed.itemBooks.includes(r.source)),
@@ -231,16 +387,24 @@ const shared = (() => {
   resolveCopies(itemsBase, itemsBase._meta?.internalCopies || [], (m) => warn(`items-base.json: ${m}`));
   /* items.json is items-base's mundane gear (adventuring packs, tools,
      spellcasting foci, quivers, ...) mixed in with every magic item in
-     the game. Magic items are deliberately out of scope — this is a
-     character builder — so only rarity:"none" records are pulled in;
-     everything from "common" up is a magic item by 5etools convention
-     and stays excluded. No name+source collides with items-base.json. */
+     the game. rarity:"none" records are the mundane ones; everything
+     from "common" up is a magic item by 5etools convention, and those
+     are pulled in too when SRD-flagged (srd/srd52 truthy on the record
+     itself — buildPack's per-edition itemsFor() does the actual
+     edition filtering). No name+source collides with items-base.json. */
   const items = readJson("items.json");
   resolveCopies(items, items._meta?.internalCopies || [], (m) => warn(`items.json: ${m}`));
-  itemsBase.baseitem = [...itemsBase.baseitem, ...items.item.filter((r) => r.rarity === "none")];
+  itemsBase.baseitem = [...itemsBase.baseitem,
+    ...items.item.filter((r) => r.rarity === "none" || r.srd != null || r.srd52 != null)];
+  /* itemEntry: shared rules text a few generic variants point at via
+     `{#itemEntry Name|Source}` rather than spelling out inline — see
+     resolveItemEntry() above. */
+  const itemEntryIndex = new Map((itemsBase.itemEntry || [])
+    .map((e) => [`${e.name.toLowerCase()}|${e.source.toLowerCase()}`, e]));
   return {
     classes: loadClassFiles(),
     races, backgrounds, itemsBase,
+    magicvariants: readJson("magicvariants.json"), itemEntryIndex,
     feats: readJson("feats.json"),
     optFeatures: readJson("optionalfeatures.json"),
     skills: readJson("skills.json"),
