@@ -19,11 +19,17 @@ export const STYLES = `
   margin:0 0 4px;color:var(--bone);letter-spacing:-.01em;}
 .su-sub{color:var(--bone-dim);font-size:14px;margin:0 0 22px;}
 
-/* batok rail — chevron linework, filled as you progress */
-.su-rail{display:flex;gap:5px;align-items:center;margin:0 0 26px;flex-wrap:wrap;}
-.su-chev{display:flex;align-items:center;gap:7px;}
-.su-chev svg{display:block;}
-.su-chev-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;
+/* numbered step rail */
+.su-rail{display:flex;gap:4px;align-items:center;margin:0 0 26px;flex-wrap:wrap;}
+.su-chev{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;
+  border:1px solid transparent;}
+.su-chev.is-now{background:var(--rock-2);border-color:var(--gold-dim);}
+.su-chev-n{display:flex;align-items:center;justify-content:center;flex:none;
+  width:20px;height:20px;border-radius:50%;border:1px solid #4C6076;
+  font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#4C6076;}
+.su-chev.is-now .su-chev-n{border-color:var(--gold);color:var(--gold);}
+.su-chev.is-done .su-chev-n{border-color:var(--jade);color:var(--jade);background:rgba(63,169,138,.12);}
+.su-chev-label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--bone-dim);}
 .su-chev.is-now .su-chev-label{color:var(--gold);}
 .su-chev.is-done .su-chev-label{color:var(--jade);}

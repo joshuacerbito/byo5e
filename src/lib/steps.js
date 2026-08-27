@@ -21,7 +21,7 @@
    compressed to the 1-5 range this app supports. */
 export const SLOTS_THIRD = { 1: [], 2: [], 3: [2], 4: [3], 5: [3] };
 
-export const BASE_STEPS = ["Ancestry", "Abilities", "Class", "Background", "Defenses"];
+export const BASE_STEPS = ["Ancestry", "Class", "Abilities", "Background", "Defenses"];
 export const buildSteps = (hasSpells) =>
   hasSpells ? [...BASE_STEPS, "Spells", "Inventory", "Sheet"] : [...BASE_STEPS, "Inventory", "Sheet"];
 

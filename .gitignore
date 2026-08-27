@@ -9,11 +9,19 @@ dist
 5etools-src
 source
 reference
+*.pdf
 
 .DS_Store
 
 # Planning notes — local only
 plans/
 
-# Claude Code's local settings and slash commands
+# Claude Code's local settings, slash commands, and project instructions —
+# local only, not published in the repo
 .claude/
+CLAUDE.md
+
+.env
+.env.local
+.env.*.local
+client_secret_25389728633-nj4jumrm60b6a8qif2kk4o7edc244nc2.apps.googleusercontent.com.json

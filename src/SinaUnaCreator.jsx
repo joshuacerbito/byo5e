@@ -1208,33 +1208,29 @@ export default function SinaUnaCreator() {
 
       <div className="su-wrap">
         <p className="su-eyebrow">The Islands of Sina Una</p>
-        <h1 className="su-h1">Make a character</h1>
-        <p className="su-sub">{STEPS.length} steps. Only legal options are shown.</p>
+        <h1 className="su-h1">Character Creator</h1>
 
-        {/* batok chevron rail */}
+        <Rule />
+
+        {/* numbered step rail */}
         <div className="su-rail">
           {STEPS.map((s, i) => {
             const state = i < step ? "is-done" : i === step ? "is-now" : "is-todo";
-            const stroke = i < step ? "#3FA98A" : i === step ? "#D4A537" : "#4C6076";
             return (
               <div key={s} className={`su-chev ${state}`}>
-                <svg width="13" height="15" viewBox="0 0 13 15" fill="none" aria-hidden="true">
-                  <path d="M1 1.5L6.5 7.5L1 13.5" stroke={stroke} strokeWidth="1.6" />
-                  <path d="M6 1.5L11.5 7.5L6 13.5" stroke={stroke} strokeWidth="1.6"
-                        opacity={i <= step ? "1" : "0.4"} />
-                </svg>
-                {i === step && <span className="su-chev-label">{s}</span>}
+                <span className="su-chev-n">{i + 1}</span>
+                <span className="su-chev-label">{s}</span>
               </div>
             );
           })}
         </div>
 
         {/* what you've locked in so far — always reversible */}
-        {ancestry && step >= at("Abilities") && (
+        {ancestry && step > at("Ancestry") && (
           <div className="su-chip">
             <span className="su-chip-k">Ancestry</span>
             <span className="su-chip-v">{ancestry.name}</span>
-            <button className="su-chip-b" onClick={() => setStep(0)}>Change</button>
+            <button className="su-chip-b" onClick={() => setStep(at("Ancestry"))}>Change</button>
           </div>
         )}
         {klass && step >= at("Background") && (
@@ -1243,7 +1239,7 @@ export default function SinaUnaCreator() {
             <span className="su-chip-v">
               {klass.name} {level}{subclass && subclassReady ? ` · ${subclass.name}` : ""}
             </span>
-            <button className="su-chip-b" onClick={() => setStep(2)}>Change</button>
+            <button className="su-chip-b" onClick={() => setStep(at("Class"))}>Change</button>
           </div>
         )}
 
@@ -1251,7 +1247,7 @@ export default function SinaUnaCreator() {
           <div className="su-chip">
             <span className="su-chip-k">Background</span>
             <span className="su-chip-v">{background.name}</span>
-            <button className="su-chip-b" onClick={() => setStep(3)}>Change</button>
+            <button className="su-chip-b" onClick={() => setStep(at("Background"))}>Change</button>
           </div>
         )}
 
@@ -1818,7 +1814,7 @@ export default function SinaUnaCreator() {
                         You already have {bgOverlap.join(" and ")} from your class or ancestry. The 2014 rules
                         don't let you swap a duplicate for something else, so it's wasted — go back and pick
                         different class skills if you'd rather not lose {bgOverlap.length > 1 ? "them" : "it"}.
-                        <button className="su-chip-b" onClick={() => setStep(2)}>Change class skills</button>
+                        <button className="su-chip-b" onClick={() => setStep(at("Class"))}>Change class skills</button>
                       </p>
                     )}
                   </div>
