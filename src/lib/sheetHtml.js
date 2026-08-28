@@ -14,13 +14,13 @@ import { formatCurrency } from './currency.js';
    a button nobody can click has no business rendering behind it. */
 export function buildSheetHTML(ctx, { interactive = true } = {}) {
   const {
-    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, finalScore, backstory,
+    ancestry, klass, level, subclass, subclassReady, background, name, resolved, armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn, savingThrows, skillTable, casting, chosenSpells, appendix, finalScore, backstory,
     attackRows, carriedWeapons, actions, ancestrySpells, chosenFeats, classFeatures,
-    currency, gearList, toolsList,
+    currency, gearList, toolsList, classLabel, hitDieLabel,
   } = ctx;
 
     const esc = (x) => String(x ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-    const head = [ancestry?.name, klass ? `${klass.name} ${level}` : null,
+    const head = [ancestry?.name, klass ? (classLabel || `${klass.name} ${level}`) : null,
       subclass && subclassReady ? subclass.name : null, background?.name]
       .filter(Boolean).join(" · ");
 
@@ -34,7 +34,7 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
     ].map(([k, v]) => `<div class="vit"><div class="vit-n">${esc(v)}</div><div class="vit-l">${esc(k)}</div></div>`).join("");
 
     const core = [
-      klass && ["Hit die", `d${klass.hitDie}`],
+      klass && ["Hit die", hitDieLabel || `d${klass.hitDie}`],
       ["Proficiency", fmt(pb)], ["Size", resolved.size],
       resolved.darkvision > 0 && ["Darkvision", `${resolved.darkvision} ft`],
       resolved.blindsight > 0 && ["Blindsight", `${resolved.blindsight} ft`],
@@ -179,7 +179,6 @@ export function buildSheetHTML(ctx, { interactive = true } = {}) {
         `<td>${esc(spellEffect(sp))}</td><td>${[sp.ritual && "ritual", sp.concentration && "conc",
           splitCastingTime(sp.time).trigger && `trigger: ${splitCastingTime(sp.time).trigger.toLowerCase()}`,
         ].filter(Boolean).map(esc).join(", ") || "—"}</td></tr>`).join("")}</tbody></table>` : ""}
-      ${otherSpells.trim() ? `<p><b>Other.</b> ${otherSpells.split("\n").map((x) => esc(x.trim())).filter(Boolean).join(", ")}</p>` : ""}
       ${spellLegend}
       </section>` : "";
 
@@ -281,7 +280,7 @@ ${actionsHtml ? `<section><h4>Class + Ancestry Actions</h4>${actionsHtml}</secti
 ${castBlock}
 ${ancestrySpellBlock}
 <section><h4>Ancestry traits — ${esc(ancestry.name)}</h4>${traits}${dropped}</section>
-${classFeats ? `<section><h4>${esc(klass.name)} features</h4>${classFeats}</section>` : ""}
+${classFeats ? `<section><h4>${esc(classLabel && classLabel.includes("/") ? "Class" : klass.name)} features</h4>${classFeats}</section>` : ""}
 ${featsHtml ? `<section><h4>Feats</h4>${featsHtml}</section>` : ""}
 ${bg ? `<section><h4>Background — ${esc(background.name)}</h4>${bg}</section>` : ""}
 ${inventoryHtml ? `<section><h4>Inventory</h4>${inventoryHtml}</section>` : ""}

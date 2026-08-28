@@ -16,34 +16,36 @@ import { sheetFileName } from "../pdf/saveFile.js";
 export const STORAGE_KEY = "byo5e-character";
 export const SAVE_FORMAT = 1;
 
-/* TEMPORARY — the rebuild onto SRD content packs changes what every saved
-   id means, so a save written by yesterday's build would restore ids that
-   no longer resolve and crash somewhere far from here. Until the save
-   format is versioned against the loaded packs, every save is discarded and
-   cleared on load. Restoring this is deliberate work, not a matter of
-   deleting the flag: it needs the pack manifest in the envelope and the
-   missing-content handling that goes with it.
+/* The localStorage entry is versioned against SAVE_FORMAT the same way the
+   `.json` export is: a save written under a different format means ids
+   were minted by a content-pack shape this build no longer understands
+   (the SRD-pack rebuild was the first such break), and restoring it would
+   crash somewhere far from here. Anything that doesn't match today's
+   format — including a bare pre-versioning snapshot, or garbage — is
+   discarded rather than trusted. Bump SAVE_FORMAT the next time a pack
+   rebuild changes what a saved id means.
 
-   The `.json` export is unaffected — that is the way to keep a character
-   across the rebuild. */
-export const DISCARD_SAVES_ON_LOAD = true;
-
+   The `.json` export is the durable form across a break like that; this
+   is just the auto-resume cache. */
 export function loadSaved() {
-  if (DISCARD_SAVES_ON_LOAD) {
-    clearSaved();
-    return null;
-  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.saveFormat !== SAVE_FORMAT || !parsed.character) {
+      clearSaved();
+      return null;
+    }
+    return parsed.character;
   } catch {
+    clearSaved();
     return null;
   }
 }
 
 export function saveSnapshot(snapshot) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ saveFormat: SAVE_FORMAT, character: snapshot }));
   } catch {
     /* storage full or unavailable — silently skip, nothing else depends on it */
   }

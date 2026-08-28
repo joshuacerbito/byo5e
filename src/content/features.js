@@ -56,6 +56,7 @@ function collectChoices(blocks, reg, from, optionIdOf) {
                    any other feature; flatten it the same way toFeature
                    does rather than leaving the pick unexplained. */
                 text: rec ? flatten(rec.entries || []).text : null,
+                blocks: rec ? flatten(rec.entries || []).blocks : [],
               };
             }),
           });
@@ -133,6 +134,7 @@ export function toFeature(rec, reg, opts = {}) {
     source: rec.source ?? null,
     page: rec.page ?? null,
     optional: !!opts.optional,
+    gainsSubclassFeature: !!opts.gainsSubclassFeature,
     choices,
     references: collectReferences(blocks, refs, reg, from, choices),
   };

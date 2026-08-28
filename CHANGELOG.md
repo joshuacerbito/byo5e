@@ -30,6 +30,9 @@ Dates are the day the work landed.
 
 - `CLAUDE.md` is no longer tracked in git — stays on disk for local tooling, isn't published to
   the repo going forward.
+- Free-tier character limit is now **2**, not three as earlier planning docs said — paid
+  membership (not built yet) is what unlocks more slots. Account page groundwork for this is
+  planned/in progress alongside the Google sign-in work above.
 
 ## 2026-08-26 (even later)
 

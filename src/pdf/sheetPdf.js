@@ -107,13 +107,13 @@ export function buildSheetDocDefinition(ctx) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
-    savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, ancestrySpells,
+    savingThrows, skillTable, casting, chosenSpells, appendix, ancestrySpells,
     finalScore, attackRows, carriedWeapons, actions, chosenFeats, classFeatures,
-    backstory, currency, gearList, toolsList,
+    backstory, currency, gearList, toolsList, classLabel, hitDieLabel,
   } = ctx;
 
   const charName = name.trim() || 'Unnamed';
-  const head = [ancestry?.name, klass ? `${klass.name} ${level}` : null,
+  const head = [ancestry?.name, klass ? (classLabel || `${klass.name} ${level}`) : null,
     subclass && subclassReady ? subclass.name : null, background?.name]
     .filter(Boolean).join('  ·  ');
 
@@ -173,7 +173,7 @@ export function buildSheetDocDefinition(ctx) {
 
   /* ---- core / saves, side by side ---- */
   const core = [
-    klass && ['Hit die', `d${klass.hitDie}`],
+    klass && ['Hit die', hitDieLabel || `d${klass.hitDie}`],
     ['Proficiency', fmt(pb)],
     ['Size', resolved.size],
     resolved.darkvision > 0 && ['Darkvision', `${resolved.darkvision} ft`],
@@ -276,9 +276,6 @@ export function buildSheetDocDefinition(ctx) {
         style: 'tbl',
       });
     }
-    if (otherSpells.trim()) {
-      content.push(para('Other', otherSpells.split('\n').map((x) => x.trim()).filter(Boolean).join(', ')));
-    }
     const legend = [
       chosenSpells.some((x) => x.level === 0) && 'C is a cantrip',
       chosenSpells.some((x) => x.higherLevels)
@@ -334,7 +331,7 @@ export function buildSheetDocDefinition(ctx) {
   if (klass) {
     const feats = classFeatures || [];
     if (feats.length) {
-      content.push(...heading(`${klass.name} features`));
+      content.push(...heading(`${classLabel && classLabel.includes('/') ? 'Class' : klass.name} features`));
       feats.forEach((f) => content.push(para(f.name, f.text)));
     }
   }

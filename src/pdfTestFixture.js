@@ -36,7 +36,6 @@ export const FIXTURE = {
     slots: [4, 3, 2], pact: null, prepared: 8, known: null, spellbook: 14, pending: false },
   chosenSpells: [spell("Fire Bolt", 0), spell("Magic Missile", 1, { atk: null, save: null, dmg: "3d4", dmgType: "force" }),
     spell("Fireball", 3, { save: "dex", higherLevels: "The damage increases by 1d6 for each slot level above 3rd." })],
-  otherSpells: "",
   appendix: [
     { group: "Spells", name: "Fireball", text: "A bright streak flashes from your pointing finger to a point you choose." },
     { group: "Feats", name: "Alert", text: "Always on the lookout for danger, you gain the following benefits." },

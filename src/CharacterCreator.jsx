@@ -11,9 +11,13 @@ import {
   progressionAt,
 } from "./rules/progression.js";
 import {
+  combinedCasterLevel, combinedSpellSlots, totalCharacterLevel, meetsMulticlassRequirement,
+  hitPointsMulticlass,
+} from "./rules/multiclass.js";
+import {
   acCandidates, isWeaponProficient, weaponAbility, attackBonus, damageBonus,
   savingThrows as savingThrowsOf, skillTable as skillTableOf, passiveScore,
-  spellcastingStats, hitPoints as hitPointsOf,
+  spellcastingStats,
 } from "./rules/combat.js";
 import {
   deriveClassArmorProf, deriveClassWeaponProf, mergeArmorProf, mergeWeaponProf,
@@ -32,12 +36,16 @@ import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
 import { sheetFileName, sheetFileBase } from "./pdf/saveFile.js";
 import { loadSaved, saveSnapshot, clearSaved, buildCharacterExport, characterFileName }
   from "./lib/storage.js";
-import { syncEnabled, onSessionChange, signInWithGoogle, signOut, pushCharacter } from "./lib/sync.js";
+import { syncEnabled, onSessionChange, signInWithGoogle, createCharacter, updateCharacter } from "./lib/sync.js";
+import Account from "./components/Account.jsx";
 import { formatCurrency } from "./lib/currency.js";
 import Rule from "./components/Rule.jsx";
+import FeatureBlocks from "./components/FeatureBlocks.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
 import SheetSummary from "./components/SheetSummary.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import { useRoute, navigate, goBack } from "./lib/router.js";
+import Splash from "./components/Splash.jsx";
 import AddRuleset from "./components/AddRuleset.jsx";
 import Terms from "./components/Terms.jsx";
 import Privacy from "./components/Privacy.jsx";
@@ -45,12 +53,12 @@ import Privacy from "./components/Privacy.jsx";
 const APP_TITLE = document.title;
 const saved = loadSaved();
 
-/* Sign-in UI is hidden for now — the schema underneath it is mid-migration
-   (single character per user -> up to 3, see plans/user-accounts-auth.md)
-   and sync.js's push/pull functions haven't caught up yet. The plumbing
-   underneath (sync.js, the Supabase project, session tracking) stays live;
-   this only hides the button so nobody hits half-finished multi-character
-   sync while it's being built. Flip back on once that's done. */
+/* Sign-in UI. Off until the database side of the multi-character schema
+   (profiles table + character_limit, characters.name, the split RLS
+   policies — see plans/user-accounts-auth.md) has actually been applied
+   in Supabase; the app degrades gracefully without it (getProfile/
+   listCharacters just come back empty), but "Save to my account" would
+   error until the migration's run. Flip to true once it's confirmed run. */
 const AUTH_UI_ENABLED = false;
 
 const DEFAULTS = {
@@ -60,9 +68,10 @@ const DEFAULTS = {
   name: "", backstory: "",
   classId: null, level: 1, subclassId: null,
   skillPicks: [], optionPicks: {}, asiPicks: {},
+  multiclasses: [], mcSkillPicks: {}, mcAsiPicks: {},
   bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [],
   armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {},
-  pickedSpellIds: [], otherSpells: "",
+  pickedSpellIds: [],
   customItems: [], currency: { cp: 0, sp: 0, gp: 0, pp: 0 },
 };
 
@@ -80,6 +89,19 @@ const KIND_COLLECTION = { weapon: "weapons", armor: "armor", gear: "gear" };
    count in the class's own table — just not wired to that one feature.
    This is the one place that gap is bridged by hand. */
 const GROWING_CHOICE_KEYWORDS = { "eldritch invocations": "invocation" };
+
+/* Every choose-up-to-N-of-many picker (a species' lineage table, Fighting
+   Style, class/background skills, ...) shares this shape. For a 1/1
+   choice — pick exactly one of these — clicking a different option once
+   one is already selected used to just do nothing (the button is
+   disabled); that reads as broken, not "full", so it swaps the
+   selection instead. A 2+/N choice keeps the old toggle-to-unselect
+   behavior: which of several already-picked options to give up for a
+   new one isn't this component's call to make for the user. */
+const swapPick = (cur, value, max) =>
+  cur.includes(value) ? cur.filter((x) => x !== value)
+    : cur.length < max ? [...cur, value]
+    : max === 1 ? [value] : cur;
 
 function tableColumnAt(tables, keyword, level) {
   for (const t of tables || []) {
@@ -175,15 +197,18 @@ export default function CharacterCreator() {
   const [edition, setEdition] = useState(saved?.edition ?? DEFAULTS.edition);
   const [content, setContent] = useState(null);
   const [contentError, setContentError] = useState(null);
-  /* Not one of the 9 wizard steps — reached from the Ruleset step's
-     "Add Ruleset" button, replaces the whole wizard body while open.
-     Never persisted: it's a scratch screen, not part of the character. */
-  const [showAddRuleset, setShowAddRuleset] = useState(false);
-  /* Same pattern as showAddRuleset: standalone legal screens, reached from
-     the Ruleset step's legal notices and the persistent footer link, never
-     persisted. */
-  const [showTerms, setShowTerms] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
+  /* Each standalone screen (Splash, AddRuleset, Terms, Privacy, Account)
+     is a real route now (src/lib/router.js), not a local boolean — real
+     URLs, back/forward, bookmarkable/shareable, and a screen's own
+     "Back" is just goBack() (real browser Back), which naturally
+     returns to whatever pushed it — Splash or mid-wizard — without
+     either screen needing to know which. */
+  const route = useRoute();
+  const showAddRuleset = route === "/rulesets";
+  const showTerms = route === "/terms";
+  const showPrivacy = route === "/privacy";
+  const showAccount = route === "/account";
+  const showSplash = route === "/";
 
   /* Account sync — fully inert with no Supabase env vars set (syncEnabled
      false), same "lazy/optional" shape as PDF export. session is null both
@@ -191,6 +216,12 @@ export default function CharacterCreator() {
      needs to branch on syncEnabled directly. */
   const [session, setSession] = useState(null);
   useEffect(() => onSessionChange(setSession), []);
+  /* /account typed or bookmarked while signed out (or before onSessionChange
+     has resolved) bounces home rather than rendering nothing forever — see
+     the render guard just above the JSX return. */
+  useEffect(() => {
+    if (route === "/account" && !session) navigate("/", { replace: true });
+  }, [route, session]);
 
   useEffect(() => {
     let live = true;
@@ -218,8 +249,28 @@ export default function CharacterCreator() {
   const [name, setName] = useState(saved?.name ?? DEFAULTS.name);
   const [backstory, setBackstory] = useState(saved?.backstory ?? DEFAULTS.backstory);
   const [classId, setClassId] = useState(saved?.classId ?? DEFAULTS.classId);
-  const [level, setLevel] = useState(saved?.level ?? DEFAULTS.level);
+  const [level, rawSetLevel] = useState(saved?.level ?? DEFAULTS.level);
+  /* Dropping level must drop ASI/feat picks (and the ability bonuses they
+     grant) for any level no longer reached — otherwise a pick made at, say,
+     level 12 keeps boosting scores after stepping back down to level 4. */
+  const setLevel = (updater) => {
+    rawSetLevel((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (next < prev) {
+        setAsiPicks((picks) => {
+          const kept = Object.fromEntries(Object.entries(picks).filter(([lvl]) => Number(lvl) <= next));
+          return Object.keys(kept).length === Object.keys(picks).length ? picks : kept;
+        });
+      }
+      return next;
+    });
+  };
   const [subclassId, setSubclassId] = useState(saved?.subclassId ?? DEFAULTS.subclassId);
+  const [multiclasses, setMulticlasses] = useState(saved?.multiclasses ?? DEFAULTS.multiclasses);
+  const [mcSkillPicks, setMcSkillPicks] = useState(saved?.mcSkillPicks ?? DEFAULTS.mcSkillPicks);
+  // ASI/feat picks for multiclass entries, keyed classId -> level -> the
+  // same pick-entry shape asiPicks uses for the primary class (see below).
+  const [mcAsiPicks, setMcAsiPicks] = useState(saved?.mcAsiPicks ?? DEFAULTS.mcAsiPicks);
   const [skillPicks, setSkillPicks] = useState(saved?.skillPicks ?? DEFAULTS.skillPicks);
   const [optionPicks, setOptionPicks] = useState(saved?.optionPicks ?? DEFAULTS.optionPicks);
   const [asiPicks, setAsiPicks] = useState(saved?.asiPicks ?? DEFAULTS.asiPicks);
@@ -232,10 +283,15 @@ export default function CharacterCreator() {
   const [classEquipPicks, setClassEquipPicks] = useState(saved?.classEquipPicks ?? DEFAULTS.classEquipPicks);
   const [bgEquipPicks, setBgEquipPicks] = useState(saved?.bgEquipPicks ?? DEFAULTS.bgEquipPicks);
   const [pickedSpellIds, setPickedSpellIds] = useState(saved?.pickedSpellIds ?? DEFAULTS.pickedSpellIds);
-  const [otherSpells, setOtherSpells] = useState(saved?.otherSpells ?? DEFAULTS.otherSpells);
   const [customItems, setCustomItems] = useState(saved?.customItems ?? DEFAULTS.customItems);
   const [currency, setCurrency] = useState(saved?.currency ?? DEFAULTS.currency);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  // Which class's panels (Subclass/Skills/Proficiencies/etc) the Class step
+  // is showing, once multiclassing puts more than one class in play: 0 is
+  // the primary class, 1..n index into mcEntries. Transient UI state only —
+  // not persisted, and clamped back to 0 below if its entry disappears.
+  const [classTab, setClassTab] = useState(0);
+  const [showAddMcModal, setShowAddMcModal] = useState(false);
 
   const pickEdition = (ed) => {
     setEdition(ed);
@@ -243,12 +299,13 @@ export default function CharacterCreator() {
     setAncestrySpellPicks(DEFAULTS.ancestrySpellPicks);
     setMode(DEFAULTS.mode); setScores(DEFAULTS.scores); setArrayAssign(DEFAULTS.arrayAssign);
     setClassId(DEFAULTS.classId); setLevel(DEFAULTS.level); setSubclassId(DEFAULTS.subclassId);
+    setMulticlasses(DEFAULTS.multiclasses); setMcSkillPicks(DEFAULTS.mcSkillPicks); setMcAsiPicks(DEFAULTS.mcAsiPicks);
     setSkillPicks(DEFAULTS.skillPicks); setOptionPicks(DEFAULTS.optionPicks); setAsiPicks(DEFAULTS.asiPicks);
     setBgId(DEFAULTS.bgId); setBgSkillPicks(DEFAULTS.bgSkillPicks);
     setBgAbilityAlt(DEFAULTS.bgAbilityAlt); setBgAbilityPicks(DEFAULTS.bgAbilityPicks);
     setArmorId(DEFAULTS.armorId); setHasShield(DEFAULTS.hasShield);
     setClassEquipPicks(DEFAULTS.classEquipPicks); setBgEquipPicks(DEFAULTS.bgEquipPicks);
-    setPickedSpellIds(DEFAULTS.pickedSpellIds); setOtherSpells(DEFAULTS.otherSpells);
+    setPickedSpellIds(DEFAULTS.pickedSpellIds);
     setCustomItems(DEFAULTS.customItems); setCurrency(DEFAULTS.currency);
   };
 
@@ -259,12 +316,7 @@ export default function CharacterCreator() {
   const pickAncestry = (id) => { setAncestryId(id); setAncestryPicks({}); setAncestrySpellPicks({}); };
 
   const toggleAncestryPick = (ci, value, max) => {
-    setAncestryPicks((prev) => {
-      const cur = prev[ci] || [];
-      const next = cur.includes(value) ? cur.filter((x) => x !== value)
-        : cur.length < max ? [...cur, value] : cur;
-      return { ...prev, [ci]: next };
-    });
+    setAncestryPicks((prev) => ({ ...prev, [ci]: swapPick(prev[ci] || [], value, max) }));
   };
 
   /* Every ancestry choice group, normalised to one shape a picker can
@@ -277,7 +329,7 @@ export default function CharacterCreator() {
           pool: c.any ? (content?.skills.map((s) => s.name) || []) : c.from };
       }
       if (c.kind === "lineage") {
-        return { ci, kind: "lineage", label: "Lineage", count: c.count,
+        return { ci, kind: "lineage", label: c.label || "Lineage", count: c.count,
           pool: c.options.map((o) => o.id), optionsById: Object.fromEntries(c.options.map((o) => [o.id, o])) };
       }
       const slots = abilityChoiceSlots(c.spec);
@@ -354,10 +406,106 @@ export default function CharacterCreator() {
   const pickClass = (id) => {
     setClassId(id); setSubclassId(null); setSkillPicks([]); setOptionPicks({});
     setAsiPicks({}); setArmorId(null); setHasShield(false);
-    setClassEquipPicks({}); setPickedSpellIds([]); setOtherSpells("");
+    setClassEquipPicks({}); setPickedSpellIds([]);
+    // A class can't be both the primary class and a multiclass entry.
+    setMulticlasses((prev) => prev.filter((m) => m.classId !== id));
   };
 
-  const activeClassFeatures = useMemo(() => featuresAtLevel(klass?.features, level), [klass, level]);
+  /* ------------------------------------------------------------------
+     MULTICLASSING — additional classes beyond the primary one above.
+     Each entry is independent: its own level, its own subclass once it
+     reaches that class's subclassLevel, its own multiclass-in
+     proficiencies and (2014 SRD only) ability-score prerequisite. */
+  const mcEntries = useMemo(() => (multiclasses || [])
+    .map((m) => {
+      const mKlass = content?.classes.find((c) => c.id === m.classId) || null;
+      if (!mKlass) return null;
+      const mSubclassOn = subclassActive(mKlass.subclassLevel, m.level);
+      const mSubclass = mSubclassOn ? mKlass.subclasses.find((s) => s.id === m.subclassId) || null : null;
+      return { classId: m.classId, level: m.level, subclassId: m.subclassId, klass: mKlass, subclass: mSubclass, subclassOn: mSubclassOn };
+    })
+    .filter(Boolean), [multiclasses, content]);
+
+  const totalCharLevel = totalCharacterLevel([{ level }, ...mcEntries.map((e) => ({ level: e.level }))]);
+
+  const addableClasses = useMemo(() => {
+    const taken = new Set([classId, ...multiclasses.map((m) => m.classId)]);
+    return (content?.classes || []).filter((c) => !taken.has(c.id));
+  }, [content, classId, multiclasses]);
+
+  const addMulticlass = (id) => {
+    setMulticlasses((prev) => [...prev, { classId: id, level: 1, subclassId: null }]);
+  };
+  // "+ Add new Multiclass" beside the class tabs opens a modal with the same
+  // card-grid picker the primary class uses at the start — this is the only
+  // place a class gets picked for multiclassing now. Jumps the class tabs to
+  // the new entry once picked.
+  const addMulticlassFromHeader = (id) => {
+    if (!id) return;
+    setClassTab(mcEntries.length + 1);
+    addMulticlass(id);
+    setShowAddMcModal(false);
+  };
+  const removeMulticlass = (id) => {
+    setMulticlasses((prev) => prev.filter((m) => m.classId !== id));
+    setMcSkillPicks((prev) => { const { [id]: _drop, ...rest } = prev; return rest; });
+    setMcAsiPicks((prev) => { const { [id]: _drop, ...rest } = prev; return rest; });
+  };
+  // Keep the active class tab pointing at a real entry (or the primary
+  // class) whenever a multiclass entry disappears out from under it.
+  useEffect(() => {
+    setClassTab((t) => (t > mcEntries.length ? 0 : t));
+  }, [mcEntries.length]);
+  const setMcLevel = (id, lvl) => {
+    const capped = Math.max(1, Math.min(MAX_LEVEL, lvl));
+    setMulticlasses((prev) => prev.map((m) => (m.classId === id ? { ...m, level: capped } : m)));
+    // Dropping a multiclass entry's level must drop its ASI/feat picks (and
+    // the ability bonuses they grant) for any level it no longer reaches —
+    // same reasoning as the primary class's setLevel above.
+    setMcAsiPicks((prev) => {
+      const byLevel = prev[id];
+      if (!byLevel) return prev;
+      const kept = Object.fromEntries(Object.entries(byLevel).filter(([lvl2]) => Number(lvl2) <= capped));
+      return Object.keys(kept).length === Object.keys(byLevel).length ? prev : { ...prev, [id]: kept };
+    });
+  };
+  const setMcSubclass = (id, subId) => {
+    setMulticlasses((prev) => prev.map((m) => (m.classId === id ? { ...m, subclassId: subId } : m)));
+  };
+  const toggleMcSkill = (classId2, s, max) => {
+    setMcSkillPicks((prev) => ({ ...prev, [classId2]: swapPick(prev[classId2] || [], s, max) }));
+  };
+  const mcSkillPoolFor = (mKlass) => {
+    const choice = mKlass?.multiclassing?.proficienciesGained.skills.choices[0];
+    if (!choice) return { count: 0, pool: [] };
+    const from = choice.any ? (content?.skills.map((s) => s.name) || []) : (choice.from || []);
+    return { count: choice.count, pool: from };
+  };
+  // Drop a class's skill picks once it's no longer multiclassed in, or
+  // once a pick falls outside that class's own gained-skills pool (e.g.
+  // an edition switch changed what it offers).
+  useEffect(() => {
+    setMcSkillPicks((prev) => {
+      let changed = false;
+      const next = {};
+      for (const e of mcEntries) {
+        const { count, pool } = mcSkillPoolFor(e.klass);
+        const kept = (prev[e.classId] || []).filter((s) => pool.includes(s)).slice(0, count);
+        if (kept.length) next[e.classId] = kept;
+        if (kept.length !== (prev[e.classId] || []).length) changed = true;
+      }
+      if (Object.keys(prev).some((k) => !next[k] && prev[k]?.length)) changed = true;
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mcEntries, content]);
+
+  const activeClassFeatures = useMemo(() => {
+    const feats = featuresAtLevel(klass?.features, level);
+    // Once a subclass is picked, its real features (activeSubclassFeatures)
+    // replace this "you gain a feature from your subclass" placeholder.
+    return subclass && subclassOn ? feats.filter((f) => !f.gainsSubclassFeature) : feats;
+  }, [klass, level, subclass, subclassOn]);
   const activeSubclassFeatures = useMemo(
     () => (subclass && subclassOn ? featuresAtLevel(subclass.features, level) : []),
     [subclass, subclassOn, level]);
@@ -370,8 +518,7 @@ export default function CharacterCreator() {
   const classSkillCount = klass?.skillChoices.count || 0;
   const skillsLeft = classSkillCount - skillPicks.length;
   const toggleSkill = (s) => {
-    setSkillPicks((p) => p.includes(s) ? p.filter((x) => x !== s)
-      : p.length < classSkillCount ? [...p, s] : p);
+    setSkillPicks((p) => swapPick(p, s, classSkillCount));
   };
 
   /* Fighting Style, Pact Boon, Metamagic, Eldritch Invocations and the
@@ -387,7 +534,7 @@ export default function CharacterCreator() {
         const pool = c.options.filter((o) => o.resolved);
         if (!pool.length) return;
         groups.push({ key: `${f.id}-${ci}`, label: f.name, budget: c.count,
-          pool: pool.map((o) => ({ id: o.id, name: o.name, text: o.text })) });
+          pool: pool.map((o) => ({ id: o.id, name: o.name, text: o.text, blocks: o.blocks })) });
         seen.add(f.name.toLowerCase());
       });
     }
@@ -418,12 +565,7 @@ export default function CharacterCreator() {
   }, [klass, activeClassFeatures, activeSubclassFeatures, content, level, scores, arrayAssign, mode, ancestryAbilityBonuses]);
 
   const toggleOptionPick = (groupKey, id, max) => {
-    setOptionPicks((prev) => {
-      const cur = prev[groupKey] || [];
-      const next = cur.includes(id) ? cur.filter((x) => x !== id)
-        : cur.length < max ? [...cur, id] : cur;
-      return { ...prev, [groupKey]: next };
-    });
+    setOptionPicks((prev) => ({ ...prev, [groupKey]: swapPick(prev[groupKey] || [], id, max) }));
   };
 
   /* Drop picks that stopped being legal — a class or subclass swap can
@@ -445,12 +587,22 @@ export default function CharacterCreator() {
     });
   }, [optionChoiceGroups]);
 
+  // A multiclass entry's "proficiencies gained" armor/weapons are the
+  // reduced multiclassing-in subset (normMulticlassing() in
+  // content/classes.js), not the full starting-class list — folded in
+  // here the same way the primary class's own fixed list is.
+  const mcArmorFixed = useMemo(
+    () => mcEntries.flatMap((e) => e.klass.multiclassing?.proficienciesGained.armor.fixed || []),
+    [mcEntries]);
+  const mcWeaponFixed = useMemo(
+    () => mcEntries.flatMap((e) => e.klass.multiclassing?.proficienciesGained.weapons.fixed || []),
+    [mcEntries]);
   const armorProfDerived = useMemo(
-    () => deriveClassArmorProf(klass?.armorProf.fixed), [klass]);
+    () => deriveClassArmorProf([...(klass?.armorProf.fixed || []), ...mcArmorFixed]), [klass, mcArmorFixed]);
   const armorProfCats = mergeArmorProf(armorProfDerived.categories, []);
   const weaponProf = useMemo(
-    () => mergeWeaponProf(deriveClassWeaponProf(klass?.weaponProf.fixed, content?.weapons), []),
-    [klass, content]);
+    () => mergeWeaponProf(deriveClassWeaponProf([...(klass?.weaponProf.fixed || []), ...mcWeaponFixed], content?.weapons), []),
+    [klass, mcWeaponFixed, content]);
 
   const armorOptions = useMemo(() => {
     const list = (content?.armor || []).filter((a) => armorProfCats.includes(a.category));
@@ -502,8 +654,7 @@ export default function CharacterCreator() {
   }, [bgSkillChoice, ancestrySkillsGranted, skillPicks, content]);
   const bgSkillsLeft = bgSkillChoice ? bgSkillChoice.count - bgSkillPicks.length : 0;
   const toggleBgSkill = (s) => {
-    setBgSkillPicks((p) => p.includes(s) ? p.filter((x) => x !== s)
-      : p.length < bgSkillChoice.count ? [...p, s] : p);
+    setBgSkillPicks((p) => swapPick(p, s, bgSkillChoice.count));
   };
   /* The one deliberate exception to "filter, don't validate" — see
      CLAUDE.md. A fixed-skill background can collide with a class pick
@@ -642,13 +793,15 @@ export default function CharacterCreator() {
   ------------------------------------------------------------------- */
   const asiBonuses = useMemo(() => {
     let out = {};
-    for (const p of Object.values(asiPicks)) {
+    const allPicks = [...Object.values(asiPicks),
+      ...Object.values(mcAsiPicks).flatMap((byLevel) => Object.values(byLevel))];
+    for (const p of allPicks) {
       if (p.abilityPicks?.length || p.abilityAuto) {
         out = sumIncreases(out, resolveAbilityChoice(p.abilitySpec, p.abilityPicks));
       }
     }
     return out;
-  }, [asiPicks]);
+  }, [asiPicks, mcAsiPicks]);
 
   const allBonuses = useMemo(
     () => sumIncreases(ancestryAbilityBonuses, bgAbilityBonuses, asiBonuses),
@@ -657,6 +810,15 @@ export default function CharacterCreator() {
   const finalScore = (k) => sumFinalScore(k, baseScoreFor(k), allBonuses);
   const prereqScoreExcluding = (k, exclude) => sumFinalScore(k, baseScoreFor(k),
     Object.fromEntries(Object.entries(allBonuses).filter(([, v]) => v !== exclude)));
+
+  /* Ability-score multiclass prerequisites — 2014 SRD only (2024 dropped
+     them entirely, see plans/multiclass-srd-rules.md). Only the "class
+     being multiclassed into" side is checked: the app never lets a
+     character drop below the levels they already have in their primary
+     class, so there's no "am I still allowed to have left it" case to
+     surface as a picker gate. */
+  const meetsMcPrereq = (mKlass) =>
+    edition !== "2014" || meetsMulticlassRequirement(mKlass?.multiclassing?.requirements, finalScore);
 
   /* ------------------------------------------------------------------
      ADVANCEMENT — Ability Score Improvement or a feat, at every level
@@ -684,12 +846,26 @@ export default function CharacterCreator() {
     proficient: () => true,
   };
 
-  const asiFeatPool = (excludeLevel) => {
-    const taken = new Set(Object.entries(asiPicks)
-      .filter(([lvl]) => Number(lvl) !== excludeLevel).map(([, p]) => p.featId));
+  // Every ASI/feat pick made anywhere on the sheet — primary class or any
+  // multiclass entry — tagged with where it came from, so a repeatable-only
+  // feat can't be taken twice across the whole character.
+  const allAsiEntries = () => {
+    const out = [];
+    for (const [lvl, p] of Object.entries(asiPicks)) out.push({ source: "primary", level: Number(lvl), p });
+    for (const [cid, byLevel] of Object.entries(mcAsiPicks)) {
+      for (const [lvl, p] of Object.entries(byLevel)) out.push({ source: cid, level: Number(lvl), p });
+    }
+    return out;
+  };
+  const asiFeatPoolCore = (taken) => {
     const base = hasRealAsiFeat ? content.feats.filter((f) => f.category === "G") : [SYNTHETIC_ASI, ...(content?.feats || [])];
     return base.filter((f) => (f.repeatable || !taken.has(f.id)) && meetsPrerequisite(f.prerequisite, prereqCtx));
   };
+  const asiFeatPool = (excludeLevel) => asiFeatPoolCore(new Set(allAsiEntries()
+    .filter((x) => !(x.source === "primary" && x.level === excludeLevel)).map((x) => x.p.featId)));
+  // Same feat-pool logic, scoped to one multiclass entry's own class+level.
+  const mcAsiFeatPool = (classId, excludeLevel) => asiFeatPoolCore(new Set(allAsiEntries()
+    .filter((x) => !(x.source === classId && x.level === excludeLevel)).map((x) => x.p.featId)));
 
   const pickAsiFeat = (atLevel, featId) => {
     setAsiPicks((prev) => {
@@ -715,10 +891,17 @@ export default function CharacterCreator() {
       if (!entry) return prev;
       const slots = abilityChoiceSlots(entry.abilitySpec);
       const cur = entry.abilityPicks || [];
-      const next = cur.includes(key) ? cur.filter((x) => x !== key)
-        : cur.length < slots.count && prereqScoreExcluding(key, 0) + slots.amountAt(cur.length) <= 20
-          ? [...cur, key] : cur;
-      return { ...prev, [atLevel]: { ...entry, abilityPicks: next } };
+      if (cur.includes(key)) {
+        return { ...prev, [atLevel]: { ...entry, abilityPicks: cur.filter((x) => x !== key) } };
+      }
+      if (cur.length >= slots.count && slots.count !== 1) return prev;
+      /* At budget on a 1-slot spec: swap in for the existing pick instead
+         of no-op'ing (see swapPick above), but only if that doesn't push
+         the new ability over the +20 cap — a hard rule, not a "pick a
+         different one instead" situation like the plain swapPick cases. */
+      const withRoom = cur.length < slots.count ? cur : cur.slice(1);
+      if (prereqScoreExcluding(key, 0) + slots.amountAt(withRoom.length) > 20) return prev;
+      return { ...prev, [atLevel]: { ...entry, abilityPicks: [...withRoom, key] } };
     });
   };
 
@@ -730,6 +913,67 @@ export default function CharacterCreator() {
     return (entry.abilityPicks || []).length === slots.count;
   };
   const asiIncomplete = asiLevelsReached.some((l) => !asiComplete(l));
+
+  // Same picker mechanics as pickAsiFeat/pickAsiAlt/toggleAsiAbilityPick/
+  // asiComplete above, scoped to one multiclass entry's own class+level
+  // (mcAsiPicks[classId][level] instead of asiPicks[level]).
+  const mcAsiLevelsReached = (e) => (e.klass.asiLevels || []).filter((l) => l <= e.level);
+
+  const pickMcAsiFeat = (classId, atLevel, featId) => {
+    setMcAsiPicks((prev) => {
+      const feat = mcAsiFeatPool(classId, atLevel).find((f) => f.id === featId);
+      const byLevel = { ...(prev[classId] || {}) };
+      if (!feat) { delete byLevel[atLevel]; return { ...prev, [classId]: byLevel }; }
+      byLevel[atLevel] = { featId, abilitySpec: feat.ability?.choices?.[0] || null, abilityAlt: 0, abilityPicks: [], abilityAuto: !feat.ability };
+      return { ...prev, [classId]: byLevel };
+    });
+  };
+  const pickMcAsiAlt = (classId, atLevel, altIndex) => {
+    setMcAsiPicks((prev) => {
+      const entry = prev[classId]?.[atLevel];
+      const feat = mcAsiFeatPool(classId, atLevel).find((f) => f.id === entry?.featId);
+      const spec = feat?.ability?.choices?.[altIndex];
+      return { ...prev, [classId]: { ...(prev[classId] || {}), [atLevel]: { ...entry, abilitySpec: spec, abilityAlt: altIndex, abilityPicks: [] } } };
+    });
+  };
+  const toggleMcAsiAbilityPick = (classId, atLevel, key) => {
+    setMcAsiPicks((prev) => {
+      const entry = prev[classId]?.[atLevel];
+      if (!entry) return prev;
+      const slots = abilityChoiceSlots(entry.abilitySpec);
+      const cur = entry.abilityPicks || [];
+      const withEntry = (next) => ({ ...prev, [classId]: { ...(prev[classId] || {}), [atLevel]: next } });
+      if (cur.includes(key)) return withEntry({ ...entry, abilityPicks: cur.filter((x) => x !== key) });
+      if (cur.length >= slots.count && slots.count !== 1) return prev;
+      const withRoom = cur.length < slots.count ? cur : cur.slice(1);
+      if (prereqScoreExcluding(key, 0) + slots.amountAt(withRoom.length) > 20) return prev;
+      return withEntry({ ...entry, abilityPicks: [...withRoom, key] });
+    });
+  };
+  const mcAsiComplete = (classId, atLevel) => {
+    const entry = mcAsiPicks[classId]?.[atLevel];
+    if (!entry) return false;
+    if (entry.abilityAuto) return true;
+    const slots = abilityChoiceSlots(entry.abilitySpec);
+    return (entry.abilityPicks || []).length === slots.count;
+  };
+
+  /* Every level up to the character's, sourcebook-style: class/subclass
+     features earned at that level, plus the ASI/feat picker where the
+     class's asiLevels say one lands. */
+  const featuresByLevel = useMemo(() => {
+    const map = new Map();
+    for (const f of [...activeClassFeatures, ...activeSubclassFeatures]) {
+      if (!map.has(f.level)) map.set(f.level, []);
+      map.get(f.level).push(f);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    return map;
+  }, [activeClassFeatures, activeSubclassFeatures]);
+  const levelsShown = useMemo(() => {
+    const set = new Set([...featuresByLevel.keys(), ...asiLevelsReached]);
+    return [...set].filter((l) => l <= level).sort((a, b) => a - b);
+  }, [featuresByLevel, asiLevelsReached, level]);
 
   /* ------------------------------------------------------------------
      DEFENSES — AC, saves, passives, attacks
@@ -747,7 +991,15 @@ export default function CharacterCreator() {
   const armorClass = bestAC.value;
 
   const speed = ancestry?.speed.walk || 0;
-  const pb = profBonus(level);
+  // Proficiency bonus is the one number the SRD keys off TOTAL character
+  // level rather than any one class's own level (progression.js:profBonus
+  // already takes a bare level, so multiclassing needed no change there).
+  const pb = profBonus(totalCharLevel);
+
+  /* Raw ability scores with none of the ancestry/background/ASI bonuses
+     applied — the "base" half of the base-vs-your-level comparison shown
+     on saving throws and passives, next to the already-bonused scores. */
+  const baseScoresForRules = Object.fromEntries(ABILITY_KEYS.map((k) => [k, baseScoreFor(k)]));
 
   const saveThrowRows = useMemo(
     () => savingThrowsOf({
@@ -756,10 +1008,14 @@ export default function CharacterCreator() {
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [klass, pb, scores, arrayAssign, mode, allBonuses, activeItemEffects]);
+  const baseSaveThrowRows = useMemo(
+    () => savingThrowsOf({ scores: baseScoresForRules, saves: klass?.saves || [], pb, bonus: 0 }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [klass, pb, scores, arrayAssign, mode]);
 
   const allSkills = useMemo(
-    () => new Set([...ancestrySkillsGranted, ...skillPicks, ...bgSkillsGranted]),
-    [ancestrySkillsGranted, skillPicks, bgSkillsGranted]);
+    () => new Set([...ancestrySkillsGranted, ...skillPicks, ...bgSkillsGranted, ...Object.values(mcSkillPicks).flat()]),
+    [ancestrySkillsGranted, skillPicks, bgSkillsGranted, mcSkillPicks]);
 
   /* abilityCheckBonus with no `skills` list (Stone of Good Luck: "ability
      checks" broadly) applies to every skill row; one that names specific
@@ -782,18 +1038,27 @@ export default function CharacterCreator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [content, pb, allSkills, scores, arrayAssign, mode, allBonuses, activeItemEffects]);
 
+  const baseSkillRows = useMemo(() => {
+    if (!content) return [];
+    return skillTableOf({ skills: content.skills, scores: baseScoresForRules, pb, proficient: allSkills });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, pb, allSkills, scores, arrayAssign, mode]);
+
   const PASSIVE_NAMES = ["Perception", "Investigation", "Insight"];
   const passiveSkills = PASSIVE_NAMES.map((name) => {
     const row = skillRows.find((s) => s.name === name);
-    return { name, value: row ? passiveScore(row) : 10 };
+    const baseRow = baseSkillRows.find((s) => s.name === name);
+    return { name, value: row ? passiveScore(row) : 10, baseValue: baseRow ? passiveScore(baseRow) : 10 };
   });
   const initiative = ancestry ? finalScore("dex") - 10 : 0; // placeholder, replaced below
 
   const hitPoints = useMemo(() => klass
-    ? hitPointsOf({ hitDie: klass.hitDie, level, conScore: finalScore("con") })
+    ? hitPointsMulticlass(
+      [{ hitDie: klass.hitDie, level }, ...mcEntries.map((e) => ({ hitDie: e.klass.hitDie, level: e.level }))],
+      finalScore("con"))
     : 0,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [klass, level, scores, arrayAssign, mode, allBonuses]);
+    [klass, level, mcEntries, scores, arrayAssign, mode, allBonuses]);
 
   const attackRows = useMemo(() => {
     if (!klass) return [];
@@ -823,25 +1088,56 @@ export default function CharacterCreator() {
   /* ------------------------------------------------------------------
      SPELLCASTING
   ------------------------------------------------------------------- */
+  /* Every caster class the character has, primary first — a single-class
+     character's list is just [klass]. Warlock Pact Magic is split off
+     separately below since it never joins the shared multiclass slot
+     pool (see plans/multiclass-srd-rules.md). */
+  const casterList = useMemo(() => {
+    const list = [];
+    if (klass?.casting) list.push({ classId: klass.id, className: klass.name, casting: klass.casting, level });
+    mcEntries.forEach((e) => {
+      if (e.klass.casting) list.push({ classId: e.klass.id, className: e.klass.name, casting: e.klass.casting, level: e.level });
+    });
+    return list;
+  }, [klass, level, mcEntries]);
+
+  const fullCasterSlotTable = useMemo(
+    () => content?.classes.find((c) => c.casting?.progression === "full")?.casting.slotsByLevel || null,
+    [content]);
+
   const casting = useMemo(() => {
-    if (!klass?.casting) return null;
-    const cst = klass.casting;
-    const ability = cst.ability;
-    const stats = spellcastingStats({ ability, scores: scoresForRules, pb });
-    const slots = spellSlots(cst, level);
-    const pact = pactSlots(cst, level);
-    if (!slots.length && !pact) return { pending: true, label: `${klass.name} spellcasting` };
+    if (!casterList.length) return null;
+    const nonPact = casterList.filter((c) => c.casting.progression !== "pact");
+    const pactCaster = casterList.find((c) => c.casting.progression === "pact") || null;
+    const slots = combinedSpellSlots(
+      nonPact.map((c) => ({ progression: c.casting.progression, level: c.level })), fullCasterSlotTable);
+    const pact = pactCaster ? pactSlots(pactCaster.casting, pactCaster.level) : null;
+    // Ability/save DC/attack are shown for whichever caster class comes
+    // first in the list (the primary class if it casts, else the first
+    // multiclass caster) — a genuinely multiclass caster has one of these
+    // per class in play, but the sheet has one "spellcasting" block; each
+    // class's own is still listed in `sources` below.
+    const primaryCaster = casterList[0];
+    const stats = spellcastingStats({ ability: primaryCaster.casting.ability, scores: scoresForRules, pb });
+    const label = casterList.length > 1
+      ? `Multiclass spellcasting (${casterList.map((c) => `${c.className} ${c.level}`).join(" / ")})`
+      : `${primaryCaster.className} spellcasting`;
+    if (!slots.length && !pact) return { pending: true, label };
+    const cantrips = casterList.reduce((n, c) => n + (cantripsKnown(c.casting, c.level) || 0), 0) || null;
+    const known = casterList.filter((c) => c.casting.prepares === "known")
+      .reduce((n, c) => n + (spellsKnown(c.casting, c.level) || 0), 0) || null;
+    const prepared = casterList.filter((c) => c.casting.prepares === "prepared")
+      .reduce((n, c) => n + (preparedCount(c.casting, c.level, scoresForRules[c.casting.ability]) || 0), 0) || null;
+    const spellbook = casterList.filter((c) => c.casting.prepares === "spellbook")
+      .reduce((n, c) => n + (spellbookSize(c.level) || 0), 0) || null;
     return {
-      label: `${klass.name} spellcasting`, ability, abMod: stats.abilityMod,
+      label, ability: primaryCaster.casting.ability, abMod: stats.abilityMod,
       saveDC: stats.saveDC, attack: stats.attack,
-      cantrips: cantripsKnown(cst, level) || null,
-      known: cst.prepares === "known" ? (spellsKnown(cst, level) || null) : null,
-      prepared: cst.prepares === "prepared" ? preparedCount(cst, level, scoresForRules[ability]) : null,
-      spellbook: cst.prepares === "spellbook" ? spellbookSize(level) : null,
-      slots, pact,
+      cantrips, known, prepared, spellbook, slots, pact,
+      sources: casterList.map((c) => ({ classId: c.classId, className: c.className, level: c.level, ability: c.casting.ability })),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [klass, level, pb, scores, arrayAssign, mode, allBonuses]);
+  }, [casterList, fullCasterSlotTable, pb, scores, arrayAssign, mode, allBonuses]);
 
   /* Ancestry-granted spells — fixed and (High Elf's bonus cantrip, the
      2024 lineage traits) picked. Never spend a slot, never touch the
@@ -875,12 +1171,13 @@ export default function CharacterCreator() {
     return rows.sort((a, b) => a.sp.level - b.sp.level || a.sp.name.localeCompare(b.sp.name));
   }, [content, activeAdditionalSpells, ancestry, level, ancestrySpellPicks]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const highestSlot = casting ? (casting.pact ? casting.pact.level : casting.slots.length) : 0;
+  const highestSlot = casting ? Math.max(casting.slots.length, casting.pact ? casting.pact.level : 0) : 0;
   const availableSpells = useMemo(() => {
-    if (!content || !klass || !casting || casting.pending) return [];
-    return content.spells.filter((sp) => sp.classLists.includes(klass.id)
+    if (!content || !casterList.length || !casting || casting.pending) return [];
+    const casterClassIds = new Set(casterList.map((c) => c.classId));
+    return content.spells.filter((sp) => sp.classLists.some((id) => casterClassIds.has(id))
       && (sp.level === 0 || sp.level <= highestSlot));
-  }, [content, klass, casting, highestSlot]);
+  }, [content, casterList, casting, highestSlot]);
 
   const cantripBudget = casting?.cantrips ?? 0;
   const spellBudget = casting?.known ?? casting?.prepared ?? casting?.spellbook ?? 0;
@@ -900,6 +1197,47 @@ export default function CharacterCreator() {
       : current >= budget ? p : [...p, id]);
   };
 
+  /* Spells step search/filter — pure narrowing layer over `availableSpells`.
+     Filtering never touches `pickedSpellIds`/budgets, so a spell picked while
+     a filter hid it stays picked. Cantrips and leveled spells get separate
+     state since they're two independent lists on the same step. A Class or
+     Level control only renders when its section's pool actually has more
+     than one distinct value — a single-class character or the cantrip list
+     (always level 0) would otherwise show a dead, single-option filter. */
+  const [cantripSearch, setCantripSearch] = useState("");
+  const [cantripClassFilter, setCantripClassFilter] = useState("all");
+  const [cantripSchoolFilter, setCantripSchoolFilter] = useState("all");
+  const [spellSearch, setSpellSearch] = useState("");
+  const [spellClassFilter, setSpellClassFilter] = useState("all");
+  const [spellSchoolFilter, setSpellSchoolFilter] = useState("all");
+  const [spellLevelFilter, setSpellLevelFilter] = useState("all");
+
+  const availableCantrips = useMemo(() => availableSpells.filter((s) => s.level === 0), [availableSpells]);
+  const availableLeveledSpells = useMemo(() => availableSpells.filter((s) => s.level > 0), [availableSpells]);
+  const cantripSchools = useMemo(
+    () => Array.from(new Set(availableCantrips.map((s) => s.school))).sort(), [availableCantrips]);
+  const spellSchools = useMemo(
+    () => Array.from(new Set(availableLeveledSpells.map((s) => s.school))).sort(), [availableLeveledSpells]);
+  const spellLevels = useMemo(
+    () => Array.from(new Set(availableLeveledSpells.map((s) => s.level))).sort((a, b) => a - b), [availableLeveledSpells]);
+
+  const filteredCantrips = useMemo(() => {
+    const q = cantripSearch.trim().toLowerCase();
+    return availableCantrips.filter((sp) =>
+      (cantripClassFilter === "all" || sp.classLists.includes(cantripClassFilter))
+      && (cantripSchoolFilter === "all" || sp.school === cantripSchoolFilter)
+      && (!q || sp.name.toLowerCase().includes(q)));
+  }, [availableCantrips, cantripSearch, cantripClassFilter, cantripSchoolFilter]);
+
+  const filteredLeveledSpells = useMemo(() => {
+    const q = spellSearch.trim().toLowerCase();
+    return availableLeveledSpells.filter((sp) =>
+      (spellClassFilter === "all" || sp.classLists.includes(spellClassFilter))
+      && (spellSchoolFilter === "all" || sp.school === spellSchoolFilter)
+      && (spellLevelFilter === "all" || sp.level === Number(spellLevelFilter))
+      && (!q || sp.name.toLowerCase().includes(q)));
+  }, [availableLeveledSpells, spellSearch, spellClassFilter, spellSchoolFilter, spellLevelFilter]);
+
   const ancestrySpellChoiceGroups = useMemo(() => {
     if (!content) return [];
     const groups = [];
@@ -916,11 +1254,7 @@ export default function CharacterCreator() {
   }, [content, activeAdditionalSpells, level]);
 
   const toggleAncestrySpellPick = (key, id, max) => {
-    setAncestrySpellPicks((prev) => {
-      const cur = prev[key] || [];
-      const next = cur.includes(id) ? cur.filter((x) => x !== id) : cur.length < max ? [...cur, id] : cur;
-      return { ...prev, [key]: next };
-    });
+    setAncestrySpellPicks((prev) => ({ ...prev, [key]: swapPick(prev[key] || [], id, max) }));
   };
 
   /* ------------------------------------------------------------------
@@ -937,23 +1271,34 @@ export default function CharacterCreator() {
         ? entry.abilityPicks.map((k, i) => `+${slots.amountAt(i)} ${k.toUpperCase()}`).join(", ") : null;
       out.push({ feat, from: `Level ${atLevel}`, abilityPicks: entry.abilityPicks, bonus });
     }
+    for (const e of mcEntries) {
+      for (const [atLevel, entry] of Object.entries(mcAsiPicks[e.classId] || {})) {
+        const feat = mcAsiFeatPool(e.classId, Number(atLevel)).find((f) => f.id === entry.featId)
+          || (entry.featId === "__asi" ? SYNTHETIC_ASI : null);
+        if (!feat) continue;
+        const slots = abilityChoiceSlots(entry.abilitySpec);
+        const bonus = entry.abilityPicks?.length
+          ? entry.abilityPicks.map((k, i) => `+${slots.amountAt(i)} ${k.toUpperCase()}`).join(", ") : null;
+        out.push({ feat, from: `${e.klass.name} level ${atLevel}`, abilityPicks: entry.abilityPicks, bonus });
+      }
+    }
     if (bgFeat) out.push({ feat: bgFeat, from: background.name, abilityPicks: [], bonus: null });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [asiPicks, bgFeat, background]);
+  }, [asiPicks, mcAsiPicks, mcEntries, bgFeat, background]);
 
   const actions = useMemo(() => {
     const out = [];
     (ancestry?.traits || []).forEach((t) => {
-      if (t.action) out.push({ name: t.name, source: ancestry.name, action: t.action, text: t.text,
+      if (t.action) out.push({ name: t.name, source: ancestry.name, action: t.action, text: t.text, blocks: t.blocks,
         section: `Ancestry traits — ${ancestry.name}` });
     });
     activeClassFeatures.forEach((f) => {
-      if (f.action) out.push({ name: f.name, source: klass.name, action: f.action, text: f.text,
+      if (f.action) out.push({ name: f.name, source: klass.name, action: f.action, text: f.text, blocks: f.blocks,
         section: `${klass.name} features` });
     });
     activeSubclassFeatures.forEach((f) => {
-      if (f.action) out.push({ name: f.name, source: subclass.name, action: f.action, text: f.text,
+      if (f.action) out.push({ name: f.name, source: subclass.name, action: f.action, text: f.text, blocks: f.blocks,
         section: `${subclass.name}` });
     });
     return out;
@@ -962,13 +1307,24 @@ export default function CharacterCreator() {
   const appendix = useMemo(() => {
     const out = [];
     for (const { feat, from, bonus } of chosenFeats) {
-      out.push({ group: "Feats", name: `${feat.name}${bonus ? ` (${bonus})` : ""}`, text: `${from}. ${feat.text}` });
+      out.push({ group: "Feats", name: `${feat.name}${bonus ? ` (${bonus})` : ""}`, text: `${from}. ${feat.text}`,
+        /* `text` stays flat for the printed sheet (sheetHtml.js); `blocks`
+           is the structured version SheetSummary's interactive view
+           renders instead, so it doesn't collapse to one paragraph. */
+        blocks: [{ type: "para", text: `${from}.` }, ...feat.blocks] });
     }
     const spellEntry = (sp) => ({ group: "Spells", name: sp.name,
       text: `${sp.level === 0 ? "Cantrip" : `Level ${sp.level}`} ${sp.school}. ` +
         `Casting time ${sp.time}. Range ${sp.range}. Components ${sp.components}. Duration ${sp.duration}.` +
         `${sp.ritual ? " Ritual." : ""}${sp.concentration ? " Concentration." : ""} ${sp.text}` +
-        `${sp.higherLevels ? ` At Higher Levels. ${sp.higherLevels}` : ""}` });
+        `${sp.higherLevels ? ` At Higher Levels. ${sp.higherLevels}` : ""}`,
+      blocks: [
+        { type: "para", text: `${sp.level === 0 ? "Cantrip" : `Level ${sp.level}`} ${sp.school}. ` +
+          `Casting time ${sp.time}. Range ${sp.range}. Components ${sp.components}. Duration ${sp.duration}.` +
+          `${sp.ritual ? " Ritual." : ""}${sp.concentration ? " Concentration." : ""}` },
+        ...sp.blocks,
+        ...(sp.higherLevelBlocks?.length ? [{ type: "section", name: "At Higher Levels", blocks: sp.higherLevelBlocks }] : []),
+      ] });
     pickedSpells.forEach((sp) => out.push(spellEntry(sp)));
     ancestrySpellGrants
       .filter((g) => !pickedSpells.some((c) => c.id === g.sp.id))
@@ -996,6 +1352,13 @@ export default function CharacterCreator() {
       if (optionChoiceGroups.some((g) => (optionPicks[g.key] || []).length < g.budget)) return false;
       if (klass.subclassLevel != null && subclassOn && !subclass) return false;
       if (asiIncomplete) return false;
+      for (const e of mcEntries) {
+        if (!meetsMcPrereq(e.klass)) return false;
+        if (e.klass.subclassLevel != null && e.subclassOn && !e.subclass) return false;
+        const { count } = mcSkillPoolFor(e.klass);
+        if ((mcSkillPicks[e.classId] || []).length < count) return false;
+        if (mcAsiLevelsReached(e).some((l) => !mcAsiComplete(e.classId, l))) return false;
+      }
       return true;
     }
     if (name === "Background") {
@@ -1042,23 +1405,41 @@ export default function CharacterCreator() {
   const snapshot = useMemo(() => ({
     edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks,
+    multiclasses, mcSkillPicks, mcAsiPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, pickedSpellIds, otherSpells, customItems, currency,
+    classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, currency,
   }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks,
+    multiclasses, mcSkillPicks, mcAsiPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, pickedSpellIds, otherSpells, customItems, currency]);
+    classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, currency]);
 
   useEffect(() => { saveSnapshot(snapshot); }, [snapshot]);
 
-  /* Local write above never waits on this. Debounced so picking through a
-     dozen fields in a row fires one push, not a dozen — the network trip
-     is a nice-to-have backup, not something any interaction should feel. */
-  useEffect(() => {
+  /* Saving to an account is now an explicit action (the Sheet step's "Save
+     to my account" button), not automatic — with several characters
+     possible per account, silently pushing every edit would need to know
+     WHICH of the account's saved characters this session's edits belong
+     to, and there's no such link yet (this in-progress character may not
+     even be one of them). See Account.jsx's own note on what's deferred. */
+  const [savedCharacterId, setSavedCharacterId] = useState(null);
+  const [saveAccountState, setSaveAccountState] = useState("idle"); // idle | working | done | limit_reached | error
+  const saveToAccount = async () => {
     if (!session?.user?.id) return;
-    const t = setTimeout(() => { pushCharacter(session.user.id, snapshot); }, 1500);
-    return () => clearTimeout(t);
-  }, [snapshot, session]);
+    setSaveAccountState("working");
+    if (savedCharacterId) {
+      const ok = await updateCharacter(savedCharacterId, snapshot, name);
+      setSaveAccountState(ok ? "done" : "error");
+      return;
+    }
+    const result = await createCharacter(session.user.id, name, snapshot);
+    if (result.character) {
+      setSavedCharacterId(result.character.id);
+      setSaveAccountState("done");
+    } else {
+      setSaveAccountState(result.error === "limit_reached" ? "limit_reached" : "error");
+    }
+  };
 
   const resetAll = () => {
     clearSaved();
@@ -1066,6 +1447,7 @@ export default function CharacterCreator() {
     setStep(DEFAULTS.step);
     setMaxStep(DEFAULTS.step);
     setName(DEFAULTS.name); setBackstory(DEFAULTS.backstory);
+    setSavedCharacterId(null); setSaveAccountState("idle");
     setShowResetConfirm(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1083,13 +1465,32 @@ export default function CharacterCreator() {
     asi: allBonuses,
   } : null;
 
+  // "Fighter 3 (Champion) / Rogue 2 (Thief)" — each class carries its OWN
+  // subclass in parens right after its level, not one subclass tacked onto
+  // the end of the whole label (that misattributed it when multiclassed).
+  // Single-class characters just get "Fighter 3" or "Fighter 3 (Champion)",
+  // same as before — mcEntries is [] for them so this collapses to a
+  // single-element join.
+  const classLabel = klass
+    ? [{ name: klass.name, level, sub: subclass && subclassOn ? subclass.name : null },
+        ...mcEntries.map((e) => ({ name: e.klass.name, level: e.level, sub: e.subclass && e.subclassOn ? e.subclass.name : null }))]
+      .map((c) => `${c.name} ${c.level}${c.sub ? ` (${c.sub})` : ""}`).join(" / ")
+    : null;
+  const hitDieLabel = klass
+    ? [{ hitDie: klass.hitDie, level }, ...mcEntries.map((e) => ({ hitDie: e.klass.hitDie, level: e.level }))]
+      .map((c) => `${c.level}d${c.hitDie}`).join(" + ")
+    : null;
+
   const sheetCtx = {
     ancestry, klass, level, subclass, subclassReady: subclassOn, background, name, resolved,
+    classLabel, hitDieLabel, totalCharLevel,
     armorClass, hitPoints, speed, initiative: mod(finalScore("dex")), passivePerception: passiveSkills[0]?.value ?? 10,
     passiveSkills, actions, pb, armor: armor || { id: "none", name: "None" }, shieldOn,
     savingThrows: saveThrowRows.map((s) => ({ key: s.key, label: ABILITIES.find((a) => a.key === s.key)?.label || s.key,
       proficient: s.proficient, value: s.value })),
-    skillTable: skillRows, casting, chosenSpells: pickedSpells, otherSpells, appendix,
+    abilities: ABILITIES.map(({ key, label }) => ({ key, label,
+      mod: fmt(mod(finalScore(key))), score: finalScore(key) })),
+    skillTable: skillRows, casting, chosenSpells: pickedSpells, appendix,
     bgChoice: null, finalScore, attackRows, carriedWeapons, masteryEnabled: true,
     startingGold, currency,
     gearList: [
@@ -1105,7 +1506,13 @@ export default function CharacterCreator() {
       saveDC: g.abilityMod != null ? 8 + pb + g.abilityMod : null,
       attack: g.abilityMod != null ? pb + g.abilityMod : null })),
     chosenFeats: chosenFeats.map(({ feat, from, bonus }) => ({ id: feat.id, name: feat.name, text: feat.text, feat, from, bonus })),
-    classFeatures: [...activeClassFeatures, ...activeSubclassFeatures].map((f) => ({ level: f.level, name: f.name, text: f.text })),
+    classFeatures: [
+      ...activeClassFeatures, ...activeSubclassFeatures,
+      ...mcEntries.flatMap((e) => [
+        ...featuresAtLevel(e.klass.features, e.level).filter((f) => !(e.subclass && e.subclassOn && f.gainsSubclassFeature)),
+        ...(e.subclass && e.subclassOn ? featuresAtLevel(e.subclass.features, e.level) : []),
+      ]),
+    ].map((f) => ({ level: f.level, name: f.name, text: f.text, blocks: f.blocks })),
     backstory,
   };
 
@@ -1160,15 +1567,18 @@ export default function CharacterCreator() {
   const sheetText = useMemo(() => {
     if (!ancestry) return "";
     const L = [];
-    const head = klass ? `${ancestry.name} ${klass.name} ${level}` : ancestry.name;
+    const head = klass ? `${ancestry.name} ${classLabel}` : ancestry.name;
     L.push(`${name || "Unnamed"} — ${head}${background ? ` · ${background.name}` : ""}`);
     if (subclass && subclassOn) L.push(`${klass.subclassTitle || "Subclass"}: ${subclass.name}`);
+    mcEntries.forEach((e) => {
+      if (e.subclass && e.subclassOn) L.push(`${e.klass.subclassTitle || "Subclass"}: ${e.subclass.name} (${e.klass.name})`);
+    });
     L.push("");
     L.push(ABILITIES.map(({ key }) =>
       `${key.toUpperCase()} ${finalScore(key)} (${fmt(mod(finalScore(key)))})`).join("   "));
     L.push("");
     if (klass) {
-      L.push(`Hit points ${hitPoints}   Hit die d${klass.hitDie}   Proficiency ${fmt(pb)}`);
+      L.push(`Hit points ${hitPoints}   Hit die ${hitDieLabel}   Proficiency ${fmt(pb)}`);
       L.push(`AC ${armorClass} (${bestAC.label})   Initiative ${fmt(mod(finalScore("dex")))}`);
       L.push(saveThrowRows.map((s) => `${s.key.toUpperCase()} ${fmt(s.value)}${s.proficient ? "*" : " "}`).join("   "));
       L.push("(* = proficient)");
@@ -1193,8 +1603,14 @@ export default function CharacterCreator() {
     ancestry.traits.forEach((t) => L.push(`• ${t.name}`));
     if (klass) {
       L.push("");
-      L.push(`${klass.name.toUpperCase()} FEATURES`);
-      [...activeClassFeatures, ...activeSubclassFeatures].forEach((f) => L.push(`• ${f.name}`));
+      L.push(mcEntries.length ? "CLASS FEATURES" : `${klass.name.toUpperCase()} FEATURES`);
+      [...activeClassFeatures, ...activeSubclassFeatures].forEach((f) => L.push(`• ${f.name} (${klass.name})`));
+      mcEntries.forEach((e) => {
+        featuresAtLevel(e.klass.features, e.level)
+          .filter((f) => !(e.subclass && e.subclassOn && f.gainsSubclassFeature))
+          .forEach((f) => L.push(`• ${f.name} (${e.klass.name})`));
+        if (e.subclass && e.subclassOn) featuresAtLevel(e.subclass.features, e.level).forEach((f) => L.push(`• ${f.name} (${e.klass.name})`));
+      });
     }
     if (background) {
       L.push("");
@@ -1207,14 +1623,257 @@ export default function CharacterCreator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ancestry, klass, level, subclass, subclassOn, background, name, scores, arrayAssign, mode, allBonuses,
     hitPoints, pb, armorClass, bestAC, saveThrowRows, speed, allSkills, casting, chosenFeats,
-    activeClassFeatures, activeSubclassFeatures, startingGold, backstory]);
+    activeClassFeatures, activeSubclassFeatures, mcEntries, classLabel, hitDieLabel, startingGold, backstory]);
+
+  // One multiclass entry's card — level stepper, ability-score prereq,
+  // subclass picker, proficiencies gained, features. Used by the Class
+  // step's per-class tabs (one call per active tab) once there's at least
+  // one multiclass entry; the entry-picker under the Multiclass panel calls
+  // addMulticlass directly instead of going through here.
+  const renderMcEntryCard = (e) => {
+    const req = e.klass.multiclassing?.requirements;
+    const ok = meetsMcPrereq(e.klass);
+    const pg = e.klass.multiclassing?.proficienciesGained;
+    const { count: mcSkillCount, pool: mcSkillPool } = mcSkillPoolFor(e.klass);
+    const picks = mcSkillPicks[e.classId] || [];
+    const feats = featuresAtLevel(e.klass.features, e.level)
+      .filter((f) => !(e.subclass && e.subclassOn && f.gainsSubclassFeature));
+    const subFeats = e.subclass && e.subclassOn ? featuresAtLevel(e.subclass.features, e.level) : [];
+    // Same per-level split as the primary class's Level-by-level section:
+    // group every earned feature (class + subclass) by the level it's
+    // gained at, one byo-panel per level, instead of one box holding
+    // everything earned so far.
+    const mcFeaturesByLevel = new Map();
+    for (const f of [...feats, ...subFeats]) {
+      if (!mcFeaturesByLevel.has(f.level)) mcFeaturesByLevel.set(f.level, []);
+      mcFeaturesByLevel.get(f.level).push(f);
+    }
+    for (const list of mcFeaturesByLevel.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+    const mcAsiLvls = mcAsiLevelsReached(e);
+    const mcLevelsShown = [...new Set([...mcFeaturesByLevel.keys(), ...mcAsiLvls])]
+      .filter((l) => l <= e.level).sort((a, b) => a - b);
+    return (
+      <>
+      {/* Level lives in its own panel, separate from the class-details
+          panel below — mirrors the primary class's tab layout, and keeps
+          "how many levels do I have" visually apart from "what do I get". */}
+      <div className="byo-panel" style={{ marginBottom: 12 }}>
+        {mcAsiLevelsReached(e).some((l) => !mcAsiComplete(e.classId, l)) &&
+          <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
+        <div className="byo-panel-head">
+          <span className="byo-card-name">{e.klass.name}</span>
+          <button type="button" className="byo-chip-b" onClick={() => removeMulticlass(e.classId)}>Remove</button>
+        </div>
+        <span className="byo-card-kind">d{e.klass.hitDie} hit die</span>
+
+        <div className="byo-step" style={{ marginTop: 10 }}>
+          <button className="byo-btn-sq" onClick={() => setMcLevel(e.classId, e.level - 1)}
+                  disabled={e.level <= 1} aria-label={`Lower ${e.klass.name} level`}>−</button>
+          <span className="byo-num">{e.level}</span>
+          <button className="byo-btn-sq" onClick={() => setMcLevel(e.classId, e.level + 1)}
+                  disabled={totalCharLevel >= MAX_LEVEL} aria-label={`Raise ${e.klass.name} level`}>+</button>
+        </div>
+
+        {req && edition === "2014" && (
+          <div className="byo-choice" style={{ marginTop: 8 }}>
+            {(req.or || [req]).map((combo, ci) => (
+              <React.Fragment key={ci}>
+                {ci > 0 && <span className="byo-mod" style={{ alignSelf: "center" }}>or</span>}
+                {Object.entries(combo).map(([ab, min]) => {
+                  const have = finalScore(ab);
+                  const metOne = have >= min;
+                  return (
+                    <span key={ab} className="byo-pill"
+                          style={{ borderColor: metOne ? "var(--jade)" : "var(--coral)", color: metOne ? "var(--jade)" : "var(--coral)" }}>
+                      {ab.toUpperCase()} {min}+ <span style={{ opacity: 0.7 }}>(have {have})</span>
+                    </span>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+        {!ok && <p className="byo-warn" style={{ marginTop: 6 }}>Doesn't meet the ability-score prerequisite to multiclass into {e.klass.name}.</p>}
+      </div>
+
+      {/* Every section below is its own separate byo-panel — the exact
+          same sectioned layout the primary class's Class step always uses
+          (Subclass panel, Skills panel, Proficiencies panel, one panel per
+          level with a feature/ASI to show), not one merged box. */}
+      {e.klass.subclassLevel != null && (
+        <div className="byo-panel" style={{ marginBottom: 12 }}>
+          <h3>{e.klass.subclassTitle || "Subclass"}</h3>
+          {e.subclassOn ? (
+            <div className="byo-card-grid" style={{ marginTop: 8 }}>
+              {e.klass.subclasses.map((s) => {
+                const sel = s.id === e.subclassId;
+                const now = featuresAtLevel(s.features, e.level);
+                return (
+                  <button key={s.id} className={`byo-card ${sel ? "is-sel" : ""}`}
+                          onClick={() => setMcSubclass(e.classId, s.id)} aria-pressed={sel}>
+                    <div className="byo-card-top">
+                      <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
+                      <span className="byo-card-name">{s.name}</span>
+                      {s.page && <span className="byo-card-kind">p.{s.page}</span>}
+                    </div>
+                    <div className="byo-pills" style={{ marginTop: 8 }}>
+                      {now.length ? now.map((f) => <span className="byo-pill" key={f.id}>{f.name}</span>)
+                        : <span className="byo-pill alt">no features yet</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="byo-note">
+              {e.klass.name}s choose at level {e.klass.subclassLevel}. This entry is level {e.level}.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Skills is its own top-level panel here, same as the primary
+          class's "Skills" panel — not nested under Proficiencies gained,
+          so the two tabs read the same way. */}
+      {mcSkillCount > 0 && (
+        <div className="byo-panel" style={{ marginBottom: 12 }}>
+          <h3>Skills <span className="byo-count">{picks.length}/{mcSkillCount}</span></h3>
+          <div className="byo-skills">
+            {mcSkillPool.map((s) => {
+              const on = picks.includes(s);
+              const full = !on && mcSkillCount !== 1 && picks.length >= mcSkillCount;
+              return (
+                <button key={s} className={`byo-skill ${on ? "is-sel" : ""}`}
+                        onClick={() => toggleMcSkill(e.classId, s, mcSkillCount)}
+                        disabled={full} aria-pressed={on}>{s}</button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {pg && (
+        <div className="byo-panel" style={{ marginBottom: 12 }}>
+          <h3>Proficiencies gained (multiclassing in)</h3>
+          {pg.armor.fixed.length === 0 && pg.weapons.fixed.length === 0 && pg.tools.fixed.length === 0 ? (
+            <p className="byo-note">Nothing beyond what you already have.</p>
+          ) : (
+            <>
+              {/* Same labeled-row shape as the primary class's own
+                  Proficiencies panel (Armor/Weapons/Saving throws). */}
+              <div className="byo-row"><span className="byo-row-label">Armor</span>
+                <span className="byo-mod" style={{ width: "auto" }}>{pg.armor.fixed.join(", ") || "None"}</span></div>
+              <div className="byo-row"><span className="byo-row-label">Weapons</span>
+                <span className="byo-mod" style={{ width: "auto" }}>{pg.weapons.fixed.join(", ") || "None"}</span></div>
+              <div className="byo-row"><span className="byo-row-label">Tools</span>
+                <span className="byo-mod" style={{ width: "auto" }}>{pg.tools.fixed.join(", ") || "None"}</span></div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Level-by-level, same as the primary class's own section below:
+          one byo-panel per level, holding whatever features that level
+          earns plus the ASI/feat picker where this class's own asiLevels
+          say one lands — instead of one box for all features and a
+          separate run of boxes for ASI. */}
+      {mcLevelsShown.map((atLevel) => {
+        const levelFeats = mcFeaturesByLevel.get(atLevel) || [];
+        const isAsi = mcAsiLvls.includes(atLevel);
+        const entry = mcAsiPicks[e.classId]?.[atLevel];
+        const pool = isAsi ? mcAsiFeatPool(e.classId, atLevel) : [];
+        const asiFeat = isAsi ? pool.find((f) => f.id === entry?.featId) : null;
+        const complete = isAsi ? mcAsiComplete(e.classId, atLevel) : true;
+        return (
+          <div className="byo-panel" style={{ marginBottom: 12 }} key={atLevel}>
+            {isAsi && !complete && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
+            <h3>Level {atLevel} {isAsi && <span className="byo-count">{complete ? "done" : "to pick"}</span>}</h3>
+            {levelFeats.map((f) => (
+              <div key={f.id} style={{ marginBottom: 10 }}>
+                <p className="byo-note" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
+                <FeatureBlocks blocks={f.blocks} />
+              </div>
+            ))}
+            {isAsi && (
+            <>
+            <div className="byo-skills">
+              {pool.map((f) => {
+                const sel = entry?.featId === f.id;
+                return (
+                  <button key={f.id} className={`byo-skill ${sel ? "is-sel" : ""}`}
+                          onClick={() => pickMcAsiFeat(e.classId, atLevel, f.id)} aria-pressed={sel}>{f.name}</button>
+                );
+              })}
+            </div>
+            {asiFeat && (
+              <div style={{ marginTop: 10 }}>
+                <FeatureBlocks blocks={asiFeat.blocks} />
+                {asiFeat.ability && (
+                  <>
+                    <div className="byo-choice" style={{ margin: "8px 0" }}>
+                      {asiFeat.ability.choices.map((alt, ai) => {
+                        const slots = abilityChoiceSlots(alt);
+                        const label = `${slots.amountAt(0)}${slots.count > 1 ? ` to ${slots.count}` : " to one"}`;
+                        return (
+                          <button key={ai} className={`byo-opt ${entry.abilityAlt === ai ? "is-sel" : ""}`}
+                                  onClick={() => pickMcAsiAlt(e.classId, atLevel, ai)} aria-pressed={entry.abilityAlt === ai}>+{label}</button>
+                        );
+                      })}
+                    </div>
+                    <div className="byo-choice">
+                      {abilityChoiceSlots(entry.abilitySpec).from.map((k) => {
+                        const slots = abilityChoiceSlots(entry.abilitySpec);
+                        const picks = entry.abilityPicks || [];
+                        const idx = picks.indexOf(k);
+                        const on = idx >= 0;
+                        const nextIdx = picks.length < slots.count ? picks.length : slots.count - 1;
+                        const full = !on && picks.length >= slots.count && slots.count !== 1;
+                        const maxed = !on && !full && prereqScoreExcluding(k, 0) + slots.amountAt(nextIdx) > 20;
+                        return (
+                          <button key={k} className={`byo-opt ${on ? "is-sel" : ""}`} disabled={maxed || full}
+                                  onClick={() => toggleMcAsiAbilityPick(e.classId, atLevel, k)} aria-pressed={on}>
+                            {ABILITIES.find((a) => a.key === k)?.label}{on ? ` +${slots.amountAt(idx)}` : maxed ? " · at 20" : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            </>
+            )}
+          </div>
+        );
+      })}
+      </>
+    );
+  };
 
   /* ------------------------------------------------------------------
      RENDER
   ------------------------------------------------------------------- */
-  if (showAddRuleset) return <AddRuleset onBack={() => setShowAddRuleset(false)} />;
-  if (showTerms) return <Terms onBack={() => setShowTerms(false)} />;
-  if (showPrivacy) return <Privacy onBack={() => setShowPrivacy(false)} />;
+  if (showAddRuleset) return <AddRuleset onBack={goBack} />;
+  if (showTerms) return <Terms onBack={goBack} />;
+  if (showPrivacy) return <Privacy onBack={goBack} />;
+  /* /account is reachable by typed/bookmarked URL even signed-out now that
+     it's a real route (unlike the old button-gated boolean) — the effect
+     above bounces that case home; render guard here is the synchronous
+     backstop so nothing signed-out-shaped ever flashes on screen first. */
+  if (showAccount) return session ? <Account session={session} onBack={goBack} /> : null;
+  if (showSplash) return (
+    <Splash
+      onNewCharacter={() => navigate("/create")}
+      onAddRuleset={() => navigate("/rulesets")}
+      session={session}
+      syncEnabled={syncEnabled}
+      authUiEnabled={AUTH_UI_ENABLED}
+      onSignIn={signInWithGoogle}
+      onAccount={() => navigate("/account")}
+      onTerms={() => navigate("/terms")}
+      onPrivacy={() => navigate("/privacy")}
+    />
+  );
 
   return (
     <div className="byo-root">
@@ -1222,19 +1881,15 @@ export default function CharacterCreator() {
         {AUTH_UI_ENABLED && syncEnabled && (
           <div className="byo-account">
             {session ? (
-              <>
-                <span className="byo-account-email">{session.user.email}</span>
-                <button className="byo-linkbtn" onClick={signOut}>Sign out</button>
-              </>
+              <button className="byo-btn byo-btn-alt" onClick={() => navigate("/account")}>My Account</button>
             ) : (
               <button className="byo-btn byo-btn-alt" onClick={signInWithGoogle}>Sign in with Google</button>
             )}
           </div>
         )}
 
-        <h1 className="byo-h1">Bring Your Own 5e</h1>
+        <button type="button" className="byo-h1 byo-h1-link" onClick={() => navigate("/")}>Bring Your Own 5e</button>
         <p className="byo-h2">Character Creator</p>
-        <p className="byo-sub">{STEPS.length} steps. Only legal options are shown.</p>
 
         <div className="byo-rail">
           {STEPS.map((s, i) => {
@@ -1281,21 +1936,25 @@ export default function CharacterCreator() {
           })}
         </select>
 
-        {ancestry && step > at("Species/Race") && (
+        {/* These recap chips repeat what the Summary step's own name panel
+            already says ("Dragonborn · Barbarian 20 · ... · Criminal"), so
+            they're skipped there — everywhere else they're still the only
+            recap of choices made on earlier steps. */}
+        {ancestry && step > at("Species/Race") && here !== "Summary" && (
           <div className="byo-chip">
             <span className="byo-chip-k">Species/Race</span>
             <span className="byo-chip-v">{ancestry.name}</span>
             <button className="byo-chip-b" onClick={() => setStep(at("Species/Race"))}>Change</button>
           </div>
         )}
-        {klass && step > at("Class") && (
+        {klass && step > at("Class") && here !== "Summary" && (
           <div className="byo-chip">
             <span className="byo-chip-k">Class</span>
-            <span className="byo-chip-v">{klass.name} {level}{subclass && subclassOn ? ` · ${subclass.name}` : ""}</span>
+            <span className="byo-chip-v">{classLabel}</span>
             <button className="byo-chip-b" onClick={() => setStep(at("Class"))}>Change</button>
           </div>
         )}
-        {background && step > at("Background") && (
+        {background && step > at("Background") && here !== "Summary" && (
           <div className="byo-chip">
             <span className="byo-chip-k">Background</span>
             <span className="byo-chip-v">{background.name}</span>
@@ -1303,23 +1962,8 @@ export default function CharacterCreator() {
           </div>
         )}
 
-        {/* Final ability scores — a running header on every step used to
-            repeat what Abilities already showed; now it's Summary-only,
-            where it's the one place recapping the whole build. */}
-        {ancestry && here === "Summary" && (
-          <div className="byo-sum">
-            {ABILITIES.map(({ key }) => (
-              <div className="byo-sum-c" key={key}>
-                <div className="byo-sum-k">{key.toUpperCase()}</div>
-                <div className="byo-sum-v">{fmt(mod(finalScore(key)))}</div>
-                <div className="byo-sum-m">{finalScore(key)}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {((ancestry && step > at("Species/Race")) || (klass && step > at("Class"))
-          || (background && step > at("Background")) || (ancestry && here === "Summary")) && <Rule />}
+        {here !== "Summary" && ((ancestry && step > at("Species/Race")) || (klass && step > at("Class"))
+          || (background && step > at("Background"))) && <Rule />}
 
         <ErrorBoundary key={here} title="This step hit an error">
           {/* ---------------- RULESET ---------------- */}
@@ -1338,7 +1982,7 @@ export default function CharacterCreator() {
                     {EDITION_LABEL[ed]}
                   </button>
                 ))}
-                <button className="byo-opt" onClick={() => setShowAddRuleset(true)}>
+                <button className="byo-opt" onClick={() => navigate("/rulesets")}>
                   Add Ruleset
                 </button>
               </div>
@@ -1359,9 +2003,9 @@ export default function CharacterCreator() {
                 endorsed, sponsored, or specifically approved by Wizards of the Coast LLC.
               </p>
               <p className="byo-note" style={{ marginTop: 10, fontSize: 11 }}>
-                <button className="byo-linkbtn" onClick={() => setShowTerms(true)}>Terms of Service</button>
+                <button className="byo-linkbtn" onClick={() => navigate("/terms")}>Terms of Service</button>
                 {" · "}
-                <button className="byo-linkbtn" onClick={() => setShowPrivacy(true)}>Privacy Policy</button>
+                <button className="byo-linkbtn" onClick={() => navigate("/privacy")}>Privacy Policy</button>
               </p>
             </div>
           )}
@@ -1404,7 +2048,7 @@ export default function CharacterCreator() {
                         const id = g.kind === "lineage" ? v : v;
                         const label = g.kind === "lineage" ? g.optionsById[v].name : v;
                         const on = (ancestryPicks[g.ci] || []).includes(id);
-                        const full = !on && (ancestryPicks[g.ci] || []).length >= g.count;
+                        const full = !on && g.count !== 1 && (ancestryPicks[g.ci] || []).length >= g.count;
                         return (
                           <button key={id} className={`byo-skill ${on ? "is-sel" : ""}`}
                                   onClick={() => toggleAncestryPick(g.ci, id, g.count)} disabled={full}
@@ -1412,6 +2056,11 @@ export default function CharacterCreator() {
                         );
                       })}
                     </div>
+                    {g.kind === "lineage" && (ancestryPicks[g.ci] || []).map((id) => (
+                      <div key={id} style={{ marginTop: 10 }}>
+                        <FeatureBlocks blocks={g.optionsById[id].blocks} />
+                      </div>
+                    ))}
                   </div>
                 </React.Fragment>
               ))}
@@ -1424,7 +2073,7 @@ export default function CharacterCreator() {
                     {ancestry.traits.map((t) => (
                       <div className="byo-trait" key={t.name}>
                         <div className="byo-trait-n">{t.name}</div>
-                        <div className="byo-trait-t">{t.text}</div>
+                        <div className="byo-trait-t"><FeatureBlocks blocks={t.blocks} /></div>
                       </div>
                     ))}
                   </div>
@@ -1501,19 +2150,29 @@ export default function CharacterCreator() {
                 <div className="byo-panel">
                   <h3>Saving throws <span className="byo-count">proficiency {fmt(pb)}</span></h3>
                   {!klass && <p className="byo-note" style={{ marginBottom: 10 }}>No class picked yet — shown below without proficiency.</p>}
-                  {saveThrowRows.map((s) => (
-                    <div className="byo-row" key={s.key}>
-                      <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-                      <span className="byo-row-label">{ABILITIES.find((a) => a.key === s.key)?.label}</span>
-                      <span className="byo-final">{fmt(s.value)}</span>
-                    </div>
-                  ))}
+                  {saveThrowRows.map((s) => {
+                    const baseVal = baseSaveThrowRows.find((b) => b.key === s.key)?.value ?? s.value;
+                    return (
+                      <div className="byo-row" key={s.key}>
+                        <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                        <span className="byo-row-label">{ABILITIES.find((a) => a.key === s.key)?.label}</span>
+                        {baseVal !== s.value && <span className="byo-mod">{fmt(baseVal)}</span>}
+                        {baseVal !== s.value && <span className="byo-arrow">→</span>}
+                        <span className="byo-final">{fmt(s.value)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="byo-panel">
                   <h3>Passive skills</h3>
                   {passiveSkills.map((p) => (
-                    <div className="byo-row" key={p.name}><span className="byo-row-label">Passive {p.name}</span><span className="byo-final">{p.value}</span></div>
+                    <div className="byo-row" key={p.name}>
+                      <span className="byo-row-label">Passive {p.name}</span>
+                      {p.baseValue !== p.value && <span className="byo-mod">{p.baseValue}</span>}
+                      {p.baseValue !== p.value && <span className="byo-arrow">→</span>}
+                      <span className="byo-final">{p.value}</span>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1523,39 +2182,127 @@ export default function CharacterCreator() {
           {/* ---------------- CLASS ---------------- */}
           {here === "Class" && content && (
             <>
-              <div className="byo-panel">
-                <h3>Level</h3>
-                <div className="byo-step">
-                  <button className="byo-btn-sq" onClick={() => setLevel((l) => Math.max(1, l - 1))} disabled={level <= 1} aria-label="Lower level">−</button>
-                  <span className="byo-num">{level}</span>
-                  <button className="byo-btn-sq" onClick={() => setLevel((l) => Math.min(MAX_LEVEL, l + 1))} disabled={level >= MAX_LEVEL} aria-label="Raise level">+</button>
+              {/* Once multiclassed, this whole panel is gone — the primary
+                  class's own level moved into its tab (below, next to every
+                  other class's stepper), and "+ Add new Multiclass" moved
+                  next to the class tabs themselves. Nothing left here to
+                  show. */}
+              {mcEntries.length === 0 && (
+                <div className="byo-panel">
+                  <div className="byo-panel-head">
+                    <h3>Level</h3>
+                    {addableClasses.length > 0 && (
+                      <button type="button" className="byo-btn byo-btn-go" onClick={() => setShowAddMcModal(true)}>
+                        + Add new Multiclass
+                      </button>
+                    )}
+                  </div>
+                  <div className="byo-step">
+                    <button className="byo-btn-sq" onClick={() => setLevel((l) => Math.max(1, l - 1))} disabled={level <= 1} aria-label="Lower level">−</button>
+                    <span className="byo-num">{level}</span>
+                    <button className="byo-btn-sq" onClick={() => setLevel((l) => Math.min(MAX_LEVEL, l + 1))} disabled={level >= MAX_LEVEL} aria-label="Raise level">+</button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="byo-card-grid" style={{ marginTop: 8 }}>
-                {content.classes.map((c) => {
-                  const sel = c.id === classId;
-                  return (
-                    <button key={c.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                            onClick={() => pickClass(c.id)} aria-pressed={sel}>
-                      <div className="byo-card-top">
-                        <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
-                        <span className="byo-card-name">{c.name}</span>
-                        <span className="byo-card-kind">d{c.hitDie} hit die</span>
-                      </div>
-                      <p className="byo-card-blurb">
-                        Saves: {c.saves.map((s) => s.toUpperCase()).join(", ")} · {c.skillChoices.count} skills ·{" "}
-                        {c.subclasses.length ? `${c.subclassTitle || "subclass"} at ${c.subclassLevel}` : "no subclass"}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Once multiclassed, "primary class" is fixed and shown as
+                  the first tab below instead — swapping it here would orphan
+                  every multiclass entry's own prereqs/levels, so the picker
+                  only makes sense pre-multiclass. */}
+              {mcEntries.length === 0 && (
+                <div className="byo-card-grid" style={{ marginTop: 8 }}>
+                  {content.classes.map((c) => {
+                    const sel = c.id === classId;
+                    return (
+                      <button key={c.id} className={`byo-card ${sel ? "is-sel" : ""}`}
+                              onClick={() => pickClass(c.id)} aria-pressed={sel}>
+                        <div className="byo-card-top">
+                          <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
+                          <span className="byo-card-name">{c.name}</span>
+                          <span className="byo-card-kind">d{c.hitDie} hit die</span>
+                        </div>
+                        <p className="byo-card-blurb">
+                          Saves: {c.saves.map((s) => s.toUpperCase()).join(", ")} · {c.skillChoices.count} skills ·{" "}
+                          {c.subclasses.length ? `${c.subclassTitle || "subclass"} at ${c.subclassLevel}` : "no subclass"}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {klass && (
                 <>
-                  <Rule />
+                  {/* Only when single-class — separates the class-picker grid
+                     above from the panels below. Once multiclassed that grid
+                     is hidden entirely, so there's nothing left to rule off. */}
+                  {mcEntries.length === 0 && <Rule />}
+
+                  {/* ---- Class tabs — once multiclassing is in play, each
+                      class (primary + every mcEntry) gets its own tab over
+                      the same Subclass/Skills/Proficiencies-shaped panels
+                      below, instead of stacking every class inline. With a
+                      single class there's nothing to switch between, so no
+                      tab strip renders and classTab (default 0) always
+                      resolves to the primary class's panels — unchanged
+                      from before tabs existed. ---- */}
+                  {mcEntries.length > 0 && (
+                    <>
+                      {/* The single most prominent thing on this page once
+                          multiclassed — bigger than any panel heading here,
+                          same weight class as the app's own h1. */}
+                      <div className="byo-totallevel-row">
+                        <p className="byo-totallevel">Total Level {totalCharLevel}</p>
+                        {addableClasses.length > 0 && (
+                          <button type="button" className="byo-btn byo-btn-go" onClick={() => setShowAddMcModal(true)}>
+                            + Add new Multiclass
+                          </button>
+                        )}
+                      </div>
+                      <div className="byo-choice" style={{ marginBottom: 14 }}>
+                        <button type="button" className={`byo-opt byo-tab-class ${classTab === 0 ? "is-sel" : ""}`}
+                                onClick={() => setClassTab(0)} aria-pressed={classTab === 0}>
+                          {klass.name} {level}
+                          {asiLevelsReached.some((l) => !asiComplete(l)) &&
+                            <span title="Needs your pick"> ⚠</span>}
+                        </button>
+                        {mcEntries.map((e, i) => (
+                          <button key={e.classId} type="button" className={`byo-opt byo-tab-class ${classTab === i + 1 ? "is-sel" : ""}`}
+                                  onClick={() => setClassTab(i + 1)} aria-pressed={classTab === i + 1}>
+                            {e.klass.name} {e.level}
+                            {mcAsiLevelsReached(e).some((l) => !mcAsiComplete(e.classId, l)) &&
+                              <span title="Needs your pick"> ⚠</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {classTab > 0 && mcEntries[classTab - 1] && renderMcEntryCard(mcEntries[classTab - 1])}
+
+                  {classTab === 0 && (
+                    <>
+                  {/* Once multiclassed, the primary class's own level moved
+                      into its own small panel here (name + hit die +
+                      stepper) — everything else below is the SAME sectioned
+                      layout (separate byo-panel per section) as the
+                      single-class case always used, unconditionally, so a
+                      multiclassed primary tab and mc entry tabs both look
+                      exactly like the original single-class Class step —
+                      never one big merged box. */}
+                  {mcEntries.length > 0 && (
+                    <div className="byo-panel" style={{ marginBottom: 12 }}>
+                      <span className="byo-card-name" style={{ display: "block" }}>{klass.name}</span>
+                      <span className="byo-card-kind">d{klass.hitDie} hit die</span>
+                      <div className="byo-step" style={{ marginTop: 10 }}>
+                        <button className="byo-btn-sq" onClick={() => setLevel((l) => Math.max(1, l - 1))} disabled={level <= 1} aria-label={`Lower ${klass.name} level`}>−</button>
+                        <span className="byo-num">{level}</span>
+                        <button className="byo-btn-sq" onClick={() => setLevel((l) => Math.min(MAX_LEVEL, l + 1))} disabled={level >= MAX_LEVEL || totalCharLevel >= MAX_LEVEL} aria-label={`Raise ${klass.name} level`}>+</button>
+                      </div>
+                    </div>
+                  )}
                   <div className="byo-panel">
+                    {subclassOn && !subclass && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
                     <h3>{klass.subclassTitle || "Subclass"}</h3>
                     {!subclassOn ? (
                       <p className="byo-note">{klass.name}s choose at level {klass.subclassLevel}. You're level {level}, so nothing to decide yet.</p>
@@ -1584,6 +2331,7 @@ export default function CharacterCreator() {
                   </div>
 
                   <div className="byo-panel">
+                    {skillsLeft > 0 && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
                     <h3>Skills <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
                     {ancestrySkillsGranted.size > 0 && (
                       <p className="byo-note" style={{ marginBottom: 10 }}>
@@ -1593,7 +2341,7 @@ export default function CharacterCreator() {
                     <div className="byo-skills">
                       {skillPool.map((s) => {
                         const on = skillPicks.includes(s);
-                        const full = !on && skillPicks.length >= classSkillCount;
+                        const full = !on && classSkillCount !== 1 && skillPicks.length >= classSkillCount;
                         return (
                           <button key={s} className={`byo-skill ${on ? "is-sel" : ""}`} onClick={() => toggleSkill(s)}
                                   disabled={full} aria-pressed={on}>{s}</button>
@@ -1604,13 +2352,14 @@ export default function CharacterCreator() {
 
                   {optionChoiceGroups.map((g) => (
                     <div className="byo-panel" key={g.key}>
+                      {(optionPicks[g.key] || []).length < g.budget && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
                       <h3>{g.label} <span className="byo-count">
                         {(optionPicks[g.key] || []).length}/{g.budget}
                       </span></h3>
                       <div className="byo-skills">
                         {g.pool.map((o) => {
                           const on = (optionPicks[g.key] || []).includes(o.id);
-                          const full = !on && (optionPicks[g.key] || []).length >= g.budget;
+                          const full = !on && g.budget !== 1 && (optionPicks[g.key] || []).length >= g.budget;
                           return (
                             <button key={o.id} className={`byo-skill ${on ? "is-sel" : ""}`}
                                     onClick={() => toggleOptionPick(g.key, o.id, g.budget)} disabled={full}
@@ -1626,9 +2375,10 @@ export default function CharacterCreator() {
                         const o = g.pool.find((x) => x.id === id);
                         if (!o?.text) return null;
                         return (
-                          <p className="byo-note" key={id} style={{ marginTop: 10 }}>
-                            <b>{o.name}.</b> {o.text}
-                          </p>
+                          <div key={id} style={{ marginTop: 10 }}>
+                            <p className="byo-note" style={{ marginBottom: 4 }}><b>{o.name}.</b></p>
+                            <FeatureBlocks blocks={o.blocks} />
+                          </div>
                         );
                       })}
                     </div>
@@ -1643,67 +2393,91 @@ export default function CharacterCreator() {
                     <div className="byo-row"><span className="byo-row-label">Saving throws</span>
                       <span className="byo-mod" style={{ width: "auto" }}>{klass.saves.map((s) => s.toUpperCase()).join(", ")}</span></div>
                   </div>
+                    </>
+                  )}
 
-                  {/* ---- Advancement: ASI / feat picks, at every level the
-                      class's own feature list earns one ---- */}
-                  {asiLevelsReached.length === 0 ? (
+                  {/* ---- Level-by-level: every class/subclass feature earned
+                      so far, sourcebook-style, plus the ASI/feat picker at
+                      every level the class's own feature list earns one.
+                      This is all primary-class data (klass/levelsShown/ASI
+                      picks), so it only belongs under the primary tab — a
+                      multiclass entry's own features already show in its
+                      own tab via renderMcEntryCard. ---- */}
+                  {classTab === 0 && (levelsShown.length === 0 ? (
                     <div className="byo-stub">
                       <p className="byo-stub-t">Nothing yet</p>
                       <p className="byo-stub-s">
-                        {klass.name}s get their first Ability Score Improvement at level {klass.asiLevels[0] ?? "—"}.
+                        {klass.name}s get their first feature at level {(klass.features?.[0]?.level) ?? 1}.
                       </p>
                     </div>
-                  ) : asiLevelsReached.map((atLevel) => {
+                  ) : levelsShown.map((atLevel) => {
+                    const feats = featuresByLevel.get(atLevel) || [];
+                    const isAsi = asiLevelsReached.includes(atLevel);
                     const entry = asiPicks[atLevel];
-                    const pool = asiFeatPool(atLevel);
-                    const feat = pool.find((f) => f.id === entry?.featId);
+                    const pool = isAsi ? asiFeatPool(atLevel) : [];
+                    const asiFeat = isAsi ? pool.find((f) => f.id === entry?.featId) : null;
                     return (
                       <div className="byo-panel" key={atLevel}>
-                        <h3>Level {atLevel} <span className="byo-count">{asiComplete(atLevel) ? "done" : "to pick"}</span></h3>
-                        <div className="byo-skills">
-                          {pool.map((f) => {
-                            const sel = entry?.featId === f.id;
-                            return (
-                              <button key={f.id} className={`byo-skill ${sel ? "is-sel" : ""}`}
-                                      onClick={() => pickAsiFeat(atLevel, f.id)} aria-pressed={sel}>{f.name}</button>
-                            );
-                          })}
-                        </div>
-                        {feat && (
-                          <div style={{ marginTop: 10 }}>
-                            <p className="byo-note">{feat.text}</p>
-                            {feat.ability && (
-                              <>
-                                <div className="byo-choice" style={{ margin: "8px 0" }}>
-                                  {feat.ability.choices.map((alt, ai) => {
-                                    const slots = abilityChoiceSlots(alt);
-                                    const label = `${slots.amountAt(0)}${slots.count > 1 ? ` to ${slots.count}` : " to one"}`;
-                                    return (
-                                      <button key={ai} className={`byo-opt ${entry.abilityAlt === ai ? "is-sel" : ""}`}
-                                              onClick={() => pickAsiAlt(atLevel, ai)} aria-pressed={entry.abilityAlt === ai}>+{label}</button>
-                                    );
-                                  })}
-                                </div>
-                                <div className="byo-choice">
-                                  {abilityChoiceSlots(entry.abilitySpec).from.map((k) => {
-                                    const idx = (entry.abilityPicks || []).indexOf(k);
-                                    const on = idx >= 0;
-                                    const maxed = !on && prereqScoreExcluding(k, 0) + abilityChoiceSlots(entry.abilitySpec).amountAt((entry.abilityPicks || []).length) > 20;
-                                    return (
-                                      <button key={k} className={`byo-opt ${on ? "is-sel" : ""}`} disabled={maxed}
-                                              onClick={() => toggleAsiAbilityPick(atLevel, k)} aria-pressed={on}>
-                                        {ABILITIES.find((a) => a.key === k)?.label}{on ? ` +${abilityChoiceSlots(entry.abilitySpec).amountAt(idx)}` : maxed ? " · at 20" : ""}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </>
-                            )}
+                        {isAsi && !asiComplete(atLevel) && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
+                        <h3>Level {atLevel} {isAsi && <span className="byo-count">{asiComplete(atLevel) ? "done" : "to pick"}</span>}</h3>
+                        {feats.map((f) => (
+                          <div key={f.id} style={{ marginBottom: 10 }}>
+                            <p className="byo-note" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
+                            <FeatureBlocks blocks={f.blocks} />
                           </div>
+                        ))}
+                        {isAsi && (
+                          <>
+                            <div className="byo-skills">
+                              {pool.map((f) => {
+                                const sel = entry?.featId === f.id;
+                                return (
+                                  <button key={f.id} className={`byo-skill ${sel ? "is-sel" : ""}`}
+                                          onClick={() => pickAsiFeat(atLevel, f.id)} aria-pressed={sel}>{f.name}</button>
+                                );
+                              })}
+                            </div>
+                            {asiFeat && (
+                              <div style={{ marginTop: 10 }}>
+                                <FeatureBlocks blocks={asiFeat.blocks} />
+                                {asiFeat.ability && (
+                                  <>
+                                    <div className="byo-choice" style={{ margin: "8px 0" }}>
+                                      {asiFeat.ability.choices.map((alt, ai) => {
+                                        const slots = abilityChoiceSlots(alt);
+                                        const label = `${slots.amountAt(0)}${slots.count > 1 ? ` to ${slots.count}` : " to one"}`;
+                                        return (
+                                          <button key={ai} className={`byo-opt ${entry.abilityAlt === ai ? "is-sel" : ""}`}
+                                                  onClick={() => pickAsiAlt(atLevel, ai)} aria-pressed={entry.abilityAlt === ai}>+{label}</button>
+                                        );
+                                      })}
+                                    </div>
+                                    <div className="byo-choice">
+                                      {abilityChoiceSlots(entry.abilitySpec).from.map((k) => {
+                                        const slots = abilityChoiceSlots(entry.abilitySpec);
+                                        const picks = entry.abilityPicks || [];
+                                        const idx = picks.indexOf(k);
+                                        const on = idx >= 0;
+                                        const nextIdx = picks.length < slots.count ? picks.length : slots.count - 1;
+                                        const full = !on && picks.length >= slots.count && slots.count !== 1;
+                                        const maxed = !on && !full && prereqScoreExcluding(k, 0) + slots.amountAt(nextIdx) > 20;
+                                        return (
+                                          <button key={k} className={`byo-opt ${on ? "is-sel" : ""}`} disabled={maxed || full}
+                                                  onClick={() => toggleAsiAbilityPick(atLevel, k)} aria-pressed={on}>
+                                            {ABILITIES.find((a) => a.key === k)?.label}{on ? ` +${slots.amountAt(idx)}` : maxed ? " · at 20" : ""}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     );
-                  })}
+                  }))}
                 </>
               )}
             </>
@@ -1742,7 +2516,7 @@ export default function CharacterCreator() {
                   {background.feature && (
                     <div className="byo-panel">
                       <h3>Feature: {background.feature.name}</h3>
-                      <p className="byo-note">{background.feature.text}</p>
+                      <FeatureBlocks blocks={background.feature.blocks} />
                     </div>
                   )}
 
@@ -1757,7 +2531,7 @@ export default function CharacterCreator() {
                         <div className="byo-skills">
                           {bgSkillPool.map((s) => {
                             const on = bgSkillPicks.includes(s);
-                            const full = !on && bgSkillPicks.length >= bgSkillChoice.count;
+                            const full = !on && bgSkillChoice.count !== 1 && bgSkillPicks.length >= bgSkillChoice.count;
                             return (
                               <button key={s} className={`byo-skill ${on ? "is-sel" : ""}`} onClick={() => toggleBgSkill(s)}
                                       disabled={full} aria-pressed={on}>{s}</button>
@@ -1806,10 +2580,10 @@ export default function CharacterCreator() {
                           {bgAbilitySlots.from.map((k) => {
                             const idx = bgAbilityPicks.indexOf(k);
                             const on = idx >= 0;
-                            const full = !on && bgAbilityPicks.length >= bgAbilitySlots.count;
+                            const full = !on && bgAbilitySlots.count !== 1 && bgAbilityPicks.length >= bgAbilitySlots.count;
                             return (
                               <button key={k} className={`byo-opt ${on ? "is-sel" : ""}`} disabled={full}
-                                      onClick={() => setBgAbilityPicks((p) => on ? p.filter((x) => x !== k) : [...p, k])}
+                                      onClick={() => setBgAbilityPicks((p) => swapPick(p, k, bgAbilitySlots.count))}
                                       aria-pressed={on}>
                                 {ABILITIES.find((a) => a.key === k)?.label}{on ? ` +${bgAbilitySlots.amountAt(idx)}` : ""}
                               </button>
@@ -1825,7 +2599,7 @@ export default function CharacterCreator() {
                       <h3>Feat <span className="byo-count">granted</span></h3>
                       <div className="byo-row"><span className="byo-row-label">{bgFeat.name}</span>
                         {background.feat.variant && <span className="byo-mod" style={{ width: "auto" }}>{background.feat.variant}</span>}</div>
-                      <p className="byo-note">{bgFeat.text}</p>
+                      <FeatureBlocks blocks={bgFeat.blocks} />
                     </div>
                   )}
 
@@ -2103,7 +2877,7 @@ export default function CharacterCreator() {
                           {actions.filter((a) => a.action === k).map((a, i) => (
                             <div className="byo-trait" key={i}>
                               <div className="byo-trait-n">{a.name} <span className="src">{a.source}</span></div>
-                              <div className="byo-trait-t">{a.text}</div>
+                              <div className="byo-trait-t"><FeatureBlocks blocks={a.blocks} /></div>
                             </div>
                           ))}
                         </div>
@@ -2118,7 +2892,12 @@ export default function CharacterCreator() {
                       {ancestrySpellGrants.map((g) => (
                         <div className="byo-trait" key={g.key}>
                           <div className="byo-trait-n">{g.sp.name}<span className="src">{g.from}{g.use ? ` — ${g.use}` : ""}</span></div>
-                          <div className="byo-trait-t">{g.sp.level === 0 ? "Cantrip" : `Level ${g.sp.level}`}. {splitCastingTime(g.sp.time).head}, {g.sp.range}. {g.sp.text}</div>
+                          <div className="byo-trait-t">
+                            <p className="byo-fb-p" style={{ marginBottom: 4 }}>
+                              {g.sp.level === 0 ? "Cantrip" : `Level ${g.sp.level}`}. {splitCastingTime(g.sp.time).head}, {g.sp.range}.
+                            </p>
+                            <FeatureBlocks blocks={g.sp.blocks} />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2130,7 +2909,7 @@ export default function CharacterCreator() {
                       <div className="byo-skills">
                         {g.pool.map((sp) => {
                           const on = (ancestrySpellPicks[g.key] || []).includes(sp.id);
-                          const full = !on && (ancestrySpellPicks[g.key] || []).length >= g.count;
+                          const full = !on && g.count !== 1 && (ancestrySpellPicks[g.key] || []).length >= g.count;
                           return (
                             <button key={sp.id} className={`byo-skill ${on ? "is-sel" : ""}`}
                                     onClick={() => toggleAncestrySpellPick(g.key, sp.id, g.count)} disabled={full}
@@ -2140,19 +2919,6 @@ export default function CharacterCreator() {
                       </div>
                     </div>
                   ))}
-
-                  {chosenFeats.length > 0 && (
-                    <div className="byo-panel">
-                      <h3>Feats</h3>
-                      {chosenFeats.map(({ feat, from }) => (
-                        <div key={feat.id} style={{ marginBottom: 10 }}>
-                          <div className="byo-row"><span className="byo-row-label">{feat.name}</span>
-                            <span className="byo-mod" style={{ width: "auto" }}>{from}</span></div>
-                          <p className="byo-note">{feat.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
                   <div className="byo-panel">
                     <h3>Actions in Combat</h3>
@@ -2190,11 +2956,43 @@ export default function CharacterCreator() {
                 <>
                   <div className="byo-panel">
                     <h3>Cantrips <span className="byo-count">{pickedCantrips.length}/{cantripBudget}</span></h3>
-                    {availableSpells.filter((s) => s.level === 0).map((sp) => (
+                    <input className="byo-input" style={{ fontSize: 15, marginBottom: 10 }} value={cantripSearch}
+                           onChange={(e) => setCantripSearch(e.target.value)} placeholder="Search cantrips…"
+                           aria-label="Search cantrips" />
+                    <div className="byo-filter-row">
+                      {casterList.length > 1 && (
+                        <div className="byo-filter-grp">
+                          <span className="byo-filter-lbl">Class</span>
+                          <div className="byo-choice" style={{ marginTop: 0 }}>
+                            <button className={`byo-opt ${cantripClassFilter === "all" ? "is-sel" : ""}`}
+                                    onClick={() => setCantripClassFilter("all")} aria-pressed={cantripClassFilter === "all"}>All</button>
+                            {casterList.map((c) => (
+                              <button key={c.classId} className={`byo-opt ${cantripClassFilter === c.classId ? "is-sel" : ""}`}
+                                      onClick={() => setCantripClassFilter(c.classId)} aria-pressed={cantripClassFilter === c.classId}>{c.className}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {cantripSchools.length > 1 && (
+                        <div className="byo-filter-grp">
+                          <span className="byo-filter-lbl">Type</span>
+                          <div className="byo-choice" style={{ marginTop: 0 }}>
+                            <button className={`byo-opt ${cantripSchoolFilter === "all" ? "is-sel" : ""}`}
+                                    onClick={() => setCantripSchoolFilter("all")} aria-pressed={cantripSchoolFilter === "all"}>All</button>
+                            {cantripSchools.map((sc) => (
+                              <button key={sc} className={`byo-opt ${cantripSchoolFilter === sc ? "is-sel" : ""}`}
+                                      onClick={() => setCantripSchoolFilter(sc)} aria-pressed={cantripSchoolFilter === sc}>{sc}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {filteredCantrips.map((sp) => (
                       <SpellTableRow key={sp.id} sp={sp} casting={casting} on={pickedSpellIds.includes(sp.id)}
                                      full={!pickedSpellIds.includes(sp.id) && pickedCantrips.length >= cantripBudget}
                                      onToggle={() => toggleSpell(sp.id)} />
                     ))}
+                    {!filteredCantrips.length && <p className="byo-note">No cantrips match.</p>}
                   </div>
                   <Rule />
                 </>
@@ -2206,8 +3004,52 @@ export default function CharacterCreator() {
                     <h3>{casting.prepared != null ? "Prepared spells" : casting.spellbook != null ? "Spellbook" : "Spells known"}
                       <span className="byo-count">{pickedLeveled.length}/{spellBudget}</span></h3>
                     <p className="byo-note" style={{ marginBottom: 10 }}>Only spells at or below your highest slot level appear.</p>
+                    <input className="byo-input" style={{ fontSize: 15, marginBottom: 10 }} value={spellSearch}
+                           onChange={(e) => setSpellSearch(e.target.value)} placeholder="Search spells…"
+                           aria-label="Search spells" />
+                    <div className="byo-filter-row">
+                      {casterList.length > 1 && (
+                        <div className="byo-filter-grp">
+                          <span className="byo-filter-lbl">Class</span>
+                          <div className="byo-choice" style={{ marginTop: 0 }}>
+                            <button className={`byo-opt ${spellClassFilter === "all" ? "is-sel" : ""}`}
+                                    onClick={() => setSpellClassFilter("all")} aria-pressed={spellClassFilter === "all"}>All</button>
+                            {casterList.map((c) => (
+                              <button key={c.classId} className={`byo-opt ${spellClassFilter === c.classId ? "is-sel" : ""}`}
+                                      onClick={() => setSpellClassFilter(c.classId)} aria-pressed={spellClassFilter === c.classId}>{c.className}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {spellSchools.length > 1 && (
+                        <div className="byo-filter-grp">
+                          <span className="byo-filter-lbl">Type</span>
+                          <div className="byo-choice" style={{ marginTop: 0 }}>
+                            <button className={`byo-opt ${spellSchoolFilter === "all" ? "is-sel" : ""}`}
+                                    onClick={() => setSpellSchoolFilter("all")} aria-pressed={spellSchoolFilter === "all"}>All</button>
+                            {spellSchools.map((sc) => (
+                              <button key={sc} className={`byo-opt ${spellSchoolFilter === sc ? "is-sel" : ""}`}
+                                      onClick={() => setSpellSchoolFilter(sc)} aria-pressed={spellSchoolFilter === sc}>{sc}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {spellLevels.length > 1 && (
+                        <div className="byo-filter-grp">
+                          <span className="byo-filter-lbl">Level</span>
+                          <div className="byo-choice" style={{ marginTop: 0 }}>
+                            <button className={`byo-opt ${spellLevelFilter === "all" ? "is-sel" : ""}`}
+                                    onClick={() => setSpellLevelFilter("all")} aria-pressed={spellLevelFilter === "all"}>All</button>
+                            {spellLevels.map((lvl) => (
+                              <button key={lvl} className={`byo-opt ${spellLevelFilter === String(lvl) ? "is-sel" : ""}`}
+                                      onClick={() => setSpellLevelFilter(String(lvl))} aria-pressed={spellLevelFilter === String(lvl)}>{lvl}</button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     {Array.from({ length: highestSlot }, (_, i) => i + 1).map((lvl) => {
-                      const rows = availableSpells.filter((s) => s.level === lvl);
+                      const rows = filteredLeveledSpells.filter((s) => s.level === lvl);
                       if (!rows.length) return null;
                       return (
                         <div key={lvl}>
@@ -2222,6 +3064,7 @@ export default function CharacterCreator() {
                         </div>
                       );
                     })}
+                    {!filteredLeveledSpells.length && <p className="byo-note">No spells match.</p>}
                   </div>
                   <Rule />
                 </>
@@ -2230,13 +3073,6 @@ export default function CharacterCreator() {
               {casting.spellbook != null && (
                 <p className="byo-note">A wizard's spellbook holds {casting.spellbook} spells — more than you'll prepare at once. Everything on your class list up to your highest slot is browsable above; add whichever ones you own to the spellbook in play.</p>
               )}
-
-              <div className="byo-panel">
-                <h3>Anything else</h3>
-                <p className="byo-note" style={{ marginBottom: 10 }}>Every SRD spell your class can reach is listed above. Add anything from outside the SRD here, one per line.</p>
-                <textarea className="byo-out" rows={4} value={otherSpells} onChange={(e) => setOtherSpells(e.target.value)}
-                          placeholder={"Healing Spirit\nShadow Blade"} aria-label="Other spells" />
-              </div>
             </>
           )}
 
@@ -2288,6 +3124,31 @@ export default function CharacterCreator() {
                 </div>
                 <button className="byo-btn byo-btn-alt" onClick={exportCharacter} disabled={!allStepsDone}>Export .json</button>
               </div>
+
+              {AUTH_UI_ENABLED && syncEnabled && session && (
+                <div className="byo-export byo-export-stack">
+                  <div>
+                    <div className="byo-export-t">Your account</div>
+                    <div className="byo-export-s">
+                      {savedCharacterId ? "Saved to your account — save again to update it there."
+                        : "Back this character up to your account so it's there on another device."}
+                    </div>
+                  </div>
+                  <button className="byo-btn byo-btn-alt" onClick={saveToAccount}
+                          disabled={!allStepsDone || saveAccountState === "working"}>
+                    {saveAccountState === "working" ? "Saving…" : savedCharacterId ? "Update in account" : "Save to my account"}
+                  </button>
+                </div>
+              )}
+              {saveAccountState === "done" && <p className="byo-note">Saved.</p>}
+              {saveAccountState === "limit_reached" && (
+                <p className="byo-warn">
+                  Your account already has its full 2 characters. Delete one from
+                  {" "}<button className="byo-linkbtn" onClick={() => navigate("/account")}>My Account</button> first.
+                </p>
+              )}
+              {saveAccountState === "error" && <p className="byo-warn">Couldn't save that — try again in a moment.</p>}
+
               {pdfState === "error" && <p className="byo-warn">That export failed. Try one of the other buttons.</p>}
               {!name.trim() && <p className="byo-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>}
 
@@ -2308,6 +3169,34 @@ export default function CharacterCreator() {
         </ErrorBoundary>
       </div>
 
+      {showAddMcModal && (
+        <div className="byo-modal-bg" role="dialog" aria-modal="true" aria-label="Add new Multiclass"
+             onClick={(ev) => { if (ev.target === ev.currentTarget) setShowAddMcModal(false); }}>
+          <div className="byo-modal byo-modal-lg">
+            <h3 className="byo-modal-t">Add new Multiclass</h3>
+            {/* Same card-grid shape as the primary class picker at the top
+                of the Class step — pick which class to multiclass into. */}
+            <div className="byo-card-grid">
+              {addableClasses.map((c) => (
+                <button key={c.id} type="button" className="byo-card" onClick={() => addMulticlassFromHeader(c.id)}>
+                  <div className="byo-card-top">
+                    <span className="byo-card-name">{c.name}</span>
+                    <span className="byo-card-kind">d{c.hitDie} hit die</span>
+                  </div>
+                  <p className="byo-card-blurb">
+                    Saves: {c.saves.map((s) => s.toUpperCase()).join(", ")} · {c.skillChoices.count} skills ·{" "}
+                    {c.subclasses.length ? `${c.subclassTitle || "subclass"} at ${c.subclassLevel}` : "no subclass"}
+                  </p>
+                </button>
+              ))}
+            </div>
+            <div className="byo-modal-row" style={{ marginTop: 16 }}>
+              <button className="byo-btn" onClick={() => setShowAddMcModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showResetConfirm && (
         <div className="byo-modal-bg" role="dialog" aria-modal="true" aria-label="Confirm new character">
           <div className="byo-modal">
@@ -2327,10 +3216,11 @@ export default function CharacterCreator() {
           {here === "Species/Race" && !ancestry && <span className="byo-hint">Pick an ancestry</span>}
           {here === "Species/Race" && ancestry && !ancestryChoiceMade && <span className="byo-hint">Finish your choices</span>}
           {here === "Abilities" && mode === "array" && Object.keys(arrayAssign).length < 6 && <span className="byo-hint">Assign all six</span>}
+          {/* Class step can be unfinished for several independent reasons now
+              (subclass, skills, option picks, an ASI at any level) — rather
+              than enumerate them all here, point at the ⚠ marks below. */}
           {here === "Class" && !klass && <span className="byo-hint">Pick a class</span>}
-          {here === "Class" && klass && subclassOn && !subclass && <span className="byo-hint">Pick a subclass</span>}
-          {here === "Class" && klass && skillsLeft > 0 && <span className="byo-hint">{skillsLeft} more skill{skillsLeft > 1 ? "s" : ""}</span>}
-          {here === "Class" && klass && asiIncomplete && <span className="byo-hint">Finish your improvement</span>}
+          {here === "Class" && klass && !stepComplete("Class") && <span className="byo-hint">⚠ Some choices left below</span>}
           {here === "Background" && !background && <span className="byo-hint">Pick a background</span>}
           {here === "Spells" && cantripBudget > 0 && pickedCantrips.length === 0 && <span className="byo-hint">Pick your cantrips</span>}
           <button className="byo-btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>

@@ -88,12 +88,14 @@ export default function Terms({ onBack }) {
             rights and permissions for, any User Content you upload — including that uploading
             it, and having the Service store, process, and (where you choose to share it)
             display it, does not infringe any third party's copyright, trademark, or other
-            rights. This is the same representation the "I confirm I own the rights to this
-            content, or it's my own homebrew" checkbox on the ruleset-upload screen
-            (<code>src/components/AddRuleset.jsx</code>) asks you to make — that checkbox is
-            where this warranty becomes something you actively affirm, not just fine print.
-            Don't upload a publisher's copyrighted rules text you don't have rights to; homebrew
-            content you wrote yourself, or content you have an actual license to use, is fine.
+            rights. This is the same representation the "I confirm this is my own original
+            content, not transcribed or copied from a published book" checkbox on the
+            ruleset-upload screen (<code>src/components/AddRuleset.jsx</code>) asks you to
+            make — that checkbox is where this warranty becomes something you actively affirm,
+            not just fine print. Owning a copy of a published book doesn't give you the right to
+            transcribe or upload its text — that's a separate right publishers don't grant.
+            Homebrew content you wrote yourself, or content you have an actual license to
+            redistribute, is fine.
           </p>
           <p className="byo-note" style={{ marginTop: 10 }}>
             <strong>Indemnification.</strong> To the extent permitted by law, you agree to

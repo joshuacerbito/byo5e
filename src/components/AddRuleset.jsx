@@ -172,16 +172,19 @@ export default function AddRuleset({ onBack }) {
 
         <div className="byo-panel">
           <p className="byo-warn" style={{ margin: 0 }}>
-            <strong>Important:</strong> only upload or generate rulesets from books/sources you
-            own. Don't upload copyrighted material you don't have rights to, and don't ask an
-            LLM to reproduce a publisher's text — describe your own homebrew content instead.
+            <strong>Important:</strong> this is for your own original homebrew, not published
+            books you own. Owning a physical or digital copy of a book doesn't give you the
+            right to transcribe or upload its text — that's a separate right publishers don't
+            grant, even for personal use. Don't upload or ask an LLM to reproduce a publisher's
+            rules text; describe your own content in your own words instead.
           </p>
           <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 12, cursor: "pointer" }}>
             <input type="checkbox" checked={rightsAck}
                    onChange={(e) => { setRightsAck(e.target.checked); if (!e.target.checked) setChoice(null); }}
                    style={{ marginTop: 3 }} />
             <span className="byo-note">
-              I confirm I own the rights to this content, or it's my own homebrew.
+              I confirm this is my own original content, not transcribed or copied from a
+              published book.
             </span>
           </label>
         </div>

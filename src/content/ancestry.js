@@ -53,16 +53,61 @@ function traitsOf(rec, reg, source) {
     .map((e) => entryToFeature(e, reg, { source: rec.source, page: rec.page, from: `ancestry ${source}` }));
 }
 
+function collectTables(blocks, out = []) {
+  for (const b of blocks || []) {
+    if (b.type === "table") out.push(b);
+    if (b.blocks) collectTables(b.blocks, out);
+  }
+  return out;
+}
+
+/* The trait whose table lists these options — Tiefling's "Fiendish
+   Legacy" table has an Abyssal/Chthonic/Infernal row for each of its
+   additionalSpells blocks, Elf's "Elven Lineage" table has a
+   Drow/High Elf/Wood Elf row for each of its. Search the already-built
+   traits (rather than the raw JSON entries) so this reuses the same
+   `blocks` the trait itself displays, table nested at whatever depth. */
+function findLineageTable(traits, names) {
+  const wanted = new Set(names.map((n) => n.toLowerCase()));
+  for (const t of traits) {
+    for (const table of collectTables(t.blocks)) {
+      const rows = new Set((table.rows || []).map((r) => String(r[0]).toLowerCase()));
+      if ([...wanted].every((w) => rows.has(w))) return { label: t.name, table };
+    }
+  }
+  return { label: null, table: null };
+}
+
+/* One option's description: its table row, one paragraph per column
+   after the name column (prefixed with that column's own header where
+   there's more than one, e.g. "Level 3. Ray of Sickness."). */
+function lineageOptionBlocks(table, name) {
+  if (!table) return [];
+  const row = table.rows.find((r) => String(r[0]).toLowerCase() === name.toLowerCase());
+  if (!row) return [];
+  return row.slice(1)
+    .map((cell, i) => {
+      const label = table.colLabels[i + 1];
+      return { type: "para", text: label && table.colLabels.length > 2 ? `${label}. ${cell}` : cell };
+    })
+    .filter((p) => p.text);
+}
+
 /* The 2024 species lineage choice, read off named additionalSpells
-   blocks. Their level-1 benefit text lives in the species' own trait
-   table, which stays available as that trait's `blocks`. */
-function lineageChoices(addl) {
+   blocks. Their benefit text lives in the species' own trait table,
+   matched up here so each option can show its own description. */
+function lineageChoices(addl, traits) {
   const named = (addl || []).filter((b) => b.name);
   if (named.length < 2) return [];
+  const { label, table } = findLineageTable(traits, named.map((b) => b.name));
   return [{
     kind: "lineage",
     count: 1,
-    options: named.map((b) => ({ id: slugify(b.name), name: b.name, ability: b.ability, grants: b.grants })),
+    label: label || "Lineage",
+    options: named.map((b) => ({
+      id: slugify(b.name), name: b.name, ability: b.ability, grants: b.grants,
+      blocks: lineageOptionBlocks(table, b.name),
+    })),
   }];
 }
 
@@ -104,7 +149,7 @@ function one(race, sub, reg, mint) {
     blocks: flat.blocks,
     additionalSpells: addl,
     choices: [
-      ...lineageChoices(addl),
+      ...lineageChoices(addl, traits),
       ...skills.choices.map((c) => ({ kind: "skill", ...c })),
       /* `c` already carries its own discriminant ("pick" | "weighted",
          see normAbilityIncrease) for src/rules/choices.js to switch on —

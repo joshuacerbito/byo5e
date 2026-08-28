@@ -75,7 +75,7 @@ console.log("Bindings");
 const GLOBALS = new Set(["React", "window", "document", "Blob", "URL", "setTimeout", "clearTimeout",
   "console", "Math", "Object", "Array", "JSON", "Set", "Map", "Number", "String",
   "Boolean", "undefined", "isNaN", "parseInt", "parseFloat", "localStorage",
-  "Promise", "Error", "File", "navigator", "Date", "Uint8Array", "btoa"]);
+  "Promise", "Error", "File", "navigator", "Date", "Uint8Array", "btoa", "PopStateEvent"]);
 let unbound = 0;
 for (const f of files) {
   if (!asts[f]) continue;

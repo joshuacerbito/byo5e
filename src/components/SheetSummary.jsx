@@ -1,7 +1,8 @@
 import React from "react";
-import { fmt } from "../rules/abilities.js";
+import { fmt, mod } from "../rules/abilities.js";
 import { groupWeapons, splitCastingTime, ACTION_ORDER, ACTION_LABELS, spellHitDC, spellEffect } from "../lib/derive.js";
 import { formatCurrency } from "../lib/currency.js";
+import FeatureBlocks from "./FeatureBlocks.jsx";
 
 /* ------------------------------------------------------------------
    The Sheet step's on-screen summary: everything the printed sheet
@@ -24,12 +25,12 @@ export default function SheetSummary({ ctx }) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
-    savingThrows, skillTable, casting, chosenSpells, otherSpells, appendix, backstory,
-    finalScore, attackRows, carriedWeapons, actions, ancestrySpells,
-    chosenFeats, classFeatures, currency, gearList, toolsList,
+    savingThrows, skillTable, casting, chosenSpells, appendix, backstory,
+    finalScore, attackRows, carriedWeapons, actions, ancestrySpells, abilities,
+    chosenFeats, classFeatures, currency, gearList, toolsList, classLabel, hitDieLabel, totalCharLevel,
   } = ctx;
 
-  const head = [ancestry?.name, klass ? `${klass.name} ${level}` : null,
+  const head = [ancestry?.name, klass ? (classLabel || `${klass.name} ${level}`) : null,
     subclass && subclassReady ? subclass.name : null, background?.name]
     .filter(Boolean).join(" · ");
 
@@ -52,73 +53,97 @@ export default function SheetSummary({ ctx }) {
   return (
     <>
       <div className="byo-panel">
-        <h3>{name.trim() || "Unnamed"}</h3>
-        <p className="byo-note">{head}</p>
+        <h3 className="byo-sum-name">{name.trim() || "Unnamed"}</h3>
+        <p className="byo-note byo-sum-head">{head}</p>
       </div>
 
-      {klass && (
-        <div className="byo-vitals">
-          {[["AC", armorClass], ["HP", hitPoints], ["Initiative", fmt(initiative)],
-            ["Speed", speed]].map(([l, v]) => (
-            <div className="byo-vital" key={l}>
-              <div className="byo-vital-n">{v}</div>
-              <div className="byo-vital-l">{l}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* No ability strip here: the app's own live one (CharacterCreator's
-          `byo-sum` block) is pinned above the step content from the
-          Abilities step onward and shows the identical six numbers. The
-          printed sheet has its own because it has no such running
-          header. */}
-
-      <div className="byo-panel">
-        <h3>Core</h3>
-        {klass && <Row label="Hit die" value={`d${klass.hitDie}`} />}
-        <Row label="Proficiency" value={fmt(pb)} />
-        <Row label="Size" value={resolved.size} />
-        {resolved.darkvision > 0 && <Row label="Darkvision" value={`${resolved.darkvision} ft`} />}
-        {resolved.blindsight > 0 && <Row label="Blindsight" value={`${resolved.blindsight} ft`} />}
-        <Row label="Languages" value={resolved.languages.join(", ")} />
-        {armor && (
-          <Row label="Armor" value={armor.id === "none"
-            ? (shieldOn ? "Shield only" : "None")
-            : `${armor.name}${shieldOn ? " + shield" : ""}`} />
-        )}
-        {passiveSkills.map((p) => (
-          <Row key={p.name} label={`Passive ${p.name}`} value={p.value} />
-        ))}
-      </div>
-
-      {savingThrows.length > 0 && (
-        <div className="byo-panel">
-          <h3>Saving throws</h3>
-          {savingThrows.map((s) => (
-            <div className="byo-row" key={s.key}>
-              <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-              <span className="byo-row-label">{s.label}</span>
-              <span className="byo-final">{fmt(s.value)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {skillTable.length > 0 && (
-        <div className="byo-panel">
-          <h3>Skills</h3>
-          {/* Two tracks, the same shape the printed sheet's .sk grid uses —
-              eighteen skills is a long single column to scan. */}
-          <div className="byo-sk-grid">
-            {skillTable.map((s) => (
-              <div className="byo-row" key={s.name}>
-                <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
-                <span className="byo-row-label">{s.name}
-                  <span className="byo-ac-parts">{s.ability}</span></span>
-                <span className="byo-final">{fmt(s.value)}</span>
+      {abilities?.length > 0 && (
+        <div className="byo-sum-block">
+          <h3 className="byo-sum-h">Abilities</h3>
+          <div className="byo-sum byo-sum-lg">
+            {abilities.map((a) => (
+              <div className="byo-sum-c" key={a.key}>
+                <div className="byo-sum-k">{a.key.toUpperCase()}</div>
+                <div className="byo-sum-v">{a.mod}</div>
+                <div className="byo-sum-m">{a.score}</div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {klass && (
+        <div className="byo-sum-block">
+          <h3 className="byo-sum-h">Vitals</h3>
+          <div className="byo-vitals byo-vitals-5">
+            <div className="byo-vital byo-vital-ac"><div className="byo-vital-n">{armorClass}</div><div className="byo-vital-l">AC</div></div>
+            <div className="byo-vital byo-vital-hp">
+              <div className="byo-vital-n">{hitPoints}</div>
+              {/* hitPoints() (rules/combat.js) is exactly hitDie + (level-1)×avg,
+                  plus the Con modifier once per level — so that second term is
+                  what actually adds up to the total above. */}
+              <div className="byo-vital-l">HP ({hitDieLabel || `${level}d${klass.hitDie}`}{fmt(mod(finalScore("con")) * (totalCharLevel ?? level))})</div>
+            </div>
+            <div className="byo-vital byo-vital-pb"><div className="byo-vital-n">{fmt(pb)}</div><div className="byo-vital-l">Proficiency</div></div>
+            <div className="byo-vital byo-vital-init"><div className="byo-vital-n">{fmt(initiative)}</div><div className="byo-vital-l">Initiative</div></div>
+            <div className="byo-vital byo-vital-speed"><div className="byo-vital-n">{speed}</div><div className="byo-vital-l">Speed</div></div>
+          </div>
+        </div>
+      )}
+
+      {/* Skills gets its own half, spanning all three of the others stacked
+          down the other half — eighteen skills in one column runs about as
+          tall as those three panels combined, so the two halves read as
+          roughly even. Four independent grid items (not skills-plus-a-
+          wrapper) so mobile can reorder them individually below. */}
+      {(skillTable.length > 0 || savingThrows.length > 0 || passiveSkills.length > 0) && (
+        <div className="byo-summary-split">
+          {skillTable.length > 0 && (
+            <div className="byo-panel byo-sum-skills">
+              <h3>Skills</h3>
+              {skillTable.map((s) => (
+                <div className="byo-row" key={s.name}>
+                  <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                  <span className="byo-row-label">{s.name} <span className="byo-skab">({s.ability.toUpperCase()})</span></span>
+                  <span className="byo-final">{fmt(s.value)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {savingThrows.length > 0 && (
+            <div className="byo-panel byo-sum-saves">
+              <h3>Saving throws</h3>
+              {savingThrows.map((s) => (
+                <div className="byo-row" key={s.key}>
+                  <span className={`byo-dot${s.proficient ? " is-on" : ""}`} aria-hidden="true" />
+                  <span className="byo-row-label">{s.label}</span>
+                  <span className="byo-final">{fmt(s.value)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {passiveSkills.length > 0 && (
+            <div className="byo-panel byo-sum-passive">
+              <h3>Passive skills</h3>
+              {passiveSkills.map((p) => (
+                <Row key={p.name} label={`Passive ${p.name}`} value={p.value} />
+              ))}
+            </div>
+          )}
+
+          <div className="byo-panel byo-sum-core">
+            <h3>Core</h3>
+            <Row label="Size" value={resolved.size} />
+            {resolved.darkvision > 0 && <Row label="Darkvision" value={`${resolved.darkvision} ft`} />}
+            {resolved.blindsight > 0 && <Row label="Blindsight" value={`${resolved.blindsight} ft`} />}
+            <Row label="Languages" value={resolved.languages.join(", ")} />
+            {armor && (
+              <Row label="Armor" value={armor.id === "none"
+                ? (shieldOn ? "Shield only" : "None")
+                : `${armor.name}${shieldOn ? " + shield" : ""}`} />
+            )}
           </div>
         </div>
       )}
@@ -201,11 +226,6 @@ export default function SheetSummary({ ctx }) {
               })}
             </div>
           )}
-          {otherSpells.trim() && (
-            <p className="byo-note" style={{ marginTop: 6 }}>
-              Other: {otherSpells.split("\n").map((x) => x.trim()).filter(Boolean).join(", ")}.
-            </p>
-          )}
         </div>
       )}
 
@@ -230,7 +250,7 @@ export default function SheetSummary({ ctx }) {
         {resolved.traits.map((t) => (
           <div className="byo-trait" key={t.name}>
             <div className="byo-trait-n">{t.name}</div>
-            <div className="byo-trait-t">{t.text}</div>
+            <div className="byo-trait-t"><FeatureBlocks blocks={t.blocks} /></div>
           </div>
         ))}
         {resolved.droppedTraits.length > 0 && (
@@ -246,7 +266,7 @@ export default function SheetSummary({ ctx }) {
           {classNow.map((f, i) => (
             <div className="byo-trait" key={`${f.level}-${f.name}-${i}`}>
               <div className="byo-trait-n">{f.name} <span className="src">level {f.level}</span></div>
-              <div className="byo-trait-t">{f.text}</div>
+              <div className="byo-trait-t"><FeatureBlocks blocks={f.blocks} /></div>
             </div>
           ))}
         </div>
@@ -259,7 +279,7 @@ export default function SheetSummary({ ctx }) {
             <div className="byo-trait" key={feat.id}>
               <div className="byo-trait-n">{feat.name}
                 <span className="src">{from}{bonus ? ` · ${bonus}` : ""}</span></div>
-              <div className="byo-trait-t">{feat.text}</div>
+              <div className="byo-trait-t"><FeatureBlocks blocks={feat.blocks} /></div>
             </div>
           ))}
         </div>
@@ -270,7 +290,7 @@ export default function SheetSummary({ ctx }) {
           <h3>Background <span className="byo-count">{background.name}</span></h3>
           <div className="byo-trait">
             <div className="byo-trait-n">{background.feature.name}</div>
-            <div className="byo-trait-t">{background.feature.text}</div>
+            <div className="byo-trait-t"><FeatureBlocks blocks={background.feature.blocks} /></div>
           </div>
         </div>
       )}
@@ -306,7 +326,7 @@ export default function SheetSummary({ ctx }) {
               {appendix.filter((a) => a.group === g).map((a, i) => (
                 <div className="byo-trait" key={`${g}-${i}`}>
                   <div className="byo-trait-n">{a.name}</div>
-                  <div className="byo-trait-t">{a.text}</div>
+                  <div className="byo-trait-t"><FeatureBlocks blocks={a.blocks} /></div>
                 </div>
               ))}
             </div>
