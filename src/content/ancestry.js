@@ -142,7 +142,15 @@ function one(race, sub, reg, mint) {
     skills,
     tools: bothProf(sub, race, "toolProficiencies", normTools),
     weapons: bothProf(sub, race, "weaponProficiencies", normWeaponUids),
-    resist: (pick(sub, race, "resist") || []).map(String),
+    /* Damage resistances arrive as either a bare type ("poison", Dwarf)
+       or a choice ({ choose: { from: [...] } } — Dragonborn's Draconic
+       Ancestry, Tiefling's Legacy), so they can't all be String()d into
+       a name: that printed "[object Object]" for every choice-shaped
+       one. Both are normalized to the same record, and the caller
+       decides how to render a choice it can't resolve to one type. */
+    resist: (pick(sub, race, "resist") || []).map((r) => (typeof r === "string"
+      ? { type: String(r), from: null }
+      : { type: null, from: (r?.choose?.from || []).map(String) })),
     traitTags: (pick(sub, race, "traitTags") || []).slice(),
     traits,
     text: flat.text,

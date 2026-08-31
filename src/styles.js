@@ -10,7 +10,7 @@
    one deliberate exception is print/PDF export (src/pdf/, sheetHtml.js),
    which is a separate styling system and out of scope here. */
 export const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Vollkorn:ital,wght@0,400;0,600;0,700;1,400&family=Courier+Prime:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Vollkorn:ital,wght@0,400;0,600;0,700;1,400&family=Space+Mono:wght@400;700&display=swap');
 
 .byo-root, .byo-root *, .byo-root *::before, .byo-root *::after{box-sizing:border-box;}
 .byo-root{
@@ -47,7 +47,7 @@ export const STYLES = `
   text-align:left;}
 .byo-h1-link:hover{color:#9C3A3A;}
 .byo-h1-link:focus-visible{outline:2px solid var(--jade);outline-offset:3px;}
-.byo-h2{font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:.18em;
+.byo-h2{font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.18em;
   text-transform:uppercase;color:var(--bone-dim);margin:10px 0 22px;}
 /* Total Level, Class step once multiclassed — the single most prominent
    thing on the page, same weight class as the app's own h1 but its own
@@ -81,10 +81,10 @@ export const STYLES = `
 .byo-chev.is-now{background:var(--rock-2);border-color:var(--gold-dim);}
 .byo-chev-n{display:flex;align-items:center;justify-content:center;flex:none;
   width:20px;height:20px;border-radius:50%;border:1px solid var(--bone-dim);
-  font-family:'Courier Prime',monospace;font-size:11px;font-weight:700;color:var(--bone-dim);}
+  font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--bone-dim);}
 .byo-chev.is-now .byo-chev-n{border-color:var(--gold);color:var(--gold);}
 .byo-chev.is-done .byo-chev-n{border-color:var(--jade);color:var(--jade);background:rgba(63,107,63,.12);}
-.byo-chev-label{font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:.08em;
+.byo-chev-label{font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--bone-dim);}
 .byo-chev.is-now .byo-chev-label{color:var(--gold);}
 .byo-chev.is-done .byo-chev-label{color:var(--jade);}
@@ -100,7 +100,7 @@ export const STYLES = `
   .byo-rail-select{display:block;width:100%;margin:0 0 22px;appearance:none;
     background:var(--rock) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="%237A2E2E"/></svg>') no-repeat right 14px center;
     border:1px solid var(--gold-dim);border-radius:3px;color:var(--gold);
-    font-family:'Courier Prime',monospace;font-size:13px;letter-spacing:.05em;
+    font-family:'Space Mono',monospace;font-size:13px;letter-spacing:.05em;
     padding:12px 34px 12px 14px;min-height:44px;}
   .byo-rail-select:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 }
@@ -115,17 +115,18 @@ export const STYLES = `
 .byo-card-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
 .byo-card-name{font-family:'Vollkorn',serif;font-weight:600;font-size:21px;color:var(--bone);flex:1;}
 .byo-card-top .byo-dot{align-self:center;}
-.byo-card-kind{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.14em;
+.byo-card-kind{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--gold-dim);white-space:nowrap;}
 .byo-card-blurb{font-size:14.5px;color:var(--bone-dim);margin:6px 0 10px;line-height:1.45;}
 .byo-pills{display:flex;gap:5px;flex-wrap:wrap;}
-.byo-pill{font-family:'Courier Prime',monospace;font-size:11px;font-weight:700;
+.byo-pill{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
   border:1px solid var(--gold-dim);color:var(--gold);border-radius:2px;padding:2px 6px;}
 .byo-pill.alt{border-color:var(--line);color:var(--bone-dim);}
 
 .byo-panel{position:relative;background:var(--rock);border:1px solid var(--line);border-radius:2px;padding:16px 18px;
   margin-bottom:14px;box-shadow:0 1px 0 rgba(139,111,58,.35),inset 0 0 0 1px rgba(243,234,209,.4);}
-.byo-panel h3{font-family:'Vollkorn',serif;font-weight:600;font-size:17.5px;margin:0 0 10px;}
+.byo-panel h3{font-family:'Vollkorn',serif;font-weight:600;font-size:17.5px;margin:0 0 10px;
+  text-transform:capitalize;}
 /* Header row with a right-aligned action (e.g. the Level panel's "Add new
    Multiclass" CTA) — h3's own bottom margin already spaces it from the
    panel body below, so it's zeroed here to avoid doubling up. */
@@ -159,7 +160,7 @@ export const STYLES = `
 .byo-note{font-size:14.5px;color:var(--bone-dim);line-height:1.5;margin:0;}
 
 .byo-choice{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-.byo-opt{font-family:'Courier Prime',monospace;font-size:12px;font-weight:700;letter-spacing:.08em;
+.byo-opt{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.08em;
   background:transparent;border:1px solid var(--line);color:var(--bone-dim);
   padding:8px 14px;border-radius:2px;cursor:pointer;}
 .byo-opt:hover{border-color:var(--gold-dim);color:var(--bone);}
@@ -170,6 +171,23 @@ export const STYLES = `
    serif, normal case. */
 .byo-opt.byo-tab-class{font-family:'Vollkorn',serif;font-size:16px;font-weight:700;
   letter-spacing:0;text-transform:none;padding:9px 16px;}
+
+/* Real tab strip (Summary step's Actions panel) — underline style, not
+   the pill-choice look .byo-opt uses elsewhere, so it reads as switching
+   a view rather than picking an option. */
+.byo-actiontabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:14px;}
+.byo-actiontab{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.06em;
+  background:transparent;border:none;border-bottom:2px solid transparent;color:var(--bone-dim);
+  padding:8px 12px;margin-bottom:-1px;cursor:pointer;}
+.byo-actiontab:hover{color:var(--bone);}
+.byo-actiontab.is-sel{color:var(--gold);border-bottom-color:var(--gold);}
+.byo-actiontab:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+
+/* Bonus Actions / Reactions tabs: sublists grouping class features,
+   spells, and everything else, each under its own small heading. */
+.byo-actionsub + .byo-actionsub{margin-top:16px;}
+.byo-actionsub h4{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--bone-dim);margin:0 0 6px;}
 
 .byo-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);}
 .byo-row:last-child{border-bottom:none;}
@@ -183,14 +201,14 @@ export const STYLES = `
   color:var(--bone);font-size:16.5px;line-height:1;border-radius:2px;cursor:pointer;}
 .byo-btn-sq:hover:not(:disabled){border-color:var(--gold);color:var(--gold);}
 .byo-btn-sq:disabled{opacity:.28;cursor:not-allowed;}
-.byo-num{font-family:'Courier Prime',monospace;font-size:16.5px;font-weight:700;
+.byo-num{font-family:'Space Mono',monospace;font-size:16.5px;font-weight:700;
   width:24px;text-align:center;}
-.byo-arrow{font-family:'Courier Prime',monospace;font-size:12px;color:var(--gold-dim);width:34px;text-align:center;}
-.byo-final{font-family:'Courier Prime',monospace;font-size:18.5px;font-weight:700;
+.byo-arrow{font-family:'Space Mono',monospace;font-size:12px;color:var(--gold-dim);width:34px;text-align:center;}
+.byo-final{font-family:'Space Mono',monospace;font-size:18.5px;font-weight:700;
   color:var(--gold);width:26px;text-align:right;}
-.byo-mod{font-family:'Courier Prime',monospace;font-size:13px;color:var(--bone-dim);width:32px;text-align:right;}
+.byo-mod{font-family:'Space Mono',monospace;font-size:13px;color:var(--bone-dim);width:32px;text-align:right;}
 .byo-sel{background:var(--rock-2);border:1px solid var(--line);color:var(--bone);
-  font-family:'Courier Prime',monospace;font-size:14.5px;padding:6px 8px;border-radius:2px;}
+  font-family:'Space Mono',monospace;font-size:14.5px;padding:6px 8px;border-radius:2px;}
 
 /* pp/gp/sp/cp fields — four-across on a wide panel, but the panel itself
    narrows to a phone's width long before the row does, so at 4-up each
@@ -204,15 +222,15 @@ export const STYLES = `
 .byo-budget{display:flex;justify-content:space-between;align-items:baseline;
   border:1px solid var(--line);border-radius:3px;padding:10px 14px;margin-bottom:12px;
   background:var(--rock);}
-.byo-budget-n{font-family:'Courier Prime',monospace;font-size:24px;font-weight:700;color:var(--gold);}
+.byo-budget-n{font-family:'Space Mono',monospace;font-size:24px;font-weight:700;color:var(--gold);}
 .byo-budget-n.zero{color:var(--jade);}
-.byo-budget-l{font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.16em;
+.byo-budget-l{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--bone-dim);}
 
 .byo-trait{padding:9px 0;border-bottom:1px solid var(--line);}
 .byo-trait:last-child{border-bottom:none;}
 .byo-trait-n{font-weight:700;font-size:14.5px;color:var(--bone);}
-.byo-trait-n .src{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.1em;
+.byo-trait-n .src{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--gold-dim);margin-left:7px;}
 .byo-trait-t{font-size:14.5px;color:var(--bone-dim);line-height:1.5;margin-top:2px;}
 
@@ -223,7 +241,7 @@ export const STYLES = `
 .byo-fb-section{margin:10px 0;}
 .byo-fb-section:first-child{margin-top:0;}
 .byo-fb-section:last-child{margin-bottom:0;}
-.byo-fb-h{font-family:'Courier Prime',monospace;font-size:11.5px;letter-spacing:.08em;
+.byo-fb-h{font-family:'Space Mono',monospace;font-size:11.5px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--gold-dim);margin:0 0 4px;}
 .byo-fb-list{margin:0 0 8px;padding-left:18px;}
 .byo-fb-list:last-child{margin-bottom:0;}
@@ -234,13 +252,13 @@ export const STYLES = `
 .byo-fb-table-wrap{overflow-x:auto;margin:0 0 8px;-webkit-overflow-scrolling:touch;}
 .byo-fb-caption{font-size:12.5px;color:var(--bone-dim);margin:0 0 4px;}
 .byo-fb-table{border-collapse:collapse;width:100%;font-size:13.5px;color:var(--bone-dim);}
-.byo-fb-table th{font-family:'Courier Prime',monospace;font-size:10.5px;letter-spacing:.08em;
+.byo-fb-table th{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.08em;
   text-transform:uppercase;color:var(--bone-dim);text-align:left;padding:4px 10px 4px 0;
   border-bottom:1px solid var(--line);white-space:nowrap;}
 .byo-fb-table td{padding:5px 10px 5px 0;border-bottom:1px solid var(--line);white-space:nowrap;}
 .byo-fb-table tr:last-child td{border-bottom:none;}
 
-.byo-actgroup-l{font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.14em;
+.byo-actgroup-l{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--jade);margin:14px 0 4px;}
 .byo-actgroup-l:first-child{margin-top:0;}
 
@@ -254,7 +272,7 @@ export const STYLES = `
 
 .byo-filter-row{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:10px;}
 .byo-filter-grp{display:flex;flex-direction:column;}
-.byo-filter-lbl{display:block;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.12em;
+.byo-filter-lbl{display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;
   color:var(--bone-dim);margin-bottom:4px;}
 
 .byo-nav{position:fixed;left:0;right:0;bottom:0;background:rgba(234,224,190,.94);
@@ -267,7 +285,7 @@ export const STYLES = `
 .byo-btn-go:hover:not(:disabled){background:#9C3A3A;border-color:#9C3A3A;color:var(--abyss);}
 .byo-btn:disabled{opacity:.32;cursor:not-allowed;}
 .byo-btn:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
-.byo-hint{font-family:'Courier Prime',monospace;font-size:11px;color:var(--coral);
+.byo-hint{font-family:'Space Mono',monospace;font-size:11px;color:var(--coral);
   letter-spacing:.08em;text-transform:uppercase;}
 .byo-linkbtn{font:inherit;background:none;border:none;padding:0;margin:0;cursor:pointer;
   color:var(--gold-dim);text-decoration:underline;text-underline-offset:2px;}
@@ -298,7 +316,7 @@ export const STYLES = `
    so it carries its own page padding — there is no wizard chrome left to
    sit inside when the root boundary is the one that caught. */
 .byo-crash{max-width:640px;margin:0 auto;padding:40px 18px;}
-.byo-crash-msg{margin:14px 0 0;font-family:'Courier Prime',monospace;font-size:12.5px;
+.byo-crash-msg{margin:14px 0 0;font-family:'Space Mono',monospace;font-size:12.5px;
   color:var(--bone-dim);word-break:break-word;}
 
 .byo-btn-danger{border-color:var(--coral);color:var(--coral);}
@@ -319,7 +337,7 @@ export const STYLES = `
 .byo-chip{display:flex;align-items:center;gap:10px;background:var(--rock);
   border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:2px;
   padding:9px 13px;margin-bottom:12px;}
-.byo-chip-k{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.16em;
+.byo-chip-k{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--bone-dim);}
 .byo-chip-v{font-family:'Vollkorn',serif;font-size:16.5px;font-weight:600;color:var(--bone);flex:1;}
 .byo-chip-b{background:none;border:none;color:var(--gold);font-family:'Vollkorn',serif;
@@ -334,11 +352,11 @@ export const STYLES = `
 .byo-suggest-s{font-size:13px;color:var(--bone-dim);line-height:1.45;margin-top:2px;}
 
 .byo-out{width:100%;background:var(--abyss);border:1px solid var(--line);color:var(--bone-dim);
-  font-family:'Courier Prime',monospace;font-size:12.5px;line-height:1.6;padding:12px;
+  font-family:'Space Mono',monospace;font-size:12.5px;line-height:1.6;padding:12px;
   border-radius:2px;resize:vertical;box-sizing:border-box;}
 .byo-out:focus{outline:none;border-color:var(--gold);color:var(--bone);}
 
-.byo-count{font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.12em;
+.byo-count{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--gold);margin-left:8px;font-weight:400;}
 .byo-skills{display:flex;gap:6px;flex-wrap:wrap;}
 .byo-scroll-y{max-height:280px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;
@@ -366,9 +384,9 @@ export const STYLES = `
 .byo-vitals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
 .byo-vital{background:var(--rock);border:1px solid var(--line);border-left:3px solid var(--gold);
   border-radius:3px;padding:12px 8px;text-align:center;}
-.byo-vital-n{font-family:'Courier Prime',monospace;font-size:28.5px;font-weight:700;
+.byo-vital-n{font-family:'Space Mono',monospace;font-size:28.5px;font-weight:700;
   color:var(--gold);line-height:1.1;}
-.byo-vital-l{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.14em;
+.byo-vital-l{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--bone-dim);margin-top:4px;}
 .byo-vital-s{font-size:11px;color:var(--bone-dim);margin-top:3px;min-height:12px;}
 .byo-vital-s u{text-decoration-color:var(--gold-dim);}
@@ -385,9 +403,9 @@ export const STYLES = `
   .byo-vitals-5 .byo-vital-pb{order:4;grid-column:span 3;}
   .byo-vitals-5 .byo-vital-init{order:5;grid-column:span 3;}
 }
-.byo-ac-parts{display:block;font-family:'Courier Prime',monospace;font-size:11.5px;
+.byo-ac-parts{display:block;font-family:'Space Mono',monospace;font-size:11.5px;
   color:var(--bone-dim);margin-top:2px;}
-.byo-skab{font-family:'Courier Prime',monospace;font-size:11.5px;color:var(--bone-dim);}
+.byo-skab{font-family:'Space Mono',monospace;font-size:11.5px;color:var(--bone-dim);}
 /* The one selection/proficiency circle, shared by saving throws, skills and
    the spell picker. Drawn, not typed: Windows renders ●/○ from a fallback
    face at a noticeably smaller size than macOS does. */
@@ -402,22 +420,22 @@ export const STYLES = `
 .byo-cast{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
 .byo-cast-c{background:var(--rock-2);border:1px solid var(--line);border-radius:2px;
   padding:11px 6px;text-align:center;}
-.byo-cast-l{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.14em;
+.byo-cast-l{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--bone-dim);}
-.byo-cast-v{font-family:'Courier Prime',monospace;font-size:24px;font-weight:700;
+.byo-cast-v{font-family:'Space Mono',monospace;font-size:24px;font-weight:700;
   color:var(--gold);line-height:1.3;}
 
 .byo-slots{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
 .byo-slot{border:1px solid var(--gold-dim);border-radius:2px;padding:8px 14px;text-align:center;}
-.byo-slot-l{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.12em;
+.byo-slot-l{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--bone-dim);}
-.byo-slot-n{font-family:'Courier Prime',monospace;font-size:20px;font-weight:700;color:var(--gold);}
+.byo-slot-n{font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--gold);}
 
 .byo-rule{display:flex;align-items:center;gap:12px;margin:22px 0;color:var(--gold-dim);}
 .byo-rule-l{flex:1;height:1px;background:linear-gradient(to right,transparent,var(--line) 30%,var(--line) 70%,transparent);}
 
 .byo-spell-n{font-family:'Vollkorn',serif;font-size:16.5px;font-weight:600;color:var(--bone);}
-.byo-tag{font-family:'Courier Prime',monospace;font-size:9.5px;letter-spacing:.1em;
+.byo-tag{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.1em;
   text-transform:uppercase;border:1px solid var(--gold-dim);color:var(--gold);
   border-radius:2px;padding:1px 5px;}
 .byo-tag.alt{border-color:var(--line);color:var(--bone-dim);}
@@ -431,11 +449,33 @@ export const STYLES = `
 .byo-atk-row{display:grid;grid-template-columns:1.4fr .8fr .7fr .9fr 1.4fr;gap:8px;
   align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;}
 .byo-atk-row:last-child{border-bottom:none;}
-.byo-atk-head{font-family:'Courier Prime',monospace;font-size:10.5px;letter-spacing:.1em;
+.byo-atk-head{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--bone-dim);padding-bottom:8px;}
 .byo-atk-name{font-family:'Vollkorn',serif;font-weight:600;color:var(--bone);
   display:flex;align-items:center;gap:6px;}
-.byo-atk-num{font-family:'Courier Prime',monospace;font-weight:700;color:var(--gold);}
+.byo-atk-name .src{font-family:'Space Mono',monospace;font-size:11px;font-weight:400;color:var(--bone-dim);}
+.byo-atk-num{font-family:'Space Mono',monospace;font-weight:700;color:var(--gold);}
+/* Damage-type glyph, sitting inline after the dice ("1d6-1 <flame>").
+   Optically centred on the numeral's x-height rather than its baseline,
+   which is what -.15em buys. An unmapped type falls back to the word. */
+/* Abbreviated cell text is opt-in: full text everywhere until a
+   layout asks for the short form (see the 430-560 block). */
+.byo-abbr-short{display:none;}
+.byo-dmg{position:relative;display:inline-block;}
+.byo-dmg-i{width:14px;height:14px;margin-left:5px;vertical-align:-.15em;flex:none;}
+.byo-dmg-t{margin-left:5px;font-weight:400;}
+/* Damage-type tooltip, desktop only. hover:hover keeps it off touch
+   screens, where a :hover state sticks after a tap and would leave the
+   label hanging over the row you just opened. */
+@media(hover:hover){
+  .byo-dmg::after{content:attr(data-label);position:absolute;bottom:calc(100% + 6px);left:50%;
+    transform:translateX(-50%);white-space:nowrap;pointer-events:none;opacity:0;
+    background:var(--bone);color:var(--rock);border-radius:3px;padding:3px 7px;
+    font-family:'Space Mono',monospace;font-size:10.5px;font-weight:400;letter-spacing:.06em;
+    text-transform:uppercase;box-shadow:0 2px 6px rgba(43,29,14,.28);
+    transition:opacity .12s ease-out;z-index:5;}
+  .byo-dmg:hover::after{opacity:1;}
+}
 .byo-atk-notes{color:var(--bone-dim);}
 @media (max-width:520px){
   /* Weapon attack table only — :not() keeps this off spell rows, which
@@ -502,9 +542,9 @@ export const STYLES = `
 
 .byo-sum{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:14px;}
 .byo-sum-c{background:var(--rock);border:1px solid var(--line);border-radius:2px;padding:9px 4px;text-align:center;}
-.byo-sum-k{font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.1em;color:var(--bone-dim);}
-.byo-sum-v{font-family:'Courier Prime',monospace;font-size:21px;font-weight:700;color:var(--gold);line-height:1.3;}
-.byo-sum-m{font-family:'Courier Prime',monospace;font-size:12px;color:var(--bone-dim);}
+.byo-sum-k{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--bone-dim);}
+.byo-sum-v{font-family:'Space Mono',monospace;font-size:21px;font-weight:700;color:var(--gold);line-height:1.3;}
+.byo-sum-m{font-family:'Space Mono',monospace;font-size:12px;color:var(--bone-dim);}
 @media(max-width:480px){.byo-sum{grid-template-columns:repeat(3,1fr);}}
 
 .byo-sum-block{margin-bottom:14px;}
@@ -535,5 +575,332 @@ export const STYLES = `
   .byo-summary-split{grid-template-columns:1fr;
     grid-template-areas:"saves" "skills" "passive" "core";}
 }
+
+/* ==================================================================
+   THE SHEET PAGE (/sheet) + its detail drawer.
+
+   Phone-first, and the one screen in the app that breaks the wizard's
+   page rhythm: .byo-sheetpage drops the root's 28px/120px padding so
+   the sticky header sits flush against the top of the viewport and the
+   fixed screen bar sits flush against the bottom.
+
+   Everything BETWEEN those two is deliberately the Summary step's own
+   vocabulary — .byo-panel, .byo-row, .byo-trait, .byo-atk-table — so
+   there is one set of rules for how a character sheet looks, not two.
+   The only markup invented here is the header, the ability grid, the
+   spellcasting trio, the screen bar and the drawer.
+
+   NOTE the header's stat strip is .byo-shvital*, NOT .byo-vital*: the
+   latter is the Summary step's five-up Vitals block and redefining it
+   here silently restyled that page.
+================================================================== */
+.byo-sheetpage{padding:0;}
+.byo-sheet{max-width:820px;margin:0 auto;min-height:100vh;
+  border-left:1px solid var(--line);border-right:1px solid var(--line);}
+@media(max-width:880px){.byo-sheet{border-left:none;border-right:none;}}
+
+.byo-sheet-head{position:sticky;top:0;z-index:20;background:var(--rock);
+  border-bottom:1px solid var(--line-bright);padding:10px 14px;
+  box-shadow:0 6px 14px rgba(43,29,14,.10);}
+.byo-sheet-name{font-family:'Cinzel',serif;font-weight:900;font-size:21px;line-height:1.15;
+  color:var(--gold);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.byo-sheet-sub{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--bone-dim);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* The numbers re-read every turn, sticky with the header. Its own class
+   family, not the Summary step's .byo-vital — that one is a five-up
+   block with 28px numerals and a left rule, far too tall to sit under a
+   name on a phone. */
+.byo-shvitals{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:10px;}
+.byo-shvital{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;padding:6px 2px;
+  border:1px solid var(--line);border-radius:8px;background:var(--abyss);}
+/* Fixed-height top row across all six tiles, so the Rest tile's icon
+   sits on the same baseline as the others' numerals instead of riding
+   low against a numeral's shorter line box. */
+.byo-shvital-n,.byo-shvital .byo-screen-i{height:20px;display:flex;align-items:center;justify-content:center;}
+.byo-shvital-n{font-family:'Cinzel',serif;font-weight:700;font-size:18px;color:var(--bone);line-height:1;}
+.byo-shvital-l{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--bone-dim);text-align:center;}
+/* The Rest tile is a button; everything else in the strip is a readout,
+   so it gets the affordances and the same box. Its icon sits where the
+   others' numeral does, at the numeral's own optical size. */
+.byo-shvital-btn{cursor:pointer;color:var(--gold);font:inherit;}
+.byo-shvital-btn:hover{border-color:var(--line-bright);background:var(--rock-2);}
+.byo-shvital-btn:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+.byo-shvital-btn .byo-screen-i{width:20px;}
+@media(max-width:400px){.byo-shvital-n{font-size:16px;}.byo-shvital-l{font-size:8px;}}
+
+/* Bottom padding clears the fixed screen bar (plus the iOS home
+   indicator, via the safe-area inset). */
+.byo-sheet-body{padding:14px 14px calc(96px + env(safe-area-inset-bottom));}
+
+.byo-abilgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:0 0 16px;}
+@media(max-width:520px){.byo-abilgrid{grid-template-columns:repeat(3,1fr);}}
+.byo-abilcard{display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:9px 4px;border:1px solid var(--line);border-radius:9px;background:var(--rock);
+  cursor:pointer;color:var(--bone);}
+.byo-abilcard:hover{border-color:var(--line-bright);background:var(--rock-2);}
+.byo-abilcard:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+.byo-abilcard-l{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--bone-dim);}
+.byo-abilcard-m{font-family:'Cinzel',serif;font-weight:900;font-size:22px;line-height:1;color:var(--gold);}
+.byo-abilcard-s{font-family:'Space Mono',monospace;font-size:11px;color:var(--bone-dim);}
+
+/* Save DC / Spell Attack / Ability — the three numbers you say out loud
+   when you cast, above the Actions panel's own tabs. */
+.byo-castgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 12px;}
+.byo-cast{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;
+  border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:2px;background:var(--rock);}
+.byo-cast-n{font-family:'Space Mono',monospace;font-weight:700;font-size:24px;color:var(--gold);line-height:1.1;}
+.byo-cast-l{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--bone-dim);text-align:center;}
+
+.byo-slots{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;}
+.byo-slot{border:1px solid var(--line);border-radius:999px;padding:4px 10px;
+  background:var(--rock);font-family:'Space Mono',monospace;font-size:11px;color:var(--bone-dim);}
+.byo-slot b{color:var(--bone);font-weight:700;}
+
+/* A row/trait/table-row that opens the drawer. Same box as its inert
+   twin on the Summary step — only the affordances are added, so the two
+   pages stay one design. */
+.byo-row.is-tap,.byo-trait.is-tap,.byo-atk-row.is-tap{cursor:pointer;}
+.byo-row.is-tap:hover,.byo-trait.is-tap:hover,.byo-atk-row.is-tap:hover{background:var(--rock-2);}
+.byo-row.is-tap:focus-visible,.byo-trait.is-tap:focus-visible,.byo-atk-row.is-tap:focus-visible{
+  outline:2px solid var(--jade);outline-offset:2px;}
+.byo-row-chev,.byo-trait-chev{color:var(--line-bright);font-size:18px;line-height:1;margin-left:8px;}
+.byo-trait.is-tap{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+/* Tap targets: a 15px row is fine to read and too small to hit. */
+.byo-row.is-tap{min-height:42px;}
+.byo-trait.is-tap{min-height:44px;}
+
+/* THE ACTIONS TABLE, THREE WAYS.
+
+   Above 560px it's the plain six-column table the Summary step has
+   always printed. Below that the room runs out, and the split is where
+   it actually runs out rather than at one convenient number:
+
+     430-560px  every column still fits on one line — but only with
+                D&D Beyond's abbreviations ("1A", not "1 action") and
+                the name column squeezed. This is a big phone in
+                portrait and a small tablet.
+     under 430  no arrangement fits six columns and a readable spell
+                name, so the row goes two-line: what you act on up top,
+                the descriptive cells small underneath.
+
+   Everything both narrow modes share lives in the 560 block; the two
+   layouts then override the grid. */
+@media(max-width:560px){
+  /* Full-bleed light band, not a transparent one: .byo-panel's paper
+     ground is what makes small type readable, and the page ground under
+     it is the darker, noisier --abyss. So the card keeps its background
+     and loses everything that made it a card — border, radius, and the
+     box-shadow whose inset 1px rgba(243,234,209,.4) highlight
+     was the pale line still drawing itself around the section. The
+     negative margin cancels .byo-sheet-body's 14px so the band runs to
+     both screen edges. */
+  .byo-sheetpage .byo-flush .byo-panel{background:var(--rock);border:none;box-shadow:none;
+    border-radius:0;padding:12px 14px;margin:0 -14px 14px;}
+  /* A weapon's properties and mastery notes are the widest cell in the
+     table and the least useful mid-turn — they're the first thing in
+     the drawer instead. Sheet only; the Summary step still prints them,
+     since that page is the one you read before play. */
+  .byo-sheetpage .byo-atk-notes,
+  .byo-sheetpage .byo-atk-head:not(.byo-atk-row-spell) span:nth-child(5){display:none;}
+  .byo-sheetpage .byo-atk-row{padding:11px 0;align-items:baseline;}
+  /* Fixed, not auto, widths in both layouts: every row is its own grid,
+     so content-sized columns land in a different place on each one and
+     the numbers come out ragged down the page. */
+  .byo-sheetpage .byo-atk-row>*{font-family:'Space Mono',monospace;
+    font-size:11.5px;color:var(--bone-dim);}
+  .byo-sheetpage .byo-atk-row>.byo-atk-name{font-family:'Vollkorn',serif;color:var(--bone);}
+  .byo-sheetpage .byo-atk-row>.byo-atk-num{color:var(--gold);font-weight:700;}
+  /* The spell level as a badge in the row's left gutter — the slot D&D
+     Beyond puts its Cast/Use button in. */
+  .byo-sheetpage .byo-atk-row-spell>.byo-atk-lvl{grid-column:1;align-self:center;
+    display:flex;align-items:center;justify-content:center;height:22px;
+    border:1px solid var(--line-bright);border-radius:3px;background:var(--abyss);
+    color:var(--gold);}
+  .byo-sheetpage .byo-atk-row-spell>.byo-atk-name{grid-column:2;}
+  /* The one cell you read mid-cast gets a box around it, same as the
+     reference. Only when there's something in it — an outlined em dash
+     is worse than a bare one. */
+  .byo-sheetpage .byo-atk-eff.is-boxed{display:inline-flex;align-items:center;
+    justify-self:start;border:1px solid var(--line-bright);border-radius:3px;
+    padding:2px 6px;background:var(--abyss);}
+}
+
+/* ---- 430-560px: one line, abbreviated ---- */
+@media(min-width:430px) and (max-width:560px){
+  /* Six columns, in D&D Beyond's order: level badge, name, time, range,
+     hit/DC, effect. The header row earns its place again here — it's
+     one line, and it labels columns narrow enough to be ambiguous. */
+  .byo-sheetpage .byo-atk-row-spell{grid-template-columns:24px 1fr 34px 54px 56px 78px;
+    column-gap:6px;}
+  /* Every cell placed by position, not by class, so the header row —
+     whose cells carry no classes — lands in the same columns as the
+     rows under it. Placement is also not optional here: two older
+     narrow-width rules are still in force at this width (the picker's
+     3-across spell regroup at 640, the weapon table's stack at 520) and
+     would otherwise throw the first cell full-width. */
+  .byo-sheetpage .byo-atk-row-spell>*{grid-row:1;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(1){grid-column:2;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(2){grid-column:1;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(3){grid-column:3;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(4){grid-column:4;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(5){grid-column:5;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(6){grid-column:6;}
+  /* Weapons have no level, so they keep four: name, range, hit, damage. */
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell){grid-template-columns:1fr 60px 60px 84px;
+    column-gap:6px;}
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell)>*{grid-row:1;}
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell)>*:nth-child(1){grid-column:1;}
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell)>*:nth-child(2){grid-column:2;}
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell)>*:nth-child(3){grid-column:3;}
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell)>*:nth-child(4){grid-column:4;}
+  .byo-sheetpage .byo-atk-row>.byo-atk-name{font-size:14.5px;}
+  .byo-sheetpage .byo-atk-eff.is-boxed{padding:1px 5px;}
+  /* This is the whole reason the row fits: "1A" for "1 action", "Self"
+     for "Self (30-foot sphere)". Both strings are in the markup (see
+     Abbr in ActionsPanel.jsx); the layout picks. */
+  .byo-abbr-full{display:none;}
+  .byo-abbr-short{display:inline;}
+}
+
+/* ---- under 430px: two lines ---- */
+@media(max-width:429px){
+  /* The column header goes: five labels stacked four lines deep cost
+     more room than the rows they described. Explicit row/column
+     placement per cell, because the cells are separate spans shared
+     with the desktop table and can't be wrapped into one without
+     forking the markup. */
+  .byo-sheetpage .byo-atk-head{display:none;}
+  .byo-sheetpage .byo-atk-row{grid-template-columns:1fr 80px 96px;
+    row-gap:2px;column-gap:8px;}
+  .byo-sheetpage .byo-atk-row>*{grid-row:2;}
+  .byo-sheetpage .byo-atk-row>.byo-atk-name{grid-row:1;grid-column:1;font-size:16px;}
+  .byo-sheetpage .byo-atk-row>.byo-atk-num{font-size:12.5px;}
+  /* Weapons: name / hit / damage up top, range underneath. */
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell)>*:nth-child(2){grid-row:2;grid-column:1;}
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell)>*:nth-child(3){grid-row:1;grid-column:2;}
+  .byo-sheetpage .byo-atk-row:not(.byo-atk-row-spell)>*:nth-child(4){grid-row:1;grid-column:3;}
+  /* Spells:
+       [C]  Fireball        DEX 15   [8d6 <fire>]
+            1 action  150 ft                       */
+  .byo-sheetpage .byo-atk-row-spell{grid-template-columns:26px 1fr 62px 86px;column-gap:6px;}
+  .byo-sheetpage .byo-atk-row-spell>.byo-atk-lvl{grid-row:1/3;}
+  /* Re-asserted after the generic name rule above, which puts every
+     other table's name in column 1 — a spell's column 1 is the badge. */
+  .byo-sheetpage .byo-atk-row-spell>.byo-atk-name{grid-row:1;grid-column:2;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(3){grid-row:2;grid-column:2;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(4){grid-row:2;grid-column:3;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(5){grid-row:1;grid-column:3;}
+  .byo-sheetpage .byo-atk-row-spell>*:nth-child(6){grid-row:1;grid-column:4;}
+}
+
+/* ---------------- accordion rows ---------------- */
+/* Section header: the panel's own h3/h4, plus one control that opens or
+   closes every row under it. The chevron points down when the section
+   is closed and flips up once everything in it is open — the same
+   language as the rows' own chevrons, one level up. */
+.byo-accsec-h{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.byo-accsec-h h3,.byo-accsec-h h4{margin-bottom:6px;}
+.byo-accsec-t{flex:none;display:flex;align-items:center;gap:4px;height:30px;
+  margin:-4px -6px 2px 0;padding:0 6px;border:none;background:none;
+  color:var(--bone-dim);cursor:pointer;border-radius:6px;
+  font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;}
+.byo-accsec-t:hover{color:var(--gold);background:var(--rock-2);}
+.byo-accsec-t:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+.byo-accsec-t svg{width:18px;height:18px;transition:transform .15s ease-out;}
+.byo-accsec-t[aria-expanded="true"] svg{transform:rotate(180deg);}
+
+/* Same box as the .byo-row / .byo-trait it replaces, so the Features
+   and Other lists still read as the same family as everything else on
+   the page — it just expands instead of opening the drawer. */
+.byo-acc{border-bottom:1px solid var(--line);}
+.byo-acc:last-child{border-bottom:none;}
+.byo-acc-h{display:flex;align-items:center;gap:10px;width:100%;min-height:46px;
+  padding:9px 0;background:none;border:none;cursor:pointer;text-align:left;
+  color:var(--bone);font-family:'Vollkorn',serif;font-size:16px;font-weight:600;}
+.byo-acc-h:hover{color:var(--gold);}
+.byo-acc-h:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+.byo-acc-n{flex:1;min-width:0;}
+.byo-acc-n .src{margin-left:8px;font-family:'Space Mono',monospace;font-size:10.5px;
+  font-weight:400;letter-spacing:.06em;text-transform:uppercase;color:var(--bone-dim);}
+/* The chevron IS the open/closed state — points right when collapsed,
+   down when open. */
+.byo-acc-i{flex:none;color:var(--line-bright);font-size:20px;line-height:1;
+  transition:transform .15s ease-out;}
+.byo-acc.is-open .byo-acc-i{transform:rotate(90deg);}
+.byo-acc.is-open .byo-acc-h{color:var(--gold);}
+.byo-acc-b{padding:0 0 12px;font-size:15px;line-height:1.6;color:var(--bone);}
+.byo-acc-b>*:first-child{margin-top:0;}
+
+/* ---------------- the screen bar ---------------- */
+.byo-screens{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;
+  background:var(--rock);border-top:1px solid var(--line-bright);
+  padding-bottom:env(safe-area-inset-bottom);
+  box-shadow:0 -6px 14px rgba(43,29,14,.10);}
+.byo-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;min-height:56px;padding:6px 2px;background:none;border:none;cursor:pointer;
+  color:var(--bone-dim);font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.08em;
+  text-transform:uppercase;border-top:2px solid transparent;margin-top:-1px;}
+.byo-screen:hover{color:var(--bone);}
+.byo-screen.is-sel{color:var(--gold);border-top-color:var(--gold);}
+.byo-screen:focus-visible{outline:2px solid var(--jade);outline-offset:-3px;}
+.byo-screen-i{width:22px;height:22px;}
+/* Icon-only on a phone: six labels don't fit across 390px without
+   truncating to noise. The label stays in the DOM for screen readers. */
+@media(max-width:560px){
+  .byo-screen-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);
+    clip-path:inset(50%);white-space:nowrap;}
+  .byo-screen{min-height:54px;}
+  .byo-screen-i{width:24px;height:24px;}
+}
+
+/* ---------------- detail drawer ---------------- */
+.byo-drawer-bg{position:fixed;inset:0;z-index:60;background:rgba(43,29,14,.5);
+  display:flex;justify-content:flex-end;animation:byo-fade .16s ease-out;}
+.byo-drawer{width:min(460px,100%);max-height:100%;background:var(--rock);
+  border-left:1px solid var(--line-bright);display:flex;flex-direction:column;
+  animation:byo-slidein .2s cubic-bezier(.2,.7,.3,1);}
+/* Below the phone breakpoint the drawer is a bottom sheet instead: a
+   full-height side panel on a 390px-wide screen is just a second page
+   with none of a sheet's "the list is still there behind me" cue. */
+@media(max-width:560px){
+  .byo-drawer-bg{align-items:flex-end;}
+  .byo-drawer{width:100%;max-height:88vh;border-left:none;
+    border-top:1px solid var(--line-bright);border-radius:14px 14px 0 0;
+    animation:byo-slideup .2s cubic-bezier(.2,.7,.3,1);}
+}
+@keyframes byo-fade{from{opacity:0;}to{opacity:1;}}
+@keyframes byo-slidein{from{transform:translateX(18px);opacity:.4;}to{transform:none;opacity:1;}}
+@keyframes byo-slideup{from{transform:translateY(24px);opacity:.4;}to{transform:none;opacity:1;}}
+.byo-drawer:focus{outline:none;}
+.byo-drawer-head{display:flex;align-items:flex-start;gap:10px;padding:14px 16px 10px;
+  border-bottom:1px solid var(--line);flex:none;}
+.byo-drawer-headtext{flex:1;min-width:0;}
+.byo-drawer-t{font-family:'Cinzel',serif;font-weight:700;font-size:20px;line-height:1.2;color:var(--gold);}
+.byo-drawer-s{font-family:'Space Mono',monospace;font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--bone-dim);margin-top:3px;}
+.byo-drawer-x{flex:none;width:36px;height:36px;border-radius:8px;border:1px solid var(--line);
+  background:var(--rock-2);color:var(--bone);font-size:14px;cursor:pointer;}
+.byo-drawer-x:hover{border-color:var(--line-bright);}
+.byo-drawer-x:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+.byo-drawer-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:14px 16px calc(40px + env(safe-area-inset-bottom));font-size:15.5px;line-height:1.6;}
+
+.byo-dstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:6px;margin:0 0 14px;}
+.byo-dstat{display:flex;flex-direction:column;gap:1px;padding:6px 9px;
+  border:1px solid var(--line);border-radius:8px;background:var(--abyss);}
+.byo-dstat-l{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--bone-dim);}
+.byo-dstat-v{font-size:14.5px;color:var(--bone);}
+.byo-dsection{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+.byo-dsection-n{font-family:'Cinzel',serif;font-weight:700;font-size:15px;color:var(--bone);margin-bottom:4px;}
+.byo-dnote{margin-top:14px;}
+
 @media(prefers-reduced-motion:reduce){*{transition:none!important;}}
 `;

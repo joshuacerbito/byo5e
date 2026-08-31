@@ -7,6 +7,61 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-08-31
+
+### Added
+
+- **A mobile-friendly `/sheet` character-sheet route** (`src/components/Sheet.jsx`, new
+  `Drawer.jsx` slide-up panel) — a dedicated at-the-table view of a finished character,
+  separate from the in-wizard Summary step, built for a phone screen rather than the
+  desktop-oriented creator flow.
+- The Summary step's combat panels are now shared components instead of living only in
+  `SheetSummary.jsx`: `ActionsPanel.jsx` (the tabbed Attacks/Spells/Bonus Actions/
+  Reactions/Other Actions panel) and `FeaturesPanel.jsx` (Class Features/Ancestry Traits/
+  Feats/Background) are used by both the Summary step and the new `/sheet` route, so the
+  two stay in sync instead of drifting.
+- `ActionsPanel`'s Spells tab now segments spells into **Cantrips**, **Leveled Spells**,
+  and **Limited Spells** (anything with a `use` cadence, e.g. an ancestry-granted spell
+  that's 1/long rest) instead of one flat list — and the Bonus Actions/Reactions tabs
+  get their own sublists (Class Features / Spells / Other) with each entry's source
+  labeled, so a bonus action like a Barbarian's Rage sits clearly apart from a bonus-
+  action spell.
+- Class/subclass features that carry no structured action-economy field in the SRD pack
+  (most of them — only ancestry traits do) are now sniffed for "as a bonus action" /
+  "as a reaction" in their own text (`inferActionBucket`, `src/lib/derive.js`) so they
+  actually show up in the Bonus Actions/Reactions tabs instead of only ancestry traits
+  ever appearing there. Multiclass features were also never being collected into the
+  actions list at all — fixed alongside this.
+- The Summary/`/sheet` "Class Features" panel is now its own section (renamed from
+  "Features"), tabbed per class when multiclassing, and every panel section heading
+  across the Summary step is now consistently title-cased via CSS rather than
+  case-by-case JSX text.
+- New small supporting pieces: `DamageType.jsx` (damage-type tag styling), `Accordion.jsx`
+  (collapsible section shell used by the new `/sheet` route), `content/basicActions.js`
+  (the standard 5e actions — Dash, Dodge, Help, etc. — for the Other Actions tab), and
+  `lib/sheetEntries.js` (shared row-building helpers for `ActionsPanel`/`FeaturesPanel`).
+
+### Fixed
+
+- The Summary step's identity line no longer shows a class's subclass twice (it was
+  already baked into `classLabel`, e.g. "Fighter 3 (Champion)", and appended again
+  separately) or the character's background (e.g. "Soldier") — background already has
+  its own dedicated panel below.
+- Spell rows granted with a choice-shaped ability (2024 lineages like Tiefling's
+  Fiendish Legacy, where the ability is `{choose: [...]}` rather than a fixed string)
+  now resolve to a real ability instead of `null` — this was showing as a literal
+  `"+null"` Hit/DC on the granted spell (e.g. Fire Bolt from Tiefling). Spell name/source
+  rendering was also fixed where it was concatenating with no separator ("Thaumaturgy
+  Tiefling") and printing a cadence outside of parentheses ("Darkness Tiefling — 1/long
+  rest" instead of "Darkness — Tiefling (1/long rest)").
+- A `.byo-vitals` class name collision between the Summary step and the new `/sheet`
+  route was making one restyle the other unintentionally — scoped apart.
+- `ancestry.resist` printed the literal string `"[object Object]"` for choice-shaped
+  resistances (a race that lets you pick your resistance, e.g. Dragonborn's breath-
+  weapon-linked damage type or Tiefling) instead of the resistance's actual name.
+- An inline `gridTemplateColumns` style was silently overriding the panel grid's own
+  media-query breakpoints — removed so the responsive layout rules actually apply.
+
 ## 2026-08-27
 
 ### Added

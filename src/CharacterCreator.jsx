@@ -27,9 +27,10 @@ import { abilityChoiceSlots, resolveAbilityChoice } from "./rules/choices.js";
 import { meetsPrerequisite } from "./rules/prereq.js";
 import { buildSteps } from "./lib/steps.js";
 import {
-  groupWeapons, spellHitDC, spellEffect, ACTION_ORDER, ACTION_LABELS, BASIC_ACTIONS,
-  recommendedSpread, splitCastingTime,
+  groupWeapons, spellHitDC, spellEffect, ACTION_ORDER, ACTION_LABELS,
+  recommendedSpread, splitCastingTime, inferActionBucket,
 } from "./lib/derive.js";
+import { basicActionNames } from "./content/basicActions.js";
 import { buildSheetHTML } from "./lib/sheetHtml.js";
 import { saveSheetPDF } from "./pdf/sheetPdf.js";
 import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
@@ -43,6 +44,7 @@ import Rule from "./components/Rule.jsx";
 import FeatureBlocks from "./components/FeatureBlocks.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
 import SheetSummary from "./components/SheetSummary.jsx";
+import Sheet from "./components/Sheet.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { useRoute, navigate, goBack } from "./lib/router.js";
 import Splash from "./components/Splash.jsx";
@@ -209,6 +211,10 @@ export default function CharacterCreator() {
   const showPrivacy = route === "/privacy";
   const showAccount = route === "/account";
   const showSplash = route === "/";
+  /* The finished character sheet — where the wizard's last step "Done"
+     leads. A real route like the rest, so it's bookmarkable and
+     browser-Back returns you to the step you left. */
+  const showSheet = route === "/sheet";
 
   /* Account sync — fully inert with no Supabase env vars set (syncEnabled
      false), same "lazy/optional" shape as PDF export. session is null both
@@ -429,9 +435,15 @@ export default function CharacterCreator() {
   const totalCharLevel = totalCharacterLevel([{ level }, ...mcEntries.map((e) => ({ level: e.level }))]);
 
   const addableClasses = useMemo(() => {
+    // No primary class yet means nothing to multiclass alongside — without
+    // this guard, "+ Add new Multiclass" was reachable before picking a
+    // primary class, which sets mcEntries.length > 0 while klass stays
+    // null and blanks the whole Class step (both the class-picker grid and
+    // the {klass && ...} panel are hidden in that state, with no way back).
+    if (!classId) return [];
     const taken = new Set([classId, ...multiclasses.map((m) => m.classId)]);
     return (content?.classes || []).filter((c) => !taken.has(c.id));
-  }, [content, classId, multiclasses]);
+  }, [classId, content, multiclasses]);
 
   const addMulticlass = (id) => {
     setMulticlasses((prev) => [...prev, { classId: id, level: 1, subclassId: null }]);
@@ -778,6 +790,31 @@ export default function CharacterCreator() {
       .flatMap((it) => Array.from({ length: it.quantity || 1 }, () => it.resolved)),
     [classEquipItems, bgEquipItems, customResolved]);
 
+  /* Everything carried, as resolved items rather than the flat display
+     strings `gearList` hands the printed sheet — the Sheet page opens a
+     drawer on each one, which needs the item's own text/blocks, rarity
+     and attunement. Same three sources as gearList, deduped by id (and
+     by attunement, so an attuned Ring of Protection doesn't merge with
+     a spare unattuned one). Starting-kit entries the loaded ruleset
+     can't resolve still get a row, with `item` null. */
+  const inventory = useMemo(() => {
+    const out = [];
+    const push = (res, qty, { attuned = false, fallbackName = null } = {}) => {
+      if (!res) {
+        if (fallbackName) out.push({ id: `raw:${fallbackName}`, name: fallbackName, kind: "gear", qty, attuned: false, item: null });
+        return;
+      }
+      const prev = out.find((r) => r.id === res.id && r.attuned === attuned);
+      if (prev) { prev.qty += qty; return; }
+      out.push({ id: res.id, name: res.name, kind: res.kind, qty, attuned, item: res });
+    };
+    [...classEquipItems, ...bgEquipItems]
+      .filter((it) => !it.currency)
+      .forEach((it) => push(it.resolved, it.quantity || 1, { fallbackName: it.name }));
+    customResolved.forEach((ci) => push(ci.resolved, ci.quantity || 1, { attuned: !!ci.attuned }));
+    return out;
+  }, [classEquipItems, bgEquipItems, customResolved]);
+
   const startingGold = useMemo(() => {
     const cp = [...classEquipItems, ...bgEquipItems]
       .filter((it) => it.currency).reduce((s, it) => s + it.valueCp, 0);
@@ -1076,6 +1113,11 @@ export default function CharacterCreator() {
         range: w.range ? `${w.range.label.replace("/", " / ")} ft` : (w.weaponKind === "ranged" ? "—" : "5 ft"),
         hitOrDC: fmt(atk), damage: w.dmg ? `${w.dmg}${fmt(dmgMod)}` : "—",
         dmgType: w.dmgType, notes: notes.join(", "), proficient,
+        /* The Sheet's weapon drawer prints the properties and
+           masteries in full, not just their labels, so it needs the
+           resolved item rather than the flattened `notes` string.
+           Unused by the print routes, which only read the columns. */
+        weapon: w,
       };
     });
     const strMod = mod(finalScore("str"));
@@ -1084,6 +1126,22 @@ export default function CharacterCreator() {
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [klass, carriedWeapons, weaponProf, pb, scores, arrayAssign, mode, allBonuses]);
+
+  /* How many attacks the Attack action itself makes, from Extra Attack.
+     Multiclassing doesn't add Extra Attacks together — you use whichever
+     single class's own feature is best, so this is a max across classes,
+     not a sum. Fighter is the only SRD class whose count keeps climbing
+     (2 at 5th, 3 at 11th, 4 at 20th, all *in that class*); every other
+     class granting Extra Attack tops out at 2. */
+  const extraAttackCount = (k, lvl) => {
+    if (!featuresAtLevel(k?.features, lvl).some((f) => f.name === "Extra Attack")) return 1;
+    if (k.name === "Fighter") return lvl >= 20 ? 4 : lvl >= 11 ? 3 : 2;
+    return 2;
+  };
+  const attacksPerAction = useMemo(() => Math.max(
+    klass ? extraAttackCount(klass, level) : 1,
+    ...mcEntries.map((e) => extraAttackCount(e.klass, e.level)),
+  ), [klass, level, mcEntries]);
 
   /* ------------------------------------------------------------------
      SPELLCASTING
@@ -1150,12 +1208,25 @@ export default function CharacterCreator() {
     if (!content) return [];
     const rows = [];
     activeAdditionalSpells.forEach((block, bi) => {
-      const abilityMod = block.ability && typeof block.ability === "string" ? mod(finalScore(block.ability)) : null;
+      // 2024 lineages (Tiefling's Fiendish Legacy, etc.) let the player
+      // pick which of a few abilities powers this spellcasting rather
+      // than fixing one — there's no picker UI for that choice yet, so
+      // default to whichever candidate is actually highest, which is
+      // what an optimal pick lands on anyway.
+      let abilityKey = null, abilityMod = null;
+      if (typeof block.ability === "string") {
+        abilityKey = block.ability;
+        abilityMod = mod(finalScore(block.ability));
+      } else if (block.ability?.choose?.length) {
+        abilityKey = block.ability.choose.reduce(
+          (best, k) => (mod(finalScore(k)) > mod(finalScore(best)) ? k : best), block.ability.choose[0]);
+        abilityMod = mod(finalScore(abilityKey));
+      }
       block.grants.forEach((g, gi) => {
         if (level < (g.atLevel ?? 1)) return;
         g.spells.forEach((s) => {
           const sp = content.spells.find((x) => x.name.toLowerCase() === s.name.toLowerCase());
-          if (sp) rows.push({ sp, from: ancestry.name, use: grantCadence(g), abilityMod, key: `${bi}-fixed-${s.name}` });
+          if (sp) rows.push({ sp, from: ancestry.name, use: grantCadence(g), abilityMod, abilityKey, key: `${bi}-fixed-${s.name}` });
         });
         g.choices.forEach((c, ci) => {
           const key = `${bi}-${gi}-${ci}`;
@@ -1163,7 +1234,7 @@ export default function CharacterCreator() {
           const pool = spellsMatchingFilter(content.spells, c.filter);
           picks.forEach((id) => {
             const sp = pool.find((x) => x.id === id);
-            if (sp) rows.push({ sp, from: ancestry.name, use: grantCadence(g), abilityMod, key: `${key}-${id}`, chosen: true });
+            if (sp) rows.push({ sp, from: ancestry.name, use: grantCadence(g), abilityMod, abilityKey, key: `${key}-${id}`, chosen: true });
           });
         });
       });
@@ -1289,20 +1360,45 @@ export default function CharacterCreator() {
 
   const actions = useMemo(() => {
     const out = [];
+    // Ancestry traits carry a structured `action` field from the pack;
+    // class/subclass features don't, so those fall back to sniffing the
+    // feature's own prose (inferActionBucket) for "as a bonus action" /
+    // "as a reaction" — otherwise things like Rage or Second Wind would
+    // never surface here at all.
+    // `category` splits the Summary step's Bonus/Reaction tabs into
+    // sublists (class features vs. everything else) — spells get their
+    // own sublist there straight from chosenSpells/ancestrySpells.
     (ancestry?.traits || []).forEach((t) => {
-      if (t.action) out.push({ name: t.name, source: ancestry.name, action: t.action, text: t.text, blocks: t.blocks,
+      const action = t.action || inferActionBucket(t.text);
+      if (action) out.push({ name: t.name, source: ancestry.name, action, category: "other", text: t.text, blocks: t.blocks,
         section: `Ancestry traits — ${ancestry.name}` });
     });
     activeClassFeatures.forEach((f) => {
-      if (f.action) out.push({ name: f.name, source: klass.name, action: f.action, text: f.text, blocks: f.blocks,
+      const action = f.action || inferActionBucket(f.text);
+      if (action) out.push({ name: f.name, source: klass.name, action, category: "class", text: f.text, blocks: f.blocks,
         section: `${klass.name} features` });
     });
     activeSubclassFeatures.forEach((f) => {
-      if (f.action) out.push({ name: f.name, source: subclass.name, action: f.action, text: f.text, blocks: f.blocks,
+      const action = f.action || inferActionBucket(f.text);
+      if (action) out.push({ name: f.name, source: subclass.name, action, category: "class", text: f.text, blocks: f.blocks,
         section: `${subclass.name}` });
     });
+    mcEntries.forEach((e) => {
+      featuresAtLevel(e.klass.features, e.level).forEach((f) => {
+        const action = f.action || inferActionBucket(f.text);
+        if (action) out.push({ name: f.name, source: e.klass.name, action, category: "class", text: f.text, blocks: f.blocks,
+          section: `${e.klass.name} features` });
+      });
+      if (e.subclass && e.subclassOn) {
+        featuresAtLevel(e.subclass.features, e.level).forEach((f) => {
+          const action = f.action || inferActionBucket(f.text);
+          if (action) out.push({ name: f.name, source: e.subclass.name, action, category: "class", text: f.text, blocks: f.blocks,
+            section: `${e.subclass.name}` });
+        });
+      }
+    });
     return out;
-  }, [ancestry, klass, activeClassFeatures, subclass, activeSubclassFeatures]);
+  }, [ancestry, klass, activeClassFeatures, subclass, activeSubclassFeatures, mcEntries]);
 
   const appendix = useMemo(() => {
     const out = [];
@@ -1476,6 +1572,14 @@ export default function CharacterCreator() {
         ...mcEntries.map((e) => ({ name: e.klass.name, level: e.level, sub: e.subclass && e.subclassOn ? e.subclass.name : null }))]
       .map((c) => `${c.name} ${c.level}${c.sub ? ` (${c.sub})` : ""}`).join(" / ")
     : null;
+  /* Same label with the subclasses dropped — "Fighter 3 / Rogue 2". The
+     Sheet's header identity line wants the classes only; which Martial
+     Archetype you took isn't what you're checking mid-turn, and it's a
+     tap away on the Features screen. */
+  const classLabelShort = klass
+    ? [{ name: klass.name, level }, ...mcEntries.map((e) => ({ name: e.klass.name, level: e.level }))]
+      .map((c) => `${c.name} ${c.level}`).join(" / ")
+    : null;
   const hitDieLabel = klass
     ? [{ hitDie: klass.hitDie, level }, ...mcEntries.map((e) => ({ hitDie: e.klass.hitDie, level: e.level }))]
       .map((c) => `${c.level}d${c.hitDie}`).join(" + ")
@@ -1483,15 +1587,19 @@ export default function CharacterCreator() {
 
   const sheetCtx = {
     ancestry, klass, level, subclass, subclassReady: subclassOn, background, name, resolved,
-    classLabel, hitDieLabel, totalCharLevel,
+    classLabel, classLabelShort, hitDieLabel, totalCharLevel,
     armorClass, hitPoints, speed, initiative: mod(finalScore("dex")), passivePerception: passiveSkills[0]?.value ?? 10,
+    /* The winning AC candidate, not just its number — {label, parts}
+       is the arithmetic ("Chain Mail + DEX +0"), which the Sheet's
+       header opens in a drawer. */
+    bestAC,
     passiveSkills, actions, pb, armor: armor || { id: "none", name: "None" }, shieldOn,
     savingThrows: saveThrowRows.map((s) => ({ key: s.key, label: ABILITIES.find((a) => a.key === s.key)?.label || s.key,
       proficient: s.proficient, value: s.value })),
     abilities: ABILITIES.map(({ key, label }) => ({ key, label,
       mod: fmt(mod(finalScore(key))), score: finalScore(key) })),
     skillTable: skillRows, casting, chosenSpells: pickedSpells, appendix,
-    bgChoice: null, finalScore, attackRows, carriedWeapons, masteryEnabled: true,
+    bgChoice: null, finalScore, attackRows, attacksPerAction, carriedWeapons, masteryEnabled: true,
     startingGold, currency,
     gearList: [
       ...[...classEquipItems, ...bgEquipItems]
@@ -1501,8 +1609,32 @@ export default function CharacterCreator() {
         .map((ci) => `${ci.resolved.name}${ci.quantity > 1 ? ` ×${ci.quantity}` : ""}${magicSuffix(ci.resolved, ci.attuned)}`),
     ],
     toolsList: background?.tools.fixed || [],
+    edition,
+    inventory,
+    /* Senses and damage defenses, for the Sheet's Stats screen. Damage
+       immunities aren't a thing any SRD species or class grants a
+       player character, so `immunities` is an empty list the UI still
+       prints a row for ("None") rather than a field that only appears
+       once some future pack has one. */
+    defenses: {
+      senses: [
+        ...(resolved?.darkvision > 0 ? [["Darkvision", `${resolved.darkvision} ft`]] : []),
+        ...(resolved?.blindsight > 0 ? [["Blindsight", `${resolved.blindsight} ft`]] : []),
+      ],
+      /* A species resistance can be a straight type (Dwarf's poison) or
+         a choice the pack doesn't tie back to a pick (Dragonborn's
+         Draconic Ancestry) — say which choice it is rather than guess a
+         type or drop the row. */
+      resistances: [...new Set([
+        ...(ancestry?.resist || []).map((r) => (r.type
+          ? r.type
+          : `one of ${(r.from || []).join(", ")}`)),
+        ...effectsOfType(activeItemEffects, "resistance").flatMap((e) => e.value || []),
+      ])],
+      immunities: [],
+    },
     ancestrySpells: ancestrySpellGrants.map((g) => ({ ...g.sp, key: g.key, from: g.from, use: g.use,
-      ability: g.abilityMod != null ? casting?.ability : null,
+      ability: g.abilityMod != null ? g.abilityKey : null,
       saveDC: g.abilityMod != null ? 8 + pb + g.abilityMod : null,
       attack: g.abilityMod != null ? pb + g.abilityMod : null })),
     chosenFeats: chosenFeats.map(({ feat, from, bonus }) => ({ id: feat.id, name: feat.name, text: feat.text, feat, from, bonus })),
@@ -1513,6 +1645,21 @@ export default function CharacterCreator() {
         ...(e.subclass && e.subclassOn ? featuresAtLevel(e.subclass.features, e.level) : []),
       ]),
     ].map((f) => ({ level: f.level, name: f.name, text: f.text, blocks: f.blocks })),
+    // Same features as `classFeatures` above, kept per-class instead of
+    // merged flat — only the Summary step's tabbed Class Features panel
+    // reads this; the print routes still use the flat `classFeatures`.
+    classFeatureGroups: klass ? [
+      { classId: klass.id, className: klass.name,
+        features: [...activeClassFeatures, ...activeSubclassFeatures]
+          .map((f) => ({ level: f.level, name: f.name, text: f.text, blocks: f.blocks })) },
+      ...mcEntries.map((e) => ({
+        classId: e.klass.id, className: e.klass.name,
+        features: [
+          ...featuresAtLevel(e.klass.features, e.level).filter((f) => !(e.subclass && e.subclassOn && f.gainsSubclassFeature)),
+          ...(e.subclass && e.subclassOn ? featuresAtLevel(e.subclass.features, e.level) : []),
+        ].map((f) => ({ level: f.level, name: f.name, text: f.text, blocks: f.blocks })),
+      })),
+    ] : [],
     backstory,
   };
 
@@ -1850,6 +1997,66 @@ export default function CharacterCreator() {
     );
   };
 
+  /* Every save/export action, as one block — rendered inline on the
+     wizard's Summary step and again inside the Sheet page's ⋯ drawer,
+     so there's one definition of "the things you can do with a
+     finished character" rather than two that drift apart. */
+  const exportActions = (
+    <>
+      {!allStepsDone && (
+        <p className="byo-warn">Finish every earlier step before saving — check the rail for anything
+          still gold or grey.</p>
+      )}
+      <div className="byo-export byo-export-stack">
+        <div className="byo-export-t">Character sheet</div>
+        <div className="byo-export-alt">
+          <button className="byo-btn byo-btn-go" onClick={printSheet} disabled={!allStepsDone}>Save on Android/Mac/PC</button>
+          <button className="byo-btn byo-btn-ios" onClick={saveForIOS} disabled={!allStepsDone || pdfState === "working"}>
+            {pdfState === "working" ? "Building…" : "Save on iOS"}
+          </button>
+          <button className="byo-btn byo-btn-alt" onClick={saveVector} disabled={!allStepsDone || pdfState === "working"}>Save for other devices</button>
+        </div>
+      </div>
+      <p className="byo-note" style={{ marginTop: -2 }}>
+        <button className="byo-linkbtn" onClick={downloadSheet} disabled={!allStepsDone}>Download the raw HTML</button> instead.
+      </p>
+
+      <div className="byo-export byo-export-stack">
+        <div>
+          <div className="byo-export-t">Character data</div>
+          <div className="byo-export-s">A .json file of every choice you made. Keep it somewhere the browser can't clear.</div>
+        </div>
+        <button className="byo-btn byo-btn-alt" onClick={exportCharacter} disabled={!allStepsDone}>Export .json</button>
+      </div>
+
+      {AUTH_UI_ENABLED && syncEnabled && session && (
+        <div className="byo-export byo-export-stack">
+          <div>
+            <div className="byo-export-t">Your account</div>
+            <div className="byo-export-s">
+              {savedCharacterId ? "Saved to your account — save again to update it there."
+                : "Back this character up to your account so it's there on another device."}
+            </div>
+          </div>
+          <button className="byo-btn byo-btn-alt" onClick={saveToAccount}
+                  disabled={!allStepsDone || saveAccountState === "working"}>
+            {saveAccountState === "working" ? "Saving…" : savedCharacterId ? "Update in account" : "Save to my account"}
+          </button>
+        </div>
+      )}
+      {saveAccountState === "done" && <p className="byo-note">Saved.</p>}
+      {saveAccountState === "limit_reached" && (
+        <p className="byo-warn">
+          Your account already has its full 2 characters. Delete one from
+          {" "}<button className="byo-linkbtn" onClick={() => navigate("/account")}>My Account</button> first.
+        </p>
+      )}
+      {saveAccountState === "error" && <p className="byo-warn">Couldn't save that — try again in a moment.</p>}
+      {pdfState === "error" && <p className="byo-warn">That export failed. Try one of the other buttons.</p>}
+      {!name.trim() && <p className="byo-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>}
+    </>
+  );
+
   /* ------------------------------------------------------------------
      RENDER
   ------------------------------------------------------------------- */
@@ -1861,6 +2068,39 @@ export default function CharacterCreator() {
      above bounces that case home; render guard here is the synchronous
      backstop so nothing signed-out-shaped ever flashes on screen first. */
   if (showAccount) return session ? <Account session={session} onBack={goBack} /> : null;
+  /* /sheet needs a character to render at all — a fresh tab deep-linked
+     to it (or one whose saved state was cleared) has no ancestry, so it
+     falls through to the wizard rather than rendering an empty sheet.
+     Same synchronous-guard shape as /account above. */
+  if (showSheet && ancestry) {
+    return (
+      <Sheet ctx={sheetCtx} onEdit={() => navigate("/create")}
+             exportSection={exportActions}
+             rulesetSection={(
+               <div className="byo-export">
+                 <div>
+                   <div className="byo-export-t">Rulesets</div>
+                   <div className="byo-export-s">Load another SRD-compatible pack to build from.</div>
+                 </div>
+                 <button className="byo-btn byo-btn-alt" onClick={() => navigate("/rulesets")}>Add a ruleset</button>
+               </div>
+             )}
+             accountSection={AUTH_UI_ENABLED && syncEnabled ? (
+               <div className="byo-export">
+                 <div>
+                   <div className="byo-export-t">Account</div>
+                   <div className="byo-export-s">
+                     {session ? "Signed in — your saved characters live here."
+                       : "Sign in to keep characters across devices."}
+                   </div>
+                 </div>
+                 {session
+                   ? <button className="byo-btn byo-btn-alt" onClick={() => navigate("/account")}>My Account</button>
+                   : <button className="byo-btn byo-btn-alt" onClick={signInWithGoogle}>Sign in with Google</button>}
+               </div>
+             ) : null} />
+    );
+  }
   if (showSplash) return (
     <Splash
       onNewCharacter={() => navigate("/create")}
@@ -2922,7 +3162,7 @@ export default function CharacterCreator() {
 
                   <div className="byo-panel">
                     <h3>Actions in Combat</h3>
-                    <p className="byo-note">{BASIC_ACTIONS.join(", ")}.</p>
+                    <p className="byo-note">{basicActionNames(edition).join(", ")}.</p>
                   </div>
                 </>
               )}
@@ -3098,59 +3338,7 @@ export default function CharacterCreator() {
               <SheetSummary ctx={sheetCtx} />
               <Rule />
 
-              {!allStepsDone && (
-                <p className="byo-warn">Finish every earlier step before saving — check the rail above for anything
-                  still gold or grey.</p>
-              )}
-
-              <div className="byo-export byo-export-stack">
-                <div className="byo-export-t">Character sheet</div>
-                <div className="byo-export-alt">
-                  <button className="byo-btn byo-btn-go" onClick={printSheet} disabled={!allStepsDone}>Save on Android/Mac/PC</button>
-                  <button className="byo-btn byo-btn-ios" onClick={saveForIOS} disabled={!allStepsDone || pdfState === "working"}>
-                    {pdfState === "working" ? "Building…" : "Save on iOS"}
-                  </button>
-                  <button className="byo-btn byo-btn-alt" onClick={saveVector} disabled={!allStepsDone || pdfState === "working"}>Save for other devices</button>
-                </div>
-              </div>
-              <p className="byo-note" style={{ marginTop: -2 }}>
-                <button className="byo-linkbtn" onClick={downloadSheet} disabled={!allStepsDone}>Download the raw HTML</button> instead.
-              </p>
-
-              <div className="byo-export byo-export-stack">
-                <div>
-                  <div className="byo-export-t">Character data</div>
-                  <div className="byo-export-s">A .json file of every choice you made. Keep it somewhere the browser can't clear.</div>
-                </div>
-                <button className="byo-btn byo-btn-alt" onClick={exportCharacter} disabled={!allStepsDone}>Export .json</button>
-              </div>
-
-              {AUTH_UI_ENABLED && syncEnabled && session && (
-                <div className="byo-export byo-export-stack">
-                  <div>
-                    <div className="byo-export-t">Your account</div>
-                    <div className="byo-export-s">
-                      {savedCharacterId ? "Saved to your account — save again to update it there."
-                        : "Back this character up to your account so it's there on another device."}
-                    </div>
-                  </div>
-                  <button className="byo-btn byo-btn-alt" onClick={saveToAccount}
-                          disabled={!allStepsDone || saveAccountState === "working"}>
-                    {saveAccountState === "working" ? "Saving…" : savedCharacterId ? "Update in account" : "Save to my account"}
-                  </button>
-                </div>
-              )}
-              {saveAccountState === "done" && <p className="byo-note">Saved.</p>}
-              {saveAccountState === "limit_reached" && (
-                <p className="byo-warn">
-                  Your account already has its full 2 characters. Delete one from
-                  {" "}<button className="byo-linkbtn" onClick={() => navigate("/account")}>My Account</button> first.
-                </p>
-              )}
-              {saveAccountState === "error" && <p className="byo-warn">Couldn't save that — try again in a moment.</p>}
-
-              {pdfState === "error" && <p className="byo-warn">That export failed. Try one of the other buttons.</p>}
-              {!name.trim() && <p className="byo-warn">The sheet will say "Unnamed" unless you fill in a name first.</p>}
+              {exportActions}
 
               <Rule />
               <div className="byo-panel">
@@ -3224,9 +3412,17 @@ export default function CharacterCreator() {
           {here === "Background" && !background && <span className="byo-hint">Pick a background</span>}
           {here === "Spells" && cantripBudget > 0 && pickedCantrips.length === 0 && <span className="byo-hint">Pick your cantrips</span>}
           <button className="byo-btn" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>
+          {/* "Done" on the last step isn't a dead end any more — it leaves
+              the wizard for the Sheet (/sheet), the interactive character
+              sheet you actually play from. Gated on every earlier step
+              being finished, the same bar the exports are held to. */}
           <button className="byo-btn byo-btn-go"
-                  onClick={() => { setStep((s) => Math.min(STEPS.length - 1, s + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                  disabled={step === STEPS.length - 1 || !canAdvance()}>
+                  onClick={() => {
+                    if (step === STEPS.length - 1) { navigate("/sheet"); return; }
+                    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  disabled={step === STEPS.length - 1 ? !allStepsDone : !canAdvance()}>
             {step === STEPS.length - 1 ? "Done" : "Next"}
           </button>
         </div>

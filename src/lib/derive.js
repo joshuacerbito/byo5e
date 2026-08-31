@@ -26,8 +26,18 @@ export const ABIL_LABEL = { str: "STR", dex: "DEX", con: "CON", int: "INT", wis:
    as three identical copies before. SpellTableRow keeps its own, since
    the picker's version also returns an icon flag. */
 export const spellHitDC = (sp, casting) => {
-  if (sp.atk) return casting ? (casting.attack >= 0 ? `+${casting.attack}` : `${casting.attack}`) : "—";
-  if (sp.save) return `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()} ${casting?.saveDC ?? ""}`.trim();
+  // `casting?.attack`/`saveDC` can be null (an ancestry/feat grant with no
+  // resolvable ability) rather than just absent — `null >= 0` is true in
+  // JS, so a loose truthy check here printed a literal "+null". Require an
+  // actual number before formatting either one.
+  if (sp.atk) {
+    if (typeof casting?.attack !== "number") return "—";
+    return casting.attack >= 0 ? `+${casting.attack}` : `${casting.attack}`;
+  }
+  if (sp.save) {
+    if (typeof casting?.saveDC !== "number") return "—";
+    return `${ABIL_LABEL[sp.save] || sp.save.toUpperCase()} ${casting.saveDC}`;
+  }
   return "—";
 };
 
@@ -44,8 +54,19 @@ export const ACTION_ORDER = ["action", "bonus", "reaction", "free"];
 export const ACTION_LABELS = { action: "Actions", bonus: "Bonus Actions",
   reaction: "Reactions", free: "No Action Required" };
 
-export const BASIC_ACTIONS = ["Attack", "Cast a Spell", "Dash", "Disengage", "Dodge",
-  "Help", "Hide", "Ready", "Search", "Use an Object"];
+/* Most class/subclass features (Rage, Second Wind, Flurry of Blows, ...)
+   carry no structured action field in the SRD pack — only ancestry traits
+   do. Rather than leave every one of them untagged (and silently missing
+   from the Bonus Actions / Reactions tabs), sniff the feature's own prose
+   for the standard "as a bonus action" / "as a reaction" phrasing 5e text
+   always uses when a feature is actually one of those. Anything that
+   doesn't match reads as a plain action, same as before. */
+export function inferActionBucket(text) {
+  if (!text) return null;
+  if (/\bas a bonus action\b/i.test(text)) return "bonus";
+  if (/\bas a reaction\b/i.test(text)) return "reaction";
+  return null;
+}
 
 /* Point-buy spread that leans into whatever the chosen class actually
    wants — its primary ability highest, then down through its saves and

@@ -1,8 +1,10 @@
 import React from "react";
 import { fmt, mod } from "../rules/abilities.js";
-import { groupWeapons, splitCastingTime, ACTION_ORDER, ACTION_LABELS, spellHitDC, spellEffect } from "../lib/derive.js";
+import { groupWeapons } from "../lib/derive.js";
 import { formatCurrency } from "../lib/currency.js";
 import FeatureBlocks from "./FeatureBlocks.jsx";
+import ActionsPanel from "./ActionsPanel.jsx";
+import FeaturesPanel from "./FeaturesPanel.jsx";
 
 /* ------------------------------------------------------------------
    The Sheet step's on-screen summary: everything the printed sheet
@@ -25,23 +27,19 @@ export default function SheetSummary({ ctx }) {
   const {
     ancestry, klass, level, subclass, subclassReady, background, name, resolved,
     armorClass, hitPoints, speed, initiative, passiveSkills, pb, armor, shieldOn,
-    savingThrows, skillTable, casting, chosenSpells, appendix, backstory,
-    finalScore, attackRows, carriedWeapons, actions, ancestrySpells, abilities,
-    chosenFeats, classFeatures, currency, gearList, toolsList, classLabel, hitDieLabel, totalCharLevel,
+    savingThrows, skillTable, casting, appendix, backstory,
+    finalScore, carriedWeapons, abilities,
+    currency, gearList, toolsList, classLabel, hitDieLabel, totalCharLevel,
   } = ctx;
 
-  const head = [ancestry?.name, klass ? (classLabel || `${klass.name} ${level}`) : null,
-    subclass && subclassReady ? subclass.name : null, background?.name]
+  // classLabel already carries each class's own subclass in parens
+  // ("Fighter 3 (Champion)"), so don't append subclass again here — and
+  // background isn't part of the identity line, it gets its own panel below.
+  const head = [ancestry?.name, klass ? (classLabel || `${klass.name} ${level}`) : null]
     .filter(Boolean).join(" · ");
 
   const weaponRows = groupWeapons(carriedWeapons || []);
   const gear = [...(gearList || []), ...(toolsList || [])];
-
-  const classNow = classFeatures || [];
-  const appendixGroups = [...new Set((appendix || []).map((a) => a.group))];
-
-  /* Same column template for both tables so they read as one family. */
-  const SPELL_COLS = "1.5fr .7fr .8fr .7fr .9fr .8fr";
 
   const Row = ({ label, value }) => (
     <div className="byo-row">
@@ -49,6 +47,8 @@ export default function SheetSummary({ ctx }) {
       <span className="byo-mod" style={{ width: "auto" }}>{value}</span>
     </div>
   );
+
+  const appendixGroups = [...new Set((appendix || []).map((a) => a.group))];
 
   return (
     <>
@@ -148,45 +148,14 @@ export default function SheetSummary({ ctx }) {
         </div>
       )}
 
-      {attackRows?.length > 0 && (
-        <div className="byo-panel">
-          <h3>Attacks</h3>
-          <div className="byo-atk-table">
-            <div className="byo-atk-row byo-atk-head">
-              <span>Attack</span><span>Range</span><span>Hit / DC</span><span>Damage</span><span>Notes</span>
-            </div>
-            {attackRows.map((r) => (
-              <div className="byo-atk-row" key={r.key}>
-                <span className="byo-atk-name">{r.name}
-                  {!r.proficient && <span className="byo-tag alt">not proficient</span>}</span>
-                <span>{r.range}</span>
-                <span className="byo-atk-num">{r.hitOrDC}</span>
-                <span className="byo-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
-                <span className="byo-atk-notes">{r.notes || "—"}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Name only, grouped by bucket, exactly as the printed sheet does
-          it — the full text is in the feature sections further down. */}
-      {actions?.length > 0 && (
-        <div className="byo-panel">
-          <h3>Class + Ancestry Actions</h3>
-          {ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => (
-            <div key={k}>
-              <div className="byo-actgroup-l">{ACTION_LABELS[k]}</div>
-              {actions.filter((a) => a.action === k).map((a, i) => (
-                <div className="byo-row" key={i}>
-                  <span className="byo-row-label">{a.name}</span>
-                  <span className="byo-mod" style={{ width: "auto" }}>{a.section}</span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Everything you can spend an action, bonus action, or reaction on
+          in a fight — weapon attacks, spells (sorted into their own tab
+          by casting time), and class/ancestry actions — collected under
+          one set of tabs so combat options read together instead of
+          being scattered across the Attacks/Spellcasting/traits panels.
+          Shared with the Sheet page (src/components/ActionsPanel.jsx);
+          no onSelect here, so the rows stay inert. */}
+      <ActionsPanel ctx={ctx} />
 
       {casting && !casting.pending && (
         <div className="byo-panel">
@@ -204,96 +173,15 @@ export default function SheetSummary({ ctx }) {
           {casting.prepared != null && <Row label="Prepared" value={casting.prepared} />}
           {casting.known != null && <Row label="Known" value={casting.known} />}
           {casting.spellbook != null && <Row label="Spellbook" value={casting.spellbook} />}
-
-          {chosenSpells.length > 0 && (
-            <div className="byo-atk-table" style={{ marginTop: 10 }}>
-              <div className="byo-atk-row byo-atk-head" style={{ gridTemplateColumns: SPELL_COLS }}>
-                <span>Spell</span><span>Lvl</span><span>Time</span><span>Range</span>
-                <span>Hit / DC</span><span>Effect</span>
-              </div>
-              {chosenSpells.map((sp) => {
-                const { head: time } = splitCastingTime(sp.time);
-                return (
-                  <div className="byo-atk-row" key={sp.name} style={{ gridTemplateColumns: SPELL_COLS }}>
-                    <span className="byo-atk-name">{sp.name}</span>
-                    <span className="byo-atk-num">{sp.level === 0 ? "C" : sp.level}{sp.higherLevels ? "+" : ""}</span>
-                    <span>{time}</span>
-                    <span>{sp.range}</span>
-                    <span className="byo-atk-num">{spellHitDC(sp, casting)}</span>
-                    <span className="byo-atk-num">{spellEffect(sp)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          {/* The spell list itself lives in the Actions panel's Spells /
+              Bonus Actions / Reactions tabs, sorted by casting time. */}
         </div>
       )}
 
-      {ancestrySpells?.length > 0 && (
-        <div className="byo-panel">
-          <h3>Ancestry spells</h3>
-          {ancestrySpells.map((sp) => (
-            <div className="byo-trait" key={sp.key}>
-              <div className="byo-trait-n">{sp.name}
-                <span className="src">{sp.from}{sp.use ? ` — ${sp.use}` : ""}</span></div>
-              <div className="byo-trait-t">
-                {sp.level === 0 ? "Cantrip" : `Level ${sp.level}`}. {splitCastingTime(sp.time).head}, {sp.range}.
-                {sp.ability ? ` DC ${sp.saveDC}, attack ${fmt(sp.attack)} (${sp.ability.toUpperCase()}).` : ""}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="byo-panel">
-        <h3>Ancestry traits <span className="byo-count">{ancestry.name}</span></h3>
-        {resolved.traits.map((t) => (
-          <div className="byo-trait" key={t.name}>
-            <div className="byo-trait-n">{t.name}</div>
-            <div className="byo-trait-t"><FeatureBlocks blocks={t.blocks} /></div>
-          </div>
-        ))}
-        {resolved.droppedTraits.length > 0 && (
-          <p className="byo-note" style={{ marginTop: 10 }}>
-            Replaced by this lineage: {resolved.droppedTraits.map((t) => t.name).join(", ")}.
-          </p>
-        )}
-      </div>
-
-      {classNow.length > 0 && (
-        <div className="byo-panel">
-          <h3>Features</h3>
-          {classNow.map((f, i) => (
-            <div className="byo-trait" key={`${f.level}-${f.name}-${i}`}>
-              <div className="byo-trait-n">{f.name} <span className="src">level {f.level}</span></div>
-              <div className="byo-trait-t"><FeatureBlocks blocks={f.blocks} /></div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {chosenFeats?.length > 0 && (
-        <div className="byo-panel">
-          <h3>Feats</h3>
-          {chosenFeats.map(({ feat, from, bonus }) => (
-            <div className="byo-trait" key={feat.id}>
-              <div className="byo-trait-n">{feat.name}
-                <span className="src">{from}{bonus ? ` · ${bonus}` : ""}</span></div>
-              <div className="byo-trait-t"><FeatureBlocks blocks={feat.blocks} /></div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {background?.feature && (
-        <div className="byo-panel">
-          <h3>Background <span className="byo-count">{background.name}</span></h3>
-          <div className="byo-trait">
-            <div className="byo-trait-n">{background.feature.name}</div>
-            <div className="byo-trait-t"><FeatureBlocks blocks={background.feature.blocks} /></div>
-          </div>
-        </div>
-      )}
+      {/* Class features (tabbed per class when multiclassed), ancestry
+          traits, feats and the background feature — also shared with the
+          Sheet page, and also inert without onSelect. */}
+      <FeaturesPanel ctx={ctx} />
 
       <div className="byo-panel">
         <h3>Inventory</h3>
