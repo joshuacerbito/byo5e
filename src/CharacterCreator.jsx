@@ -1012,6 +1012,15 @@ export default function CharacterCreator() {
     const set = new Set([...featuresByLevel.keys(), ...asiLevelsReached]);
     return [...set].filter((l) => l <= level).sort((a, b) => a - b);
   }, [featuresByLevel, asiLevelsReached, level]);
+  /* Which level panel the subclass choice sits above. Comes from the
+     pack, never from a hardcoded 3: the 2024 classes all say 3, but 2014
+     Clerics/Sorcerers/Warlocks say 1 and Wizards say 2. Null when that
+     level isn't on screen yet — the panel then goes last. */
+  const subclassAnchor = useMemo(
+    () => (klass?.subclassLevel != null && levelsShown.includes(klass.subclassLevel)
+      ? klass.subclassLevel : null),
+    [klass, levelsShown]);
+
 
   /* ------------------------------------------------------------------
      DEFENSES — AC, saves, passives, attacks
@@ -1778,6 +1787,43 @@ export default function CharacterCreator() {
   // step's per-class tabs (one call per active tab) once there's at least
   // one multiclass entry; the entry-picker under the Multiclass panel calls
   // addMulticlass directly instead of going through here.
+  /* The subclass panel renders next to the level that actually earns it,
+     which is class- AND edition-dependent: 2024 unified every class on
+     level 3, but 2014 has Clerics/Sorcerers/Warlocks choosing at 1 and
+     Wizards at 2. klass.subclassLevel already carries that number (it's
+     read off the pack's own subclass feature levels in content/classes.js),
+     so nothing here hardcodes a level. */
+  const renderSubclassPanel = () => (
+    <div className="byo-panel">
+      {subclassOn && !subclass && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
+      <h3>{klass.subclassTitle || "Subclass"}</h3>
+      {!subclassOn ? (
+        <p className="byo-note">{klass.name}s choose at level {klass.subclassLevel}. You're level {level}, so nothing to decide yet.</p>
+      ) : (
+        <div className="byo-card-grid" style={{ marginTop: 8 }}>
+          {klass.subclasses.map((s) => {
+            const sel = s.id === subclassId;
+            const now = featuresAtLevel(s.features, level);
+            return (
+              <button key={s.id} className={`byo-card ${sel ? "is-sel" : ""}`}
+                      onClick={() => { setSubclassId(s.id); setOptionPicks({}); }} aria-pressed={sel}>
+                <div className="byo-card-top">
+                  <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
+                  <span className="byo-card-name">{s.name}</span>
+                  {s.page && <span className="byo-card-kind">p.{s.page}</span>}
+                </div>
+                <div className="byo-pills" style={{ marginTop: 8 }}>
+                  {now.length ? now.map((f) => <span className="byo-pill" key={f.id}>{f.name}</span>)
+                    : <span className="byo-pill alt">no features yet</span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   const renderMcEntryCard = (e) => {
     const req = e.klass.multiclassing?.requirements;
     const ok = meetsMcPrereq(e.klass);
@@ -2542,35 +2588,6 @@ export default function CharacterCreator() {
                       </div>
                     </div>
                   )}
-                  <div className="byo-panel">
-                    {subclassOn && !subclass && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
-                    <h3>{klass.subclassTitle || "Subclass"}</h3>
-                    {!subclassOn ? (
-                      <p className="byo-note">{klass.name}s choose at level {klass.subclassLevel}. You're level {level}, so nothing to decide yet.</p>
-                    ) : (
-                      <div className="byo-card-grid" style={{ marginTop: 8 }}>
-                        {klass.subclasses.map((s) => {
-                          const sel = s.id === subclassId;
-                          const now = featuresAtLevel(s.features, level);
-                          return (
-                            <button key={s.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                                    onClick={() => { setSubclassId(s.id); setOptionPicks({}); }} aria-pressed={sel}>
-                              <div className="byo-card-top">
-                                <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
-                                <span className="byo-card-name">{s.name}</span>
-                                {s.page && <span className="byo-card-kind">p.{s.page}</span>}
-                              </div>
-                              <div className="byo-pills" style={{ marginTop: 8 }}>
-                                {now.length ? now.map((f) => <span className="byo-pill" key={f.id}>{f.name}</span>)
-                                  : <span className="byo-pill alt">no features yet</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
                   <CoreTraits klass={klass} skillsLeft={skillsLeft}
                               skillChoiceText={classSkillCount > 0 ? `Choose ${classSkillCount}` : null}>
                     {/* The functional control. The table row above only says
@@ -2644,12 +2661,15 @@ export default function CharacterCreator() {
                       multiclass entry's own features already show in its
                       own tab via renderMcEntryCard. ---- */}
                   {classTab === 0 && (levelsShown.length === 0 ? (
-                    <div className="byo-stub">
-                      <p className="byo-stub-t">Nothing yet</p>
-                      <p className="byo-stub-s">
-                        {klass.name}s get their first feature at level {(klass.features?.[0]?.level) ?? 1}.
-                      </p>
-                    </div>
+                    <>
+                      {klass.subclassLevel != null && renderSubclassPanel()}
+                      <div className="byo-stub">
+                        <p className="byo-stub-t">Nothing yet</p>
+                        <p className="byo-stub-s">
+                          {klass.name}s get their first feature at level {(klass.features?.[0]?.level) ?? 1}.
+                        </p>
+                      </div>
+                    </>
                   ) : levelsShown.map((atLevel) => {
                     const feats = featuresByLevel.get(atLevel) || [];
                     const isAsi = asiLevelsReached.includes(atLevel);
@@ -2657,7 +2677,14 @@ export default function CharacterCreator() {
                     const pool = isAsi ? asiFeatPool(atLevel) : [];
                     const asiFeat = isAsi ? pool.find((f) => f.id === entry?.featId) : null;
                     return (
-                      <div className="byo-panel" key={atLevel}>
+                      <React.Fragment key={atLevel}>
+                      {/* The subclass choice belongs to one specific level,
+                          so it renders directly above that level's panel
+                          rather than at the top of the step. When the
+                          character hasn't reached it yet there is no such
+                          panel, so it goes last instead (see below). */}
+                      {atLevel === subclassAnchor && renderSubclassPanel()}
+                      <div className="byo-panel">
                         {isAsi && !asiComplete(atLevel) && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
                         <h3>Level {atLevel} {isAsi && <span className="byo-count">{asiComplete(atLevel) ? "done" : "to pick"}</span>}</h3>
                         {feats.map((f) => (
@@ -2716,8 +2743,16 @@ export default function CharacterCreator() {
                           </>
                         )}
                       </div>
+                      </React.Fragment>
                     );
                   }))}
+                  {/* Below the class's own subclass level (2014 Wizards at 1,
+                      say): there's no level panel to sit above, so the "you
+                      choose at level N" note lands at the end of the list,
+                      which is where the next level would appear. */}
+                  {classTab === 0 && klass.subclassLevel != null
+                    && subclassAnchor == null && levelsShown.length > 0
+                    && renderSubclassPanel()}
                 </>
               )}
             </>
