@@ -157,14 +157,14 @@ export const STYLES = `
 .byo-ct-bullets{margin:0 0 14px;padding-left:18px;font-size:14.5px;color:var(--bone-dim);line-height:1.5;}
 .byo-ct-bullets li{margin:2px 0;}
 .byo-ct-table{border:1px solid var(--line);border-radius:2px;overflow:hidden;}
-.byo-ct-cap{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;
-  text-transform:uppercase;color:var(--gold);background:var(--rock-2);
-  padding:8px 12px;border-bottom:1px solid var(--line);}
 .byo-ct-row{display:grid;grid-template-columns:200px 1fr;gap:12px;padding:9px 12px;
   border-bottom:1px solid var(--line);font-size:14.5px;line-height:1.45;}
 .byo-ct-row:last-child{border-bottom:none;}
-/* Alternating shade, as the reference prints it. */
-.byo-ct-row:nth-child(even){background:var(--rock-2);}
+/* Alternating shade, as the reference prints it. Odd, not even: the
+   caption row that used to be the table's first child is gone (the
+   section header above says the same thing), so the first trait row is
+   now child 1 and would otherwise come out unshaded. */
+.byo-ct-row:nth-child(odd){background:var(--rock-2);}
 .byo-ct-k{font-weight:600;}
 .byo-ct-v{color:var(--bone-dim);min-width:0;overflow-wrap:anywhere;}
 /* The picker is the one thing on this panel the player has to ACT on,

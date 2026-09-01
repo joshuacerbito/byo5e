@@ -97,7 +97,6 @@ export default function CoreTraits({ klass, skillChoiceText, skillsLeft, childre
           </ul>
 
           <div className="byo-ct-table">
-            <div className="byo-ct-cap">Core {klass.name} Traits</div>
             {rows.map(([label, value]) => (
               <div className="byo-ct-row" key={label}>
                 <span className="byo-ct-k">{label}</span>
