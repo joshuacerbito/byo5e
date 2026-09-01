@@ -239,6 +239,14 @@ export function buildClasses(reg, optionIdOf) {
       hitDice: cl.hd ? { number: cl.hd.number, faces: cl.hd.faces } : null,
       saves: (cl.proficiency || []).slice(),
       primaryAbility: (cl.primaryAbility || []).flatMap((o) => Object.keys(o)),
+      /* Same source, kept un-flattened for display: 5etools' shape is an
+         array of alternative groups (Fighter: [{str},{dex}] = STR OR DEX)
+         where a group with more than one key means AND, not OR (Monk:
+         [{dex,wis}] = DEX AND WIS, one group). primaryAbility above loses
+         that distinction — fine for classAbilityPriority's "which
+         abilities matter, in some order" use, wrong for "Strength or
+         Dexterity" prose. */
+      primaryAbilityGroups: (cl.primaryAbility || []).map((o) => Object.keys(o)),
       skillChoices: skillChoice
         ? { count: skillChoice.count, from: skillChoice.from, any: skillChoice.any }
         : { count: 0, from: [], any: null },

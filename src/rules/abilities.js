@@ -38,6 +38,17 @@ export function classAbilityPriority(klass) {
   return order;
 }
 
+/* "STR or DEX", "DEX & WIS" — primaryAbilityGroups is 5etools' own
+   shape (array of alternative groups, multiple keys in one group means
+   both required), turned into the short prose the Core Traits panel
+   shows next to a class. */
+const ABILITY_SHORT = Object.fromEntries(ABILITIES.map((a) => [a.key, a.short]));
+export function primaryAbilityLabel(groups) {
+  return (groups || [])
+    .map((g) => g.map((k) => ABILITY_SHORT[k] || k.toUpperCase()).join(" & "))
+    .join(" or ");
+}
+
 /* The modifier table, as arithmetic rather than as a lookup: scores below 10
    round the same way, so Math.floor over the halved difference covers 1-30
    without a table to keep in sync. */

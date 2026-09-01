@@ -12,9 +12,11 @@
    {@tag} markup are left exactly as found, because the app has a
    mapper layer that consumes that shape and strips tags at runtime.
    The only edits are (a) dropping pure 5etools bookkeeping fields,
-   (b) the SRD rename below, and (c) a `classLists` array injected onto
+   (b) the SRD rename below, (c) a `classLists` array injected onto
    spells, which is the one piece of eligibility data 5etools keeps
-   outside the record.
+   outside the record, and (d) backfilling `primaryAbility` onto 2014
+   class records, which 5etools never populates for PHB (only XPHB) —
+   see PRIMARY_ABILITY_2014 below.
 
    Deterministic by construction: every collection is sorted by a
    stable composite key and no build timestamp is written, so a re-run
@@ -91,6 +93,35 @@ const classTied = (arr, ed) =>
   arr.filter((r) => isSrd(r, ed.flag) && r.source === ed.book && r.classSource === ed.book);
 
 const plain = (arr, ed) => arr.filter((r) => isSrd(r, ed.flag) && r.source === ed.book);
+
+/* primaryAbility is an XPHB-only field in 5etools' own data — the 2014
+   PHB class records never carry it, in the source files or upstream.
+   The two editions assign the SAME primary abilities per class (this is
+   unchanged rules text, not a 2024 revision), so backfill it onto the
+   2014 records from the 2024 ones by class name rather than leaving the
+   field silently absent from one pack and not the other. Shape matches
+   5etools' own verbatim: an array of alternative groups, each group a
+   {ability: true, ...} object (multiple keys in one group = both
+   required; multiple groups = either satisfies it — see classes.js). */
+const PRIMARY_ABILITY_2014 = {
+  Barbarian: [{ str: true }],
+  Bard: [{ cha: true }],
+  Cleric: [{ wis: true }],
+  Druid: [{ wis: true }],
+  Fighter: [{ str: true }, { dex: true }],
+  Monk: [{ dex: true, wis: true }],
+  Paladin: [{ str: true, cha: true }],
+  Ranger: [{ dex: true, wis: true }],
+  Rogue: [{ dex: true }],
+  Sorcerer: [{ cha: true }],
+  Warlock: [{ cha: true }],
+  Wizard: [{ int: true }],
+};
+const classesFor = (arr, ed) => plain(arr, ed).map((c) => {
+  if (c.primaryAbility || ed.rulesEdition !== "2014") return c;
+  const fill = PRIMARY_ABILITY_2014[c.name];
+  return fill ? { ...c, primaryAbility: fill } : c;
+});
 
 /* Items specifically: the equipment chapter is split across the Handbook
    and the DMG in 5etools' own data (see `itemBooks` on EDITIONS, used
@@ -272,7 +303,7 @@ function buildPack(ed, shared) {
   const items = itemsWithVariants.map((it) => ({ ...it, entries: resolveItemEntries(it, itemEntryIndex) }));
 
   const content = {
-    classes: plain(classes.class, ed),
+    classes: classesFor(classes.class, ed),
     classFeatures: classTied(classes.classFeature, ed),
     subclasses: classTied(classes.subclass, ed),
     subclassFeatures: classTied(classes.subclassFeature, ed),

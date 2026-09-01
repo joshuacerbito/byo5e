@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { loadContent, EDITIONS, EDITION_LABEL } from "./content/load.js";
 import {
   ABILITIES, ABILITY_KEYS, mod, fmt, POINT_COST, POINT_BUDGET, STANDARD_ARRAY,
-  finalScore as sumFinalScore, sumIncreases, classAbilityPriority,
+  finalScore as sumFinalScore, sumIncreases, classAbilityPriority, primaryAbilityLabel,
 } from "./rules/abilities.js";
 import {
   MAX_LEVEL, LEVELS, profBonus, spellSlots, pactSlots, cantripsKnown, spellsKnown,
@@ -2573,6 +2573,11 @@ export default function CharacterCreator() {
                   <div className="byo-panel">
                     {skillsLeft > 0 && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
                     <h3>Core Traits <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
+                    {klass.primaryAbilityGroups?.length > 0 && (
+                      <p className="byo-note" style={{ marginBottom: 10 }}>
+                        Primary ability: {primaryAbilityLabel(klass.primaryAbilityGroups)}
+                      </p>
+                    )}
                     {ancestrySkillsGranted.size > 0 && (
                       <p className="byo-note" style={{ marginBottom: 10 }}>
                         You already have {[...ancestrySkillsGranted].join(" and ")} for free, so {ancestrySkillsGranted.size > 1 ? "they aren't" : "it isn't"} listed below.
