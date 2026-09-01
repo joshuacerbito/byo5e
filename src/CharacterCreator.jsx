@@ -2572,7 +2572,7 @@ export default function CharacterCreator() {
 
                   <div className="byo-panel">
                     {skillsLeft > 0 && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
-                    <h3>Skills <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
+                    <h3>Core Traits <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
                     {ancestrySkillsGranted.size > 0 && (
                       <p className="byo-note" style={{ marginBottom: 10 }}>
                         You already have {[...ancestrySkillsGranted].join(" and ")} for free, so {ancestrySkillsGranted.size > 1 ? "they aren't" : "it isn't"} listed below.
