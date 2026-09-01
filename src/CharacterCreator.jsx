@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { loadContent, EDITIONS, EDITION_LABEL } from "./content/load.js";
 import {
   ABILITIES, ABILITY_KEYS, mod, fmt, POINT_COST, POINT_BUDGET, STANDARD_ARRAY,
-  finalScore as sumFinalScore, sumIncreases, classAbilityPriority, primaryAbilityLabel,
+  finalScore as sumFinalScore, sumIncreases, classAbilityPriority,
 } from "./rules/abilities.js";
 import {
   MAX_LEVEL, LEVELS, profBonus, spellSlots, pactSlots, cantripsKnown, spellsKnown,
@@ -51,6 +51,7 @@ import Splash from "./components/Splash.jsx";
 import AddRuleset from "./components/AddRuleset.jsx";
 import Terms from "./components/Terms.jsx";
 import Privacy from "./components/Privacy.jsx";
+import CoreTraits from "./components/CoreTraits.jsx";
 
 const APP_TITLE = document.title;
 const saved = loadSaved();
@@ -2570,36 +2571,31 @@ export default function CharacterCreator() {
                     )}
                   </div>
 
-                  <div className="byo-panel">
-                    {skillsLeft > 0 && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
-                    <h3>Core Traits <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></h3>
-                    {klass.primaryAbilityGroups?.length > 0 && (
-                      <p className="byo-note" style={{ marginBottom: 10 }}>
-                        Primary ability: {primaryAbilityLabel(klass.primaryAbilityGroups)}
-                      </p>
-                    )}
-                    <div className="byo-row"><span className="byo-row-label">Armor</span>
-                      <span className="byo-mod" style={{ width: "auto" }}>{klass.armorProf.fixed.join(", ") || "None"}</span></div>
-                    <div className="byo-row"><span className="byo-row-label">Weapons</span>
-                      <span className="byo-mod" style={{ width: "auto" }}>{klass.weaponProf.fixed.join(", ") || "None"}</span></div>
-                    <div className="byo-row"><span className="byo-row-label">Saving throws</span>
-                      <span className="byo-mod" style={{ width: "auto" }}>{klass.saves.map((s) => s.toUpperCase()).join(", ")}</span></div>
+                  <CoreTraits klass={klass} skillsLeft={skillsLeft}
+                              skillChoiceText={classSkillCount > 0
+                                ? `Choose ${classSkillCount}: ${skillPool.join(", ")}`
+                                : null}>
                     {ancestrySkillsGranted.size > 0 && (
                       <p className="byo-note" style={{ marginTop: 10, marginBottom: 10 }}>
                         You already have {[...ancestrySkillsGranted].join(" and ")} for free, so {ancestrySkillsGranted.size > 1 ? "they aren't" : "it isn't"} listed below.
                       </p>
                     )}
-                    <div className="byo-skills">
-                      {skillPool.map((s) => {
-                        const on = skillPicks.includes(s);
-                        const full = !on && classSkillCount !== 1 && skillPicks.length >= classSkillCount;
-                        return (
-                          <button key={s} className={`byo-skill ${on ? "is-sel" : ""}`} onClick={() => toggleSkill(s)}
-                                  disabled={full} aria-pressed={on}>{s}</button>
-                        );
-                      })}
+                    {/* The functional control the table row only describes. */}
+                    <div className="byo-ct-picker">
+                      <div className="byo-ct-picker-l">Skill Proficiencies
+                        <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></div>
+                      <div className="byo-skills">
+                        {skillPool.map((s) => {
+                          const on = skillPicks.includes(s);
+                          const full = !on && classSkillCount !== 1 && skillPicks.length >= classSkillCount;
+                          return (
+                            <button key={s} className={`byo-skill ${on ? "is-sel" : ""}`} onClick={() => toggleSkill(s)}
+                                    disabled={full} aria-pressed={on}>{s}</button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  </CoreTraits>
 
                   {optionChoiceGroups.map((g) => (
                     <div className="byo-panel" key={g.key}>

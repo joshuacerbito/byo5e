@@ -138,6 +138,44 @@ export const STYLES = `
 
 /* Fluid 2-up layout: falls back to a single column when the viewport
    doesn't have room for two, no media query needed. */
+/* ---- Core Traits (Class step) ----------------------------------
+   Book-page layout: a collapsible header carrying the choice count,
+   the level-1 preamble, then the traits table. The table is prose;
+   the skill picker under it is the only interactive part. --------- */
+.byo-ct-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+  background:none;border:none;padding:0;margin:0 0 10px;color:inherit;text-align:left;cursor:pointer;}
+.byo-ct-head:hover .byo-ct-h3{color:var(--gold);}
+.byo-ct-head:focus-visible{outline:2px solid var(--jade);outline-offset:3px;}
+.byo-ct-title{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.byo-ct-h3{font-family:'Vollkorn',serif;font-weight:600;font-size:17.5px;}
+.byo-ct-sub{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--bone-dim);}
+.byo-ct-sub .byo-count{margin-left:10px;}
+.byo-ct-chev{flex:none;color:var(--line-bright);display:flex;align-items:center;}
+.byo-ct-chev svg{width:20px;height:20px;transition:transform .15s ease-out;}
+.byo-ct-lead{margin:0 0 4px;}
+.byo-ct-bullets{margin:0 0 14px;padding-left:18px;font-size:14.5px;color:var(--bone-dim);line-height:1.5;}
+.byo-ct-bullets li{margin:2px 0;}
+.byo-ct-table{border:1px solid var(--line);border-radius:2px;overflow:hidden;}
+.byo-ct-cap{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--gold);background:var(--rock-2);
+  padding:8px 12px;border-bottom:1px solid var(--line);}
+.byo-ct-row{display:grid;grid-template-columns:200px 1fr;gap:12px;padding:9px 12px;
+  border-bottom:1px solid var(--line);font-size:14.5px;line-height:1.45;}
+.byo-ct-row:last-child{border-bottom:none;}
+/* Alternating shade, as the reference prints it. */
+.byo-ct-row:nth-child(even){background:var(--rock-2);}
+.byo-ct-k{font-weight:600;}
+.byo-ct-v{color:var(--bone-dim);min-width:0;overflow-wrap:anywhere;}
+.byo-ct-picker{margin-top:16px;}
+.byo-ct-picker-l{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--bone-dim);margin-bottom:8px;}
+@media(max-width:560px){
+  /* One column under a phone width: a 200px label column leaves the
+     value cell too narrow to read the equipment line. */
+  .byo-ct-row{grid-template-columns:1fr;gap:2px;}
+}
+
 .byo-panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;align-items:start;}
 .byo-panel-grid .byo-panel{margin-bottom:0;}
 .byo-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;}
