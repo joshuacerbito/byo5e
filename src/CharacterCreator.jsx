@@ -2578,8 +2578,14 @@ export default function CharacterCreator() {
                         Primary ability: {primaryAbilityLabel(klass.primaryAbilityGroups)}
                       </p>
                     )}
+                    <div className="byo-row"><span className="byo-row-label">Armor</span>
+                      <span className="byo-mod" style={{ width: "auto" }}>{klass.armorProf.fixed.join(", ") || "None"}</span></div>
+                    <div className="byo-row"><span className="byo-row-label">Weapons</span>
+                      <span className="byo-mod" style={{ width: "auto" }}>{klass.weaponProf.fixed.join(", ") || "None"}</span></div>
+                    <div className="byo-row"><span className="byo-row-label">Saving throws</span>
+                      <span className="byo-mod" style={{ width: "auto" }}>{klass.saves.map((s) => s.toUpperCase()).join(", ")}</span></div>
                     {ancestrySkillsGranted.size > 0 && (
-                      <p className="byo-note" style={{ marginBottom: 10 }}>
+                      <p className="byo-note" style={{ marginTop: 10, marginBottom: 10 }}>
                         You already have {[...ancestrySkillsGranted].join(" and ")} for free, so {ancestrySkillsGranted.size > 1 ? "they aren't" : "it isn't"} listed below.
                       </p>
                     )}
@@ -2629,15 +2635,6 @@ export default function CharacterCreator() {
                     </div>
                   ))}
 
-                  <div className="byo-panel">
-                    <h3>Proficiencies</h3>
-                    <div className="byo-row"><span className="byo-row-label">Armor</span>
-                      <span className="byo-mod" style={{ width: "auto" }}>{klass.armorProf.fixed.join(", ") || "None"}</span></div>
-                    <div className="byo-row"><span className="byo-row-label">Weapons</span>
-                      <span className="byo-mod" style={{ width: "auto" }}>{klass.weaponProf.fixed.join(", ") || "None"}</span></div>
-                    <div className="byo-row"><span className="byo-row-label">Saving throws</span>
-                      <span className="byo-mod" style={{ width: "auto" }}>{klass.saves.map((s) => s.toUpperCase()).join(", ")}</span></div>
-                  </div>
                     </>
                   )}
 
