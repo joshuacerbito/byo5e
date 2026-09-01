@@ -702,8 +702,8 @@ export default function CharacterCreator() {
   }, [klass, level]);
   const masteryBaseCount = masteryBumpLevels[0]?.level === 1 ? masteryBumpLevels[0].to : null;
   /* Level 1's entry is the baseline Core Traits already renders — only
-     the LATER bumps (Barbarian L4/L10, Fighter L4/L10/L16) get their
-     own panel next to the level that grants them. */
+     the LATER bumps (Barbarian L4/L10, Fighter L4/L10/L16) render as
+     content inside the level panel that grants them. */
   const masteryExtraBumps = masteryBumpLevels.filter((b) => b.level > 1);
 
   const armorOptions = useMemo(() => {
@@ -1926,10 +1926,16 @@ export default function CharacterCreator() {
      table count goes up (not a classFeature, so featuresByLevel never
      surfaces it on its own). Same one flat masteryPicks array as the
      Core Traits baseline picker, just filling toward THIS bracket's own
-     cumulative ceiling — see the note above masteryBumpLevels. */
-  const renderMasteryBumpPanel = (bump) => (
-    <div className="byo-panel">
-      <h3>Weapon Mastery <span className="byo-count">+{bump.to - bump.from}</span></h3>
+     cumulative ceiling — see the note above masteryBumpLevels.
+
+     Unlike the subclass panel (its own byo-panel box, positioned above
+     the level it belongs to), this renders WITHOUT an outer box — the
+     caller drops it straight inside that level's own panel, alongside
+     Ability Score Improvement, the same way a feature entry sits inside
+     the level box rather than getting a box of its own. */
+  const renderMasteryBumpContent = (bump) => (
+    <div style={{ marginTop: 10 }}>
+      <p className="byo-note" style={{ marginBottom: 4 }}><b>Weapon Mastery.</b></p>
       <p className="byo-note" style={{ marginBottom: 10 }}>
         {klass.name}s can master {bump.to} weapons at level {bump.level}, up from {bump.from}.
       </p>
@@ -2735,11 +2741,11 @@ export default function CharacterCreator() {
                     {/* Weapon Mastery — 2024-only (masteryBaseCount null on
                         every other class/edition, so this whole block is
                         absent there). Level-1 baseline only: the L4/L10/L16
-                        bumps Barbarian/Fighter get later render as their own
-                        small panels next to the level that grants them (same
-                        placement pattern as the subclass panel/subclassAnchor
-                        above), not inflated into this level-1 section — see
-                        masteryBumpLevels. Every mastered weapon picked so
+                        bumps Barbarian/Fighter get later render as content
+                        INSIDE that level's own panel (renderMasteryBumpContent,
+                        alongside Ability Score Improvement), not inflated
+                        into this level-1 section — see masteryBumpLevels.
+                        Every mastered weapon picked so
                         far, from ANY bracket, shows here (onRemove) as a
                         removable chip — masteryPicks is one flat array with
                         no per-bracket ownership, so this is the one place to
@@ -2829,9 +2835,6 @@ export default function CharacterCreator() {
                           character hasn't reached it yet there is no such
                           panel, so it goes last instead (see below). */}
                       {atLevel === subclassAnchor && renderSubclassPanel()}
-                      {masteryExtraBumps.filter((b) => b.level === atLevel).map((b) => (
-                        <React.Fragment key={`mastery-${b.level}`}>{renderMasteryBumpPanel(b)}</React.Fragment>
-                      ))}
                       <div className="byo-panel">
                         {isAsi && !asiComplete(atLevel) && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
                         <h3>Level {atLevel} {isAsi && <span className="byo-count">{asiComplete(atLevel) ? "done" : "to pick"}</span>}</h3>
@@ -2890,6 +2893,9 @@ export default function CharacterCreator() {
                             )}
                           </>
                         )}
+                        {masteryExtraBumps.filter((b) => b.level === atLevel).map((b) => (
+                          <React.Fragment key={`mastery-${b.level}`}>{renderMasteryBumpContent(b)}</React.Fragment>
+                        ))}
                       </div>
                       </React.Fragment>
                     );
