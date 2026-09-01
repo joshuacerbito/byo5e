@@ -2740,32 +2740,23 @@ export default function CharacterCreator() {
                         placement pattern as the subclass panel/subclassAnchor
                         above), not inflated into this level-1 section — see
                         masteryBumpLevels. Every mastered weapon picked so
-                        far, from ANY bracket, shows here as a removable
-                        chip — masteryPicks is one flat array with no
-                        per-bracket ownership, so this is the one place to
-                        see and undo the whole set. Not a toggle grid like
-                        Skills above: with the full weapon list as the pool,
-                        a search-to-add field reads better than a wall of
-                        buttons — Josh's call, same shape the Armor/Inventory
-                        search-and-add pickers already use elsewhere on this
-                        step (see MasteryPicker). */}
+                        far, from ANY bracket, shows here (onRemove) as a
+                        removable chip — masteryPicks is one flat array with
+                        no per-bracket ownership, so this is the one place to
+                        see and undo the whole set (a bump panel below omits
+                        onRemove, so it stays add-only). Not a toggle grid
+                        like Skills above: with the full weapon list as the
+                        pool, a search-to-add field reads better than a wall
+                        of buttons — Josh's call, same shape the Armor/
+                        Inventory search-and-add pickers already use
+                        elsewhere on this step (see MasteryPicker). */}
                     {masteryBaseCount != null && (
                       <div style={{ marginTop: 14 }}>
-                        {masteryPicks.length > 0 && (
-                          <div className="byo-skills" style={{ marginBottom: 10 }}>
-                            {/* masteryPicks holds weapon-TYPE keys, already
-                                display-ready (see masteryKey in
-                                content/items.js) — no item lookup needed to
-                                show the name. */}
-                            {masteryPicks.map((key) => (
-                              <button key={key} className="byo-skill is-sel" onClick={() => removeMastery(key)}
-                                      aria-pressed="true" title="Remove">{key} ✕</button>
-                            ))}
-                          </div>
-                        )}
-                        <MasteryPicker label={`Choose ${masteryBaseCount} mastered weapon${masteryBaseCount === 1 ? "" : "s"}`}
+                        <MasteryPicker label="Weapon Mastery"
+                                       note={`Choose ${masteryBaseCount} mastered weapon${masteryBaseCount === 1 ? "" : "s"}`}
                                        ceiling={masteryBaseCount} eligibleWeapons={masteryEligibleWeapons}
-                                       picks={masteryPicks} onAdd={(id) => addMastery(id, masteryBaseCount)} />
+                                       picks={masteryPicks} onAdd={(id) => addMastery(id, masteryBaseCount)}
+                                       onRemove={removeMastery} />
                       </div>
                     )}
                   </CoreTraits>
