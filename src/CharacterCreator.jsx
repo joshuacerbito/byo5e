@@ -644,24 +644,45 @@ export default function CharacterCreator() {
      cap) stay exactly as they were — still what gates stepComplete and
      the attackRows note — only the picker's own rendering is split. */
   const masteryCount = klass?.weaponMasteryByLevel ? (klass.weaponMasteryByLevel[level - 1] ?? 0) : null;
-  const masteryEligibleWeapons = useMemo(
-    () => (content?.weapons || []).filter((w) => isWeaponProficient(w, weaponProf)),
-    [content, weaponProf]);
+  /* Mastery is picked by weapon TYPE, not specific item — a +1/+2/+3
+     Greatsword all share the mundane Greatsword's mastery property (see
+     masteryKey in content/items.js), so masteryPicks stores type keys
+     ("Greatsword"), not item ids, and the pool below is deduped down to
+     one entry per type rather than one per magic variant. The `id`/`name`
+     shape here is only so MasteryPicker (built against weapon-record-
+     shaped rows) doesn't need to know the difference — masteryKey IS
+     already the display name, so no separate lookup is needed anywhere
+     downstream to show it. */
+  const masteryEligibleWeapons = useMemo(() => {
+    const proficient = (content?.weapons || []).filter((w) => isWeaponProficient(w, weaponProf));
+    const byKey = new Map();
+    for (const w of proficient) {
+      /* Prefer the mundane record as the type's representative — its
+         own rarity/magicBonus don't matter for mastery, but if every
+         proficient copy happened to be a magic variant this still
+         works fine since the key (and its display name) is the same
+         either way. */
+      const existing = byKey.get(w.masteryKey);
+      if (!existing || (existing.rarity !== "none" && w.rarity === "none")) byKey.set(w.masteryKey, w);
+    }
+    return [...byKey.values()].map((w) => ({ id: w.masteryKey, name: w.masteryKey }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [content, weaponProf]);
   useEffect(() => {
     if (masteryCount == null) { if (masteryPicks.length) setMasteryPicks([]); return; }
-    const eligibleIds = new Set(masteryEligibleWeapons.map((w) => w.id));
+    const eligibleKeys = new Set(masteryEligibleWeapons.map((w) => w.id));
     setMasteryPicks((prev) => {
-      const kept = prev.filter((id) => eligibleIds.has(id)).slice(0, masteryCount);
-      return kept.length === prev.length && kept.every((id, i) => id === prev[i]) ? prev : kept;
+      const kept = prev.filter((key) => eligibleKeys.has(key)).slice(0, masteryCount);
+      return kept.length === prev.length && kept.every((key, i) => key === prev[i]) ? prev : kept;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masteryCount, masteryEligibleWeapons]);
   const masteryLeft = masteryCount == null ? 0 : masteryCount - masteryPicks.length;
-  const addMastery = (id, ceiling) => {
-    setMasteryPicks((p) => (p.includes(id) || p.length >= ceiling ? p : [...p, id]));
+  const addMastery = (key, ceiling) => {
+    setMasteryPicks((p) => (p.includes(key) || p.length >= ceiling ? p : [...p, key]));
   };
-  const removeMastery = (id) => {
-    setMasteryPicks((p) => p.filter((x) => x !== id));
+  const removeMastery = (key) => {
+    setMasteryPicks((p) => p.filter((x) => x !== key));
   };
   /* Every level (up to the character's current one) where the table's
      cumulative count actually goes up — level 1 is always first (the
@@ -1185,12 +1206,15 @@ export default function CharacterCreator() {
       const dmgMod = damageBonus(w, scoresForRules);
       const notes = (w.properties || []).map((p) => p.label);
       if (w.versatileDmg) notes.push(`Versatile — ${w.versatileDmg}${fmt(dmgMod)} two-handed`);
-      /* Only the weapons actually picked in the Core Traits mastery
+      /* Only the weapon TYPES actually picked in the Core Traits mastery
          picker, not every carried weapon's intrinsic mastery property —
-         see masteryPicks above. A weapon's mastery text is what it
+         see masteryPicks/masteryKey above. Matched by masteryKey, not
+         item id, so a +2 Greatsword correctly shows Graze once
+         "Greatsword" is mastered without the player ever picking the
+         magic version specifically. A weapon's mastery text is what it
          WOULD grant if mastered, not something every wielder gets for
          free just by carrying it. */
-      if (masteryPicks.includes(w.id)) (w.mastery || []).forEach((m) => notes.push(`Mastery: ${m.name}`));
+      if (masteryPicks.includes(w.masteryKey)) (w.mastery || []).forEach((m) => notes.push(`Mastery: ${m.name}`));
       return {
         key: w.id, name: qty > 1 ? `${w.name} ×${qty}` : w.name,
         range: w.range ? `${w.range.label.replace("/", " / ")} ft` : (w.weaponKind === "ranged" ? "—" : "5 ft"),
@@ -2729,14 +2753,14 @@ export default function CharacterCreator() {
                       <div style={{ marginTop: 14 }}>
                         {masteryPicks.length > 0 && (
                           <div className="byo-skills" style={{ marginBottom: 10 }}>
-                            {masteryPicks.map((id) => {
-                              const w = masteryEligibleWeapons.find((x) => x.id === id);
-                              if (!w) return null;
-                              return (
-                                <button key={id} className="byo-skill is-sel" onClick={() => removeMastery(id)}
-                                        aria-pressed="true" title="Remove">{w.name} ✕</button>
-                              );
-                            })}
+                            {/* masteryPicks holds weapon-TYPE keys, already
+                                display-ready (see masteryKey in
+                                content/items.js) — no item lookup needed to
+                                show the name. */}
+                            {masteryPicks.map((key) => (
+                              <button key={key} className="byo-skill is-sel" onClick={() => removeMastery(key)}
+                                      aria-pressed="true" title="Remove">{key} ✕</button>
+                            ))}
                           </div>
                         )}
                         <MasteryPicker label={`Choose ${masteryBaseCount} mastered weapon${masteryBaseCount === 1 ? "" : "s"}`}

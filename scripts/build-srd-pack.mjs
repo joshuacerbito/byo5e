@@ -248,6 +248,14 @@ function expandVariants(variants, ed, srcItems) {
       const rec = {
         ...base,
         name: `${inh.namePrefix || ""}${baseName}${inh.nameSuffix || ""}`,
+        /* The mundane item this variant is built from — a +1/+2/+3
+           Greatsword all carry the same mastery property as the plain
+           Greatsword (5etools fixes mastery on the base weapon record,
+           inherited via `...base` above same as every other untouched
+           field), so the app needs a stable key to say "these are all
+           the same weapon TYPE for mastery purposes" without parsing it
+           back out of the display name. */
+        baseItemName: baseName,
         rarity: inh.rarity,
         reqAttune: inh.reqAttune ?? null,
         bonusWeapon: inh.bonusWeapon ?? null,

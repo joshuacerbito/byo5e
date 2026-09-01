@@ -147,6 +147,14 @@ export function buildItems(reg) {
            field (scripts/build-srd-pack.mjs). null on every ordinary
            weapon. */
         magicBonus: it.bonusWeapon ? parseInt(it.bonusWeapon, 10) : null,
+        /* Mastery is picked/tracked by weapon TYPE, not specific item —
+           a +2 Greatsword shares its mastery property with the plain
+           one, so "mastered Greatsword" should cover both without the
+           player ever picking the magic version separately. baseItemName
+           (build-srd-pack.mjs's variant expansion) links a magic variant
+           back to the mundane record it inherits mastery from; a mundane
+           weapon has no baseItemName and IS its own type. */
+        masteryKey: it.baseItemName || it.name,
       });
       continue;
     }
