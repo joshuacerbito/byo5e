@@ -52,6 +52,7 @@ import AddRuleset from "./components/AddRuleset.jsx";
 import Terms from "./components/Terms.jsx";
 import Privacy from "./components/Privacy.jsx";
 import CoreTraits from "./components/CoreTraits.jsx";
+import MasteryPicker from "./components/MasteryPicker.jsx";
 
 const APP_TITLE = document.title;
 const saved = loadSaved();
@@ -628,7 +629,20 @@ export default function CharacterCreator() {
      there's nothing here for `activeClassFeatures` to have already
      surfaced. masteryCount is null for a class/edition that never gets
      the feature (2014 classes, and every 2024 class besides Barbarian/
-     Fighter in this SRD slice) — that's "no picker", not "cap of 0". */
+     Fighter in this SRD slice) — that's "no picker", not "cap of 0".
+
+     One flat masteryPicks array, no bracket-ownership tracking: the
+     rules don't care WHICH level a mastered weapon was picked at, only
+     that the running total never exceeds the cumulative cap for the
+     character's current level. So the UI is split across level panels
+     (masteryBumpLevels below — Core Traits gets the level-1 baseline,
+     each later bump level a small extra panel, same placement pattern
+     Dwight's subclassAnchor uses) purely by giving each bracket its own
+     CUMULATIVE ceiling to fill toward; a bracket left unfilled just
+     gets borrowed from by a later one, same as the total cap either
+     way. masteryCount/masteryLeft (the character's full current-level
+     cap) stay exactly as they were — still what gates stepComplete and
+     the attackRows note — only the picker's own rendering is split. */
   const masteryCount = klass?.weaponMasteryByLevel ? (klass.weaponMasteryByLevel[level - 1] ?? 0) : null;
   const masteryEligibleWeapons = useMemo(
     () => (content?.weapons || []).filter((w) => isWeaponProficient(w, weaponProf)),
@@ -643,18 +657,33 @@ export default function CharacterCreator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [masteryCount, masteryEligibleWeapons]);
   const masteryLeft = masteryCount == null ? 0 : masteryCount - masteryPicks.length;
-  const [masterySearch, setMasterySearch] = useState("");
-  const masteryResults = useMemo(() => {
-    const q = masterySearch.trim().toLowerCase();
-    const pool = masteryEligibleWeapons.filter((w) => !masteryPicks.includes(w.id));
-    return q ? pool.filter((w) => w.name.toLowerCase().includes(q)) : [];
-  }, [masteryEligibleWeapons, masteryPicks, masterySearch]);
-  const addMastery = (id) => {
-    setMasteryPicks((p) => (p.includes(id) || p.length >= masteryCount ? p : [...p, id]));
+  const addMastery = (id, ceiling) => {
+    setMasteryPicks((p) => (p.includes(id) || p.length >= ceiling ? p : [...p, id]));
   };
   const removeMastery = (id) => {
     setMasteryPicks((p) => p.filter((x) => x !== id));
   };
+  /* Every level (up to the character's current one) where the table's
+     cumulative count actually goes up — level 1 is always first (the
+     baseline, off `from: 0`), a class with no such level ever again
+     (most of them — masteryCount stays null) yields an empty array. */
+  const masteryBumpLevels = useMemo(() => {
+    const byLevel = klass?.weaponMasteryByLevel;
+    if (!byLevel) return [];
+    const out = [];
+    let prev = 0;
+    for (let l = 1; l <= level; l++) {
+      const to = byLevel[l - 1] ?? prev;
+      if (to > prev) out.push({ level: l, from: prev, to });
+      prev = to;
+    }
+    return out;
+  }, [klass, level]);
+  const masteryBaseCount = masteryBumpLevels[0]?.level === 1 ? masteryBumpLevels[0].to : null;
+  /* Level 1's entry is the baseline Core Traits already renders — only
+     the LATER bumps (Barbarian L4/L10, Fighter L4/L10/L16) get their
+     own panel next to the level that grants them. */
+  const masteryExtraBumps = masteryBumpLevels.filter((b) => b.level > 1);
 
   const armorOptions = useMemo(() => {
     const list = (content?.armor || []).filter((a) => armorProfCats.includes(a.category));
@@ -1869,6 +1898,23 @@ export default function CharacterCreator() {
     </div>
   );
 
+  /* One of masteryExtraBumps — a level where the class's Weapon Mastery
+     table count goes up (not a classFeature, so featuresByLevel never
+     surfaces it on its own). Same one flat masteryPicks array as the
+     Core Traits baseline picker, just filling toward THIS bracket's own
+     cumulative ceiling — see the note above masteryBumpLevels. */
+  const renderMasteryBumpPanel = (bump) => (
+    <div className="byo-panel">
+      <h3>Weapon Mastery <span className="byo-count">+{bump.to - bump.from}</span></h3>
+      <p className="byo-note" style={{ marginBottom: 10 }}>
+        {klass.name}s can master {bump.to} weapons at level {bump.level}, up from {bump.from}.
+      </p>
+      <MasteryPicker label={`Choose ${bump.to - bump.from} more`} ceiling={bump.to} floor={bump.from}
+                      eligibleWeapons={masteryEligibleWeapons} picks={masteryPicks}
+                      onAdd={(id) => addMastery(id, bump.to)} />
+    </div>
+  );
+
   const renderMcEntryCard = (e) => {
     const req = e.klass.multiclassing?.requirements;
     const ok = meetsMcPrereq(e.klass);
@@ -2635,8 +2681,8 @@ export default function CharacterCreator() {
                   )}
                   <CoreTraits klass={klass} skillsLeft={skillsLeft}
                               skillChoiceText={classSkillCount > 0 ? `Choose ${classSkillCount}` : null}
-                              masteryLeft={masteryLeft}
-                              masteryChoiceText={masteryCount != null ? `Choose ${masteryCount}` : null}>
+                              masteryLeft={masteryBaseCount != null ? Math.max(0, masteryBaseCount - masteryPicks.length) : 0}
+                              masteryChoiceText={masteryBaseCount != null ? `Choose ${masteryBaseCount}` : null}>
                     {/* The functional control. The table row above only says
                         how many skills to choose — the options themselves are
                         these buttons, so the list isn't printed twice. */}
@@ -2662,19 +2708,25 @@ export default function CharacterCreator() {
                       </div>
                     </div>
 
-                    {/* Weapon Mastery — 2024-only (masteryCount null on every
-                        other class/edition, so this whole block is absent
-                        there). Not a toggle grid like Skills above: with the
-                        full weapon list as the pool, a search-to-add field
-                        reads better than a wall of buttons — Josh's call,
-                        same shape the Armor/Inventory search-and-add pickers
-                        already use elsewhere on this step. */}
-                    {masteryCount != null && (
-                      <div className="byo-ct-picker" style={{ marginTop: 14 }}>
-                        <div className="byo-ct-picker-h">
-                          <span className="byo-ct-picker-l">Choose {masteryCount} mastered weapon{masteryCount === 1 ? "" : "s"}</span>
-                          <span className="byo-count">{masteryLeft > 0 ? `${masteryLeft} to go` : "done"}</span>
-                        </div>
+                    {/* Weapon Mastery — 2024-only (masteryBaseCount null on
+                        every other class/edition, so this whole block is
+                        absent there). Level-1 baseline only: the L4/L10/L16
+                        bumps Barbarian/Fighter get later render as their own
+                        small panels next to the level that grants them (same
+                        placement pattern as the subclass panel/subclassAnchor
+                        above), not inflated into this level-1 section — see
+                        masteryBumpLevels. Every mastered weapon picked so
+                        far, from ANY bracket, shows here as a removable
+                        chip — masteryPicks is one flat array with no
+                        per-bracket ownership, so this is the one place to
+                        see and undo the whole set. Not a toggle grid like
+                        Skills above: with the full weapon list as the pool,
+                        a search-to-add field reads better than a wall of
+                        buttons — Josh's call, same shape the Armor/Inventory
+                        search-and-add pickers already use elsewhere on this
+                        step (see MasteryPicker). */}
+                    {masteryBaseCount != null && (
+                      <div style={{ marginTop: 14 }}>
                         {masteryPicks.length > 0 && (
                           <div className="byo-skills" style={{ marginBottom: 10 }}>
                             {masteryPicks.map((id) => {
@@ -2687,27 +2739,9 @@ export default function CharacterCreator() {
                             })}
                           </div>
                         )}
-                        {masteryLeft > 0 && (
-                          <>
-                            <input className="byo-input" style={{ fontSize: 15, marginBottom: 10 }} value={masterySearch}
-                                   onChange={(e) => setMasterySearch(e.target.value)}
-                                   placeholder="Search weapons you're proficient with…"
-                                   aria-label="Search mastered weapons" />
-                            {masterySearch.trim() && (
-                              <div className="byo-scroll-y">
-                                {masteryResults.slice(0, 20).map((w) => (
-                                  <div className="byo-row" key={w.id}>
-                                    <span className="byo-row-label">{w.name}</span>
-                                    <button className="byo-chip-b" onClick={() => addMastery(w.id)}>Add</button>
-                                  </div>
-                                ))}
-                                {masteryResults.length === 0 && (
-                                  <p className="byo-note">No proficient weapons match "{masterySearch}".</p>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        )}
+                        <MasteryPicker label={`Choose ${masteryBaseCount} mastered weapon${masteryBaseCount === 1 ? "" : "s"}`}
+                                       ceiling={masteryBaseCount} eligibleWeapons={masteryEligibleWeapons}
+                                       picks={masteryPicks} onAdd={(id) => addMastery(id, masteryBaseCount)} />
                       </div>
                     )}
                   </CoreTraits>
@@ -2780,6 +2814,9 @@ export default function CharacterCreator() {
                           character hasn't reached it yet there is no such
                           panel, so it goes last instead (see below). */}
                       {atLevel === subclassAnchor && renderSubclassPanel()}
+                      {masteryExtraBumps.filter((b) => b.level === atLevel).map((b) => (
+                        <React.Fragment key={`mastery-${b.level}`}>{renderMasteryBumpPanel(b)}</React.Fragment>
+                      ))}
                       <div className="byo-panel">
                         {isAsi && !asiComplete(atLevel) && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
                         <h3>Level {atLevel} {isAsi && <span className="byo-count">{asiComplete(atLevel) ? "done" : "to pick"}</span>}</h3>
