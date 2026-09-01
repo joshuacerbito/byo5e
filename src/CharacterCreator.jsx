@@ -1934,14 +1934,19 @@ export default function CharacterCreator() {
      Ability Score Improvement, the same way a feature entry sits inside
      the level box rather than getting a box of its own. */
   const renderMasteryBumpContent = (bump) => (
-    <div style={{ marginTop: 10 }}>
+    /* byo-ct-picker, same class the picker below (and every merged-in
+       subsection on this step) uses for its own divider — not a bare
+       margin, so a merged subsection always gets the established rule
+       + wide gap treatment rather than looking butted against whatever
+       came before it. */
+    <div className="byo-ct-picker">
       <p className="byo-note" style={{ marginBottom: 4 }}><b>Weapon Mastery.</b></p>
       <p className="byo-note" style={{ marginBottom: 10 }}>
         {klass.name}s can master {bump.to} weapons at level {bump.level}, up from {bump.from}.
       </p>
       <MasteryPicker label={`Choose ${bump.to - bump.from} more`} ceiling={bump.to} floor={bump.from}
                       eligibleWeapons={masteryEligibleWeapons} picks={masteryPicks}
-                      onAdd={(id) => addMastery(id, bump.to)} />
+                      onAdd={(id) => addMastery(id, bump.to)} onRemove={removeMastery} />
     </div>
   );
 
@@ -2745,13 +2750,12 @@ export default function CharacterCreator() {
                         INSIDE that level's own panel (renderMasteryBumpContent,
                         alongside Ability Score Improvement), not inflated
                         into this level-1 section — see masteryBumpLevels.
-                        Every mastered weapon picked so
-                        far, from ANY bracket, shows here (onRemove) as a
-                        removable chip — masteryPicks is one flat array with
-                        no per-bracket ownership, so this is the one place to
-                        see and undo the whole set (a bump panel below omits
-                        onRemove, so it stays add-only). Not a toggle grid
-                        like Skills above: with the full weapon list as the
+                        This section's own mastered weapons show here as
+                        removable chips — each bracket (this one, and every
+                        bump panel below) shows only ITS OWN slice of
+                        masteryPicks (see MasteryPicker's ownPicks), not the
+                        full array. Not a toggle grid like Skills above: with
+                        the full weapon list as the
                         pool, a search-to-add field reads better than a wall
                         of buttons — Josh's call, same shape the Armor/
                         Inventory search-and-add pickers already use

@@ -16,10 +16,24 @@
    plain wrapper div one level up in CharacterCreator.jsx, outside any
    byo-ct-picker, which meant they had none of that class's divider
    styling and visually read as part of whatever sat above them (the
-   Skills picker) instead of their own section. Only pass `onRemove`
-   from the ONE bracket that should own the whole removable list (the
-   base/Core-Traits call) — a bump panel omits it and shows add-only,
-   same as before. */
+   Skills picker) instead of their own section.
+
+   Each bracket shows only ITS OWN chips, not the whole masteryPicks
+   array — ownPicks below is `picks.slice(floor, ceiling)`. There's
+   still no real per-pick bracket tag (the boundary on this feature was
+   explicitly "don't add bracket-ownership tracking, don't add a
+   separate state array"), so ownership here is POSITIONAL, the same
+   approximation the `left` counter below already relies on: the first
+   `floor` picks (by array/add order) are treated as earlier brackets'
+   and everything from `floor` up to `ceiling` as this one's. In the
+   normal fill-low-to-high flow that's also the true order, so it reads
+   correctly; the one place it can misattribute is a weapon added
+   through a HIGHER bracket's search box while a lower one is still
+   open (allowed — Add always targets its own bracket's ceiling
+   regardless of what's below it) — it then shows as an earlier
+   bracket's chip instead of this one's. Cosmetic only: which section
+   displays a chip, never which weapons are actually mastered or how
+   many total. */
 import React, { useState, useMemo } from "react";
 
 export default function MasteryPicker({ label, note, ceiling, floor = 0, eligibleWeapons, picks, onAdd, onRemove }) {
@@ -32,6 +46,7 @@ export default function MasteryPicker({ label, note, ceiling, floor = 0, eligibl
      onAdd), so filling an earlier bracket's slot from here still works;
      this only changes what the counter claims is left AT THIS PANEL. */
   const left = Math.max(0, Math.min(ceiling - picks.length, ceiling - floor));
+  const ownPicks = picks.slice(floor, ceiling);
   const results = useMemo(() => {
     const q = search.trim().toLowerCase();
     const pool = eligibleWeapons.filter((w) => !picks.includes(w.id));
@@ -44,12 +59,12 @@ export default function MasteryPicker({ label, note, ceiling, floor = 0, eligibl
         <span className="byo-ct-picker-l">{label}</span>
         <span className="byo-count">{left > 0 ? `${left} to go` : "done"}</span>
       </div>
-      {onRemove && picks.length > 0 && (
+      {onRemove && ownPicks.length > 0 && (
         <div className="byo-skills" style={{ marginBottom: 10 }}>
           {/* masteryPicks holds weapon-TYPE keys, already display-ready
               (see masteryKey in content/items.js) — no item lookup
               needed to show the name. */}
-          {picks.map((key) => (
+          {ownPicks.map((key) => (
             <button key={key} className="byo-skill is-sel" onClick={() => onRemove(key)}
                     aria-pressed="true" title="Remove">{key} ✕</button>
           ))}
