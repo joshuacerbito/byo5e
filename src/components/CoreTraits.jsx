@@ -5,12 +5,13 @@
    Character" preamble, then a two-column table of everything the class
    grants at level 1.
 
-   The table is DESCRIPTIVE ONLY. Its "Skill Proficiencies" row prints
-   "Choose 2: Animal Handling, Athletics, ..." as prose; the real
-   interactive picker is passed in as children and rendered below the
-   table, which is where Jim last positioned it. Same for starting
-   equipment — the picker for that lives on the Inventory step, so this
-   row is the book's prose line and nothing more.
+   The table is DESCRIPTIVE ONLY. Its "Skill Proficiencies" row states
+   the size of the choice ("Choose 2") but NOT the pool — the picker
+   passed in as children sits a few lines below and already spells every
+   option out, and printing the same six names twice in a row taught the
+   reader nothing. Starting equipment is different: its picker lives on
+   the Inventory step, off this screen entirely, so that row carries the
+   book's full prose line.
 ------------------------------------------------------------------- */
 import React, { useState } from "react";
 import { ABILITY_LABEL } from "../rules/abilities.js";
@@ -82,7 +83,6 @@ export default function CoreTraits({ klass, skillChoiceText, skillsLeft, childre
           <span className="byo-ct-h3">Core {klass.name} Traits</span>
           <span className="byo-ct-sub">
             {choices} {choices === 1 ? "Choice" : "Choices"} · 1st level
-            {skillsLeft > 0 && <span className="byo-count">{skillsLeft} to go</span>}
           </span>
         </span>
         <span className="byo-ct-chev"><Chevron up={open} /></span>

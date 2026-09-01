@@ -167,9 +167,15 @@ export const STYLES = `
 .byo-ct-row:nth-child(even){background:var(--rock-2);}
 .byo-ct-k{font-weight:600;}
 .byo-ct-v{color:var(--bone-dim);min-width:0;overflow-wrap:anywhere;}
-.byo-ct-picker{margin-top:16px;}
-.byo-ct-picker-l{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;
-  text-transform:uppercase;color:var(--bone-dim);margin-bottom:8px;}
+/* The picker is the one thing on this panel the player has to ACT on,
+   so it gets a rule and a wide gap above it: everything over the line is
+   reference, everything under it is the step. */
+.byo-ct-picker{margin-top:22px;padding-top:18px;border-top:1px solid var(--line-bright);}
+.byo-ct-picker-h{display:flex;align-items:baseline;justify-content:space-between;
+  gap:12px;margin-bottom:10px;}
+.byo-ct-picker-l{font-family:'Vollkorn',serif;font-weight:600;font-size:16px;}
+.byo-ct-picker-h .byo-count{margin-left:0;}
+.byo-ct-picker-note{margin:-4px 0 10px;}
 @media(max-width:560px){
   /* One column under a phone width: a 200px label column leaves the
      value cell too narrow to read the equipment line. */

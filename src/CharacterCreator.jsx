@@ -2572,18 +2572,20 @@ export default function CharacterCreator() {
                   </div>
 
                   <CoreTraits klass={klass} skillsLeft={skillsLeft}
-                              skillChoiceText={classSkillCount > 0
-                                ? `Choose ${classSkillCount}: ${skillPool.join(", ")}`
-                                : null}>
-                    {ancestrySkillsGranted.size > 0 && (
-                      <p className="byo-note" style={{ marginTop: 10, marginBottom: 10 }}>
-                        You already have {[...ancestrySkillsGranted].join(" and ")} for free, so {ancestrySkillsGranted.size > 1 ? "they aren't" : "it isn't"} listed below.
-                      </p>
-                    )}
-                    {/* The functional control the table row only describes. */}
+                              skillChoiceText={classSkillCount > 0 ? `Choose ${classSkillCount}` : null}>
+                    {/* The functional control. The table row above only says
+                        how many skills to choose — the options themselves are
+                        these buttons, so the list isn't printed twice. */}
                     <div className="byo-ct-picker">
-                      <div className="byo-ct-picker-l">Skill Proficiencies
-                        <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span></div>
+                      <div className="byo-ct-picker-h">
+                        <span className="byo-ct-picker-l">Choose {classSkillCount} skill{classSkillCount === 1 ? "" : "s"}</span>
+                        <span className="byo-count">{skillsLeft > 0 ? `${skillsLeft} to go` : "done"}</span>
+                      </div>
+                      {ancestrySkillsGranted.size > 0 && (
+                        <p className="byo-note byo-ct-picker-note">
+                          {[...ancestrySkillsGranted].join(" and ")} {ancestrySkillsGranted.size > 1 ? "are" : "is"} already yours from your species, so {ancestrySkillsGranted.size > 1 ? "they're" : "it's"} not offered here.
+                        </p>
+                      )}
                       <div className="byo-skills">
                         {skillPool.map((s) => {
                           const on = skillPicks.includes(s);
