@@ -54,14 +54,18 @@ const Chevron = ({ up }) => (
   </svg>
 );
 
-export default function CoreTraits({ klass, skillChoiceText, skillsLeft, children }) {
+export default function CoreTraits({ klass, skillChoiceText, skillsLeft, masteryChoiceText, masteryLeft, children }) {
   const [open, setOpen] = useState(true);
   const equip = equipmentText(klass.startingEquipment);
   /* Choices this section asks the player to make: the skill picker is
-     always one, and starting equipment is one more whenever the class
-     actually offers alternatives (its picker lives on Inventory, but
-     the table row still announces the choice). */
+     always one, weapon mastery is one more when the class has the
+     2024-only feature (masteryChoiceText only arrives non-null then —
+     see weaponMasteryByLevel in content/classes.js), and starting
+     equipment is one more whenever the class actually offers
+     alternatives (its picker lives on Inventory, but the table row
+     still announces the choice). */
   const choices = (klass.skillChoices?.count > 0 ? 1 : 0)
+    + (masteryChoiceText ? 1 : 0)
     + ((klass.startingEquipment?.groups || []).some((g) => g.choice) ? 1 : 0);
 
   const rows = [
@@ -70,13 +74,14 @@ export default function CoreTraits({ klass, skillChoiceText, skillsLeft, childre
     ["Saving Throw Proficiencies", listWords((klass.saves || []).map((s) => ABILITY_LABEL[s] || s.toUpperCase()))],
     ["Skill Proficiencies", skillChoiceText],
     ["Weapon Proficiencies", klass.weaponProf.fixed.join(", ") || "None"],
+    ["Weapon Mastery", masteryChoiceText],
     ["Armor Training", klass.armorProf.fixed.join(", ") || "None"],
     ["Starting Equipment", equip],
   ].filter(([, v]) => v);
 
   return (
     <div className="byo-panel">
-      {skillsLeft > 0 && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
+      {(skillsLeft > 0 || masteryLeft > 0) && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
       <button type="button" className="byo-ct-head" aria-expanded={open}
               onClick={() => setOpen((o) => !o)}>
         <span className="byo-ct-title">

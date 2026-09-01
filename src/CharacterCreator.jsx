@@ -70,7 +70,7 @@ const DEFAULTS = {
   mode: "pointbuy", scores: { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 }, arrayAssign: {},
   name: "", backstory: "",
   classId: null, level: 1, subclassId: null,
-  skillPicks: [], optionPicks: {}, asiPicks: {},
+  skillPicks: [], optionPicks: {}, asiPicks: {}, masteryPicks: [],
   multiclasses: [], mcSkillPicks: {}, mcAsiPicks: {},
   bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [],
   armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {},
@@ -281,6 +281,11 @@ export default function CharacterCreator() {
   const [skillPicks, setSkillPicks] = useState(saved?.skillPicks ?? DEFAULTS.skillPicks);
   const [optionPicks, setOptionPicks] = useState(saved?.optionPicks ?? DEFAULTS.optionPicks);
   const [asiPicks, setAsiPicks] = useState(saved?.asiPicks ?? DEFAULTS.asiPicks);
+  // Which weapon ids are mastered — 2024-only, capped per level by the
+  // class's own weaponMasteryByLevel table (see content/classes.js). A
+  // save written before this field existed has no masteryPicks at all,
+  // same backward-compat pattern as every other array field here.
+  const [masteryPicks, setMasteryPicks] = useState(saved?.masteryPicks ?? DEFAULTS.masteryPicks);
   const [bgId, setBgId] = useState(saved?.bgId ?? DEFAULTS.bgId);
   const [bgSkillPicks, setBgSkillPicks] = useState(saved?.bgSkillPicks ?? DEFAULTS.bgSkillPicks);
   const [bgAbilityAlt, setBgAbilityAlt] = useState(saved?.bgAbilityAlt ?? DEFAULTS.bgAbilityAlt);
@@ -308,6 +313,7 @@ export default function CharacterCreator() {
     setClassId(DEFAULTS.classId); setLevel(DEFAULTS.level); setSubclassId(DEFAULTS.subclassId);
     setMulticlasses(DEFAULTS.multiclasses); setMcSkillPicks(DEFAULTS.mcSkillPicks); setMcAsiPicks(DEFAULTS.mcAsiPicks);
     setSkillPicks(DEFAULTS.skillPicks); setOptionPicks(DEFAULTS.optionPicks); setAsiPicks(DEFAULTS.asiPicks);
+    setMasteryPicks(DEFAULTS.masteryPicks);
     setBgId(DEFAULTS.bgId); setBgSkillPicks(DEFAULTS.bgSkillPicks);
     setBgAbilityAlt(DEFAULTS.bgAbilityAlt); setBgAbilityPicks(DEFAULTS.bgAbilityPicks);
     setArmorId(DEFAULTS.armorId); setHasShield(DEFAULTS.hasShield);
@@ -413,7 +419,7 @@ export default function CharacterCreator() {
   const pickClass = (id) => {
     setClassId(id); setSubclassId(null); setSkillPicks([]); setOptionPicks({});
     setAsiPicks({}); setArmorId(null); setHasShield(false);
-    setClassEquipPicks({}); setPickedSpellIds([]);
+    setClassEquipPicks({}); setPickedSpellIds([]); setMasteryPicks([]);
     // A class can't be both the primary class and a multiclass entry.
     setMulticlasses((prev) => prev.filter((m) => m.classId !== id));
   };
@@ -616,6 +622,39 @@ export default function CharacterCreator() {
   const weaponProf = useMemo(
     () => mergeWeaponProf(deriveClassWeaponProf([...(klass?.weaponProf.fixed || []), ...mcWeaponFixed], content?.weapons), []),
     [klass, mcWeaponFixed, content]);
+
+  /* Weapon Mastery — 2024-only, a flat class-table column rather than a
+     classFeature (see weaponMasteryFromTable in content/classes.js), so
+     there's nothing here for `activeClassFeatures` to have already
+     surfaced. masteryCount is null for a class/edition that never gets
+     the feature (2014 classes, and every 2024 class besides Barbarian/
+     Fighter in this SRD slice) — that's "no picker", not "cap of 0". */
+  const masteryCount = klass?.weaponMasteryByLevel ? (klass.weaponMasteryByLevel[level - 1] ?? 0) : null;
+  const masteryEligibleWeapons = useMemo(
+    () => (content?.weapons || []).filter((w) => isWeaponProficient(w, weaponProf)),
+    [content, weaponProf]);
+  useEffect(() => {
+    if (masteryCount == null) { if (masteryPicks.length) setMasteryPicks([]); return; }
+    const eligibleIds = new Set(masteryEligibleWeapons.map((w) => w.id));
+    setMasteryPicks((prev) => {
+      const kept = prev.filter((id) => eligibleIds.has(id)).slice(0, masteryCount);
+      return kept.length === prev.length && kept.every((id, i) => id === prev[i]) ? prev : kept;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [masteryCount, masteryEligibleWeapons]);
+  const masteryLeft = masteryCount == null ? 0 : masteryCount - masteryPicks.length;
+  const [masterySearch, setMasterySearch] = useState("");
+  const masteryResults = useMemo(() => {
+    const q = masterySearch.trim().toLowerCase();
+    const pool = masteryEligibleWeapons.filter((w) => !masteryPicks.includes(w.id));
+    return q ? pool.filter((w) => w.name.toLowerCase().includes(q)) : [];
+  }, [masteryEligibleWeapons, masteryPicks, masterySearch]);
+  const addMastery = (id) => {
+    setMasteryPicks((p) => (p.includes(id) || p.length >= masteryCount ? p : [...p, id]));
+  };
+  const removeMastery = (id) => {
+    setMasteryPicks((p) => p.filter((x) => x !== id));
+  };
 
   const armorOptions = useMemo(() => {
     const list = (content?.armor || []).filter((a) => armorProfCats.includes(a.category));
@@ -1117,7 +1156,12 @@ export default function CharacterCreator() {
       const dmgMod = damageBonus(w, scoresForRules);
       const notes = (w.properties || []).map((p) => p.label);
       if (w.versatileDmg) notes.push(`Versatile — ${w.versatileDmg}${fmt(dmgMod)} two-handed`);
-      (w.mastery || []).forEach((m) => notes.push(`Mastery: ${m.name}`));
+      /* Only the weapons actually picked in the Core Traits mastery
+         picker, not every carried weapon's intrinsic mastery property —
+         see masteryPicks above. A weapon's mastery text is what it
+         WOULD grant if mastered, not something every wielder gets for
+         free just by carrying it. */
+      if (masteryPicks.includes(w.id)) (w.mastery || []).forEach((m) => notes.push(`Mastery: ${m.name}`));
       return {
         key: w.id, name: qty > 1 ? `${w.name} ×${qty}` : w.name,
         range: w.range ? `${w.range.label.replace("/", " / ")} ft` : (w.weaponKind === "ranged" ? "—" : "5 ft"),
@@ -1135,7 +1179,7 @@ export default function CharacterCreator() {
       hitOrDC: fmt(strMod + pb), damage: `${1 + strMod}`, dmgType: "bludgeoning", notes: "", proficient: true });
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [klass, carriedWeapons, weaponProf, pb, scores, arrayAssign, mode, allBonuses]);
+  }, [klass, carriedWeapons, weaponProf, pb, scores, arrayAssign, mode, allBonuses, masteryPicks]);
 
   /* How many attacks the Attack action itself makes, from Extra Attack.
      Multiclassing doesn't add Extra Attacks together — you use whichever
@@ -1455,6 +1499,7 @@ export default function CharacterCreator() {
     if (name === "Class") {
       if (!klass) return false;
       if (skillsLeft > 0) return false;
+      if (masteryLeft > 0) return false;
       if (optionChoiceGroups.some((g) => (optionPicks[g.key] || []).length < g.budget)) return false;
       if (klass.subclassLevel != null && subclassOn && !subclass) return false;
       if (asiIncomplete) return false;
@@ -1510,12 +1555,12 @@ export default function CharacterCreator() {
   ------------------------------------------------------------------- */
   const snapshot = useMemo(() => ({
     edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
-    name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks,
+    name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
     classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, currency,
   }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
-    name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks,
+    name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
     classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, currency]);
@@ -2589,7 +2634,9 @@ export default function CharacterCreator() {
                     </div>
                   )}
                   <CoreTraits klass={klass} skillsLeft={skillsLeft}
-                              skillChoiceText={classSkillCount > 0 ? `Choose ${classSkillCount}` : null}>
+                              skillChoiceText={classSkillCount > 0 ? `Choose ${classSkillCount}` : null}
+                              masteryLeft={masteryLeft}
+                              masteryChoiceText={masteryCount != null ? `Choose ${masteryCount}` : null}>
                     {/* The functional control. The table row above only says
                         how many skills to choose — the options themselves are
                         these buttons, so the list isn't printed twice. */}
@@ -2614,6 +2661,55 @@ export default function CharacterCreator() {
                         })}
                       </div>
                     </div>
+
+                    {/* Weapon Mastery — 2024-only (masteryCount null on every
+                        other class/edition, so this whole block is absent
+                        there). Not a toggle grid like Skills above: with the
+                        full weapon list as the pool, a search-to-add field
+                        reads better than a wall of buttons — Josh's call,
+                        same shape the Armor/Inventory search-and-add pickers
+                        already use elsewhere on this step. */}
+                    {masteryCount != null && (
+                      <div className="byo-ct-picker" style={{ marginTop: 14 }}>
+                        <div className="byo-ct-picker-h">
+                          <span className="byo-ct-picker-l">Choose {masteryCount} mastered weapon{masteryCount === 1 ? "" : "s"}</span>
+                          <span className="byo-count">{masteryLeft > 0 ? `${masteryLeft} to go` : "done"}</span>
+                        </div>
+                        {masteryPicks.length > 0 && (
+                          <div className="byo-skills" style={{ marginBottom: 10 }}>
+                            {masteryPicks.map((id) => {
+                              const w = masteryEligibleWeapons.find((x) => x.id === id);
+                              if (!w) return null;
+                              return (
+                                <button key={id} className="byo-skill is-sel" onClick={() => removeMastery(id)}
+                                        aria-pressed="true" title="Remove">{w.name} ✕</button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {masteryLeft > 0 && (
+                          <>
+                            <input className="byo-input" style={{ fontSize: 15, marginBottom: 10 }} value={masterySearch}
+                                   onChange={(e) => setMasterySearch(e.target.value)}
+                                   placeholder="Search weapons you're proficient with…"
+                                   aria-label="Search mastered weapons" />
+                            {masterySearch.trim() && (
+                              <div className="byo-scroll-y">
+                                {masteryResults.slice(0, 20).map((w) => (
+                                  <div className="byo-row" key={w.id}>
+                                    <span className="byo-row-label">{w.name}</span>
+                                    <button className="byo-chip-b" onClick={() => addMastery(w.id)}>Add</button>
+                                  </div>
+                                ))}
+                                {masteryResults.length === 0 && (
+                                  <p className="byo-note">No proficient weapons match "{masterySearch}".</p>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </CoreTraits>
 
                   {optionChoiceGroups.map((g) => (

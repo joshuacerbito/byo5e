@@ -69,6 +69,25 @@ function pactFromTable(groups) {
   return null;
 }
 
+/* 2024-only: how many weapons a class can have mastered, by level — a
+   flat class-table column (not a classFeature record; see the header
+   note on asiLevels for why that distinction matters here too). Absent
+   entirely from 2014 data and from classes that never get the feature,
+   so callers treat a null return as "this class has no weapon mastery",
+   not "mastery count is zero". */
+function weaponMasteryFromTable(groups) {
+  for (const g of groups || []) {
+    const idx = colIndex(g.colLabels, "weapon mastery");
+    if (idx < 0) continue;
+    return (g.rows || []).map((row) => {
+      const raw = row[idx];
+      const n = typeof raw === "number" ? raw : parseInt(stripTags(String(raw)), 10);
+      return Number.isFinite(n) ? n : 0;
+    });
+  }
+  return null;
+}
+
 function buildCasting(cl) {
   const prog = cl.casterProgression ? (PROGRESSION[cl.casterProgression] || cl.casterProgression) : null;
   if (!prog && !cl.spellcastingAbility) return null;
@@ -261,6 +280,7 @@ export function buildClasses(reg, optionIdOf) {
       subclassTitle: cl.subclassTitle ? stripTags(cl.subclassTitle) : null,
       asiLevels,
       features,
+      weaponMasteryByLevel: weaponMasteryFromTable(cl.classTableGroups),
       tables: classTables(cl.classTableGroups),
       optionProgression: progressionBlock(cl.optionalfeatureProgression, "types"),
       featProgression: progressionBlock(cl.featProgression, "categories"),
