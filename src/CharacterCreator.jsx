@@ -2708,11 +2708,25 @@ export default function CharacterCreator() {
                         );
                       })}
                     </div>
-                    {(g.kind === "lineage" || g.kind === "trait" || g.kind === "feat") && (ancestryPicks[g.ci] || []).map((id) => (
-                      <div key={id} style={{ marginTop: 10 }}>
-                        <FeatureBlocks blocks={g.optionsById[id].blocks} />
-                      </div>
-                    ))}
+                    {(g.kind === "lineage" || g.kind === "trait" || g.kind === "feat") && (ancestryPicks[g.ci] || []).map((id) => {
+                      const opt = g.optionsById[id];
+                      /* A table-shaped choice (Dragonborn's dragons) carries
+                         its damage type as a raw column dump ("Damage Type.
+                         Acid") once read out of the table row — say what it
+                         means and bold the type, matching the Sheet's own
+                         Resistances row for this same resolved value. */
+                      const blocks = opt.damageType
+                        ? opt.blocks.filter((b) => !/^damage type\.\s*/i.test(b.text || ""))
+                        : opt.blocks;
+                      return (
+                        <div key={id} style={{ marginTop: 10 }}>
+                          {opt.damageType && (
+                            <p className="byo-fb-p">Resistant to <b>{opt.damageType[0].toUpperCase() + opt.damageType.slice(1)}</b></p>
+                          )}
+                          <FeatureBlocks blocks={blocks} />
+                        </div>
+                      );
+                    })}
                     {/* The legacy's own spellcasting ability. Sits inside
                         this panel rather than getting one of its own: it
                         is part of picking the legacy, and it does not

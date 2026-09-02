@@ -252,7 +252,7 @@ export default function Sheet({ ctx, onEdit, exportSection, rulesetSection, acco
                 {/* An unresolved choice ("one of acid, cold, ...") already
                     names itself; only a settled type gets the "Resistant
                     to" framing, with the type bolded. */}
-                {r.startsWith("one of ") ? r : <>Resistant to <b>{r}</b></>}
+                {r.startsWith("one of ") ? r : <>Resistant to <b>{r[0].toUpperCase() + r.slice(1)}</b></>}
               </span>
             ))
           : "None"} />
