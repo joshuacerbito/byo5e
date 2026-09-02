@@ -452,12 +452,15 @@ export default function CharacterCreator() {
     return id ? g.optionsById[id] : null;
   }, [ancestryChoiceGroups, ancestryPicks]);
 
-  /* The damage type a trait choice resolves to, if it has one —
-     Dragonborn's dragon decides both the Breath Weapon's type and which
-     of the five damage types its Damage Resistance actually is. */
+  /* The damage type a species' own option choice resolves to, if it has
+     one — Dragonborn's dragon decides both the Breath Weapon's type and
+     which of the five damage types its Damage Resistance actually is,
+     and a 2024 Tiefling's legacy decides its one resistance the same
+     way (Abyssal poison, Chthonic necrotic, Infernal fire). Either kind
+     of option can carry it; see damageTypeOf in content/ancestry.js. */
   const ancestryChoiceDamageType = useMemo(() => {
     for (const g of ancestryChoiceGroups) {
-      if (g.kind !== "trait") continue;
+      if (g.kind !== "trait" && g.kind !== "lineage") continue;
       const opt = g.optionsById[(ancestryPicks[g.ci] || [])[0]];
       if (opt?.damageType) return opt.damageType;
     }

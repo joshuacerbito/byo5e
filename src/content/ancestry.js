@@ -93,6 +93,30 @@ function lineageOptionBlocks(table, name) {
     .filter((p) => p.text);
 }
 
+/* The damage type an option resolves its species' choice-shaped
+   `resist` to, once that option is the one picked.
+
+   Two places record it, because the two species record it differently.
+   Dragonborn's Draconic Ancestry table gives it a column of its own
+   (Black | Acid). Tiefling's Fiendish Legacy states it inside the level
+   1 benefit's own prose -- "You have Resistance to Poison damage" -- and
+   that sentence is the ONLY place the pack ties Abyssal to poison at
+   all; the resist block itself is a bare three-way choice, as though
+   the player picked their resistance freely, which the rules text is
+   explicit they do not.
+
+   Null for an option that resolves nothing, which is most of them. */
+const RESIST_RE = /resistance to (\w+) damage/i;
+
+function damageTypeOf(blocks, fromColumn) {
+  if (fromColumn) return String(fromColumn).toLowerCase();
+  for (const b of blocks || []) {
+    const m = RESIST_RE.exec(b.text || "");
+    if (m) return m[1].toLowerCase();
+  }
+  return null;
+}
+
 /* The 2024 species lineage choice, read off named additionalSpells
    blocks. Their benefit text lives in the species' own trait table,
    matched up here so each option can show its own description. */
@@ -104,10 +128,13 @@ function lineageChoices(addl, traits) {
     kind: "lineage",
     count: 1,
     label: label || "Lineage",
-    options: named.map((b) => ({
-      id: slugify(b.name), name: b.name, ability: b.ability, grants: b.grants,
-      blocks: lineageOptionBlocks(table, b.name),
-    })),
+    options: named.map((b) => {
+      const blocks = lineageOptionBlocks(table, b.name);
+      return {
+        id: slugify(b.name), name: b.name, ability: b.ability, grants: b.grants,
+        damageType: damageTypeOf(blocks, null), blocks,
+      };
+    }),
   }];
 }
 
@@ -150,11 +177,13 @@ function traitChoices(traits, taken) {
       const dmg = (table.colLabels || []).findIndex((l) => /damage\s*type/i.test(l));
       out.push({
         kind: "trait", count: 1, label: t.name,
-        options: table.rows.map((row) => ({
-          id: slugify(String(row[0])), name: String(row[0]),
-          damageType: dmg > 0 && row[dmg] ? String(row[dmg]).toLowerCase() : null,
-          blocks: lineageOptionBlocks(table, String(row[0])),
-        })),
+        options: table.rows.map((row) => {
+          const blocks = lineageOptionBlocks(table, String(row[0]));
+          return {
+            id: slugify(String(row[0])), name: String(row[0]),
+            damageType: damageTypeOf(blocks, dmg > 0 ? row[dmg] : null), blocks,
+          };
+        }),
       });
       continue;
     }
@@ -163,7 +192,8 @@ function traitChoices(traits, taken) {
       out.push({
         kind: "trait", count: 1, label: t.name,
         options: list.items.filter((i) => i.name).map((i) => ({
-          id: slugify(i.name), name: i.name, damageType: null, blocks: i.blocks,
+          id: slugify(i.name), name: i.name,
+          damageType: damageTypeOf(i.blocks, null), blocks: i.blocks,
         })),
       });
     }
