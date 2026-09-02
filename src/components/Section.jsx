@@ -2,8 +2,12 @@
    One collapsible wizard panel, and the "Show More" clamp for long
    body content inside one.
 
-   Two separate affordances on purpose. The chevron in the header hides
-   a whole SECTION — it's how you skip past a level you've already read.
+   Two separate affordances on purpose. The chevron in the header strips
+   a section back to its HEADINGS — every feature name, label and title
+   inside it stays on screen, and only the explanatory prose and the
+   controls under them go. Collapsing "Level 1" should still tell you
+   what you get at level 1; a bar reading nothing but "Level 1" is a
+   worse table of contents than the panel it replaced.
    Show More clamps a run of body text INSIDE a section you're keeping
    open, so a level panel whose feature happens to print a full table
    doesn't push the next level off the screen. Collapsing everything
@@ -48,7 +52,11 @@ export default function Section({
         </span>
         <span className="byo-sec-chev"><Chevron up={open} /></span>
       </button>
-      {open && children}
+      {/* Rendered whether open or shut. The shut state is a CSS
+          treatment (.byo-sec-b.is-shut in styles.js) that hides
+          description-level content and leaves the headings standing —
+          unmounting the body would take the headings with it. */}
+      <div className={`byo-sec-b${open ? "" : " is-shut"}`}>{children}</div>
     </div>
   );
 }

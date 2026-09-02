@@ -156,9 +156,47 @@ export const STYLES = `
 .byo-sec-sub .byo-count,.byo-sec-h3 .byo-count{margin-left:10px;}
 .byo-sec-chev{flex:none;color:var(--line-bright);display:flex;align-items:center;}
 .byo-sec-chev svg{width:20px;height:20px;transition:transform .15s ease-out;}
-/* Collapsed, the header is the panel's only child — its bottom margin
-   would otherwise leave a strip of dead padding under a shut section. */
-.byo-panel > .byo-sec-head:last-child{margin-bottom:0;}
+/* A shut section keeps its HEADINGS and drops the descriptions under
+   them: collapsing "Level 1" should still list what you get at level 1.
+   So this hides body prose, block tables/lists, and the controls — never
+   a feature name, a trait label, a card name or a picker's own heading.
+   Done in CSS rather than by unmounting the body, because the headings
+   worth keeping are scattered through that same subtree. */
+.byo-sec-b.is-shut .byo-fb-p,
+.byo-sec-b.is-shut .byo-fb-list,
+.byo-sec-b.is-shut .byo-fb-table-wrap,
+.byo-sec-b.is-shut .byo-fb-ref,
+.byo-sec-b.is-shut .byo-fb-note,
+.byo-sec-b.is-shut .byo-note,
+.byo-sec-b.is-shut .byo-warn,
+.byo-sec-b.is-shut .byo-ct-bullets,
+.byo-sec-b.is-shut .byo-ct-v,
+.byo-sec-b.is-shut .byo-card-blurb,
+.byo-sec-b.is-shut .byo-card-kind,
+.byo-sec-b.is-shut .byo-pills,
+.byo-sec-b.is-shut .byo-skills,
+.byo-sec-b.is-shut .byo-choice,
+.byo-sec-b.is-shut .byo-input,
+.byo-sec-b.is-shut .byo-scroll-y,
+.byo-sec-b.is-shut .byo-more-t{display:none;}
+/* The feature name is a byo-note like the prose around it, so it needs
+   to win the rule above by specificity rather than by source order. */
+.byo-sec-b.is-shut .byo-note.byo-feat-n{display:block;margin:0 0 4px;}
+/* Shut, the traits table is a list of labels — the 200px value column
+   would leave every one of them hugging the left edge of a wide row. */
+.byo-sec-b.is-shut .byo-ct-row{grid-template-columns:1fr;padding:6px 12px;}
+.byo-sec-b.is-shut .byo-ct-picker{margin-top:14px;padding-top:12px;}
+/* Collapsed, the header is no longer the panel's last child (the body
+   div always renders), so the dead-padding fix keys off the shut body
+   instead. */
+.byo-panel > .byo-sec-head:has(+ .byo-sec-b.is-shut:empty){margin-bottom:0;}
+.byo-sec-b.is-shut{margin-bottom:-2px;}
+/* Show More's clamp is measured against the OPEN body. Shut, the same
+   run of headings is a fraction of that height, and leaving the clamp
+   on would fade out and cut off the very names this state exists to
+   keep. The inline max-height is why this needs !important. */
+.byo-sec-b.is-shut .byo-more-b.is-clamped{max-height:none!important;
+  -webkit-mask-image:none;mask-image:none;}
 /* Show More — clamps a run of body text inside an open section. The
    fade says the text is cut rather than finished; the toggle sits
    under it as its own control, not on the header. */

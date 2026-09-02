@@ -1948,7 +1948,7 @@ export default function CharacterCreator() {
        + wide gap treatment rather than looking butted against whatever
        came before it. */
     <div className="byo-ct-picker">
-      <p className="byo-note" style={{ marginBottom: 4 }}><b>Weapon Mastery.</b></p>
+      <p className="byo-note byo-feat-n" style={{ marginBottom: 4 }}><b>Weapon Mastery.</b></p>
       <p className="byo-note" style={{ marginBottom: 10 }}>
         {klass.name}s can master {bump.to} weapons at level {bump.level}, up from {bump.from}.
       </p>
@@ -2119,7 +2119,7 @@ export default function CharacterCreator() {
             <ShowMore label={`level ${atLevel} features`}>
               {levelFeats.map((f) => (
                 <div key={f.id} style={{ marginBottom: 10 }}>
-                  <p className="byo-note" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
+                  <p className="byo-note byo-feat-n" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
                   <FeatureBlocks blocks={f.blocks} />
                 </div>
               ))}
@@ -2823,7 +2823,7 @@ export default function CharacterCreator() {
                         if (!o?.text) return null;
                         return (
                           <div key={id} style={{ marginTop: 10 }}>
-                            <p className="byo-note" style={{ marginBottom: 4 }}><b>{o.name}.</b></p>
+                            <p className="byo-note byo-feat-n" style={{ marginBottom: 4 }}><b>{o.name}.</b></p>
                             <FeatureBlocks blocks={o.blocks} />
                           </div>
                         );
@@ -2876,7 +2876,7 @@ export default function CharacterCreator() {
                         <ShowMore label={`level ${atLevel} features`}>
                           {feats.map((f) => (
                             <div key={f.id} style={{ marginBottom: 10 }}>
-                              <p className="byo-note" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
+                              <p className="byo-note byo-feat-n" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
                               <FeatureBlocks blocks={f.blocks} />
                             </div>
                           ))}
