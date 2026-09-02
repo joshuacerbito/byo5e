@@ -171,6 +171,7 @@ export const STYLES = `
 .byo-sec-b.is-shut .byo-warn,
 .byo-sec-b.is-shut .byo-ct-bullets,
 .byo-sec-b.is-shut .byo-ct-v,
+.byo-sec-b.is-shut .byo-mod,
 .byo-sec-b.is-shut .byo-card-blurb,
 .byo-sec-b.is-shut .byo-card-kind,
 .byo-sec-b.is-shut .byo-pills,

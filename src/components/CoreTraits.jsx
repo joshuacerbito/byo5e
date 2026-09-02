@@ -37,7 +37,11 @@ const listWords = (arr) => {
    ourselves when a pack carries only those. */
 function equipmentText(se) {
   if (!se) return null;
-  if (se.text?.length) return se.text.join(" ");
+  /* One line per choice in the 2014 packs ("(a) a quarterstaff or (b) a
+     dagger", then "(a) a component pouch or ..."). Joined with a space
+     they read as one run-on sentence, so they get a separator; 2024
+     packs carry structured groups instead and never reach this branch. */
+  if (se.text?.length) return se.text.join(" · ");
   const lines = (se.groups || []).map((g) => {
     const opts = g.options.filter((o) => !o.fixed);
     const label = (o) => o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");

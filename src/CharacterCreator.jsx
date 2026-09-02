@@ -557,18 +557,15 @@ export default function CharacterCreator() {
   const optionChoiceGroups = useMemo(() => {
     if (!klass) return [];
     const groups = [];
-    const seen = new Set();
     for (const f of [...activeClassFeatures, ...activeSubclassFeatures]) {
       f.choices.forEach((c, ci) => {
         const pool = c.options.filter((o) => o.resolved);
         if (!pool.length) return;
         groups.push({ key: `${f.id}-${ci}`, label: f.name, budget: c.count,
           pool: pool.map((o) => ({ id: o.id, name: o.name, text: o.text, blocks: o.blocks })) });
-        seen.add(f.name.toLowerCase());
       });
     }
     for (const [label, keyword] of Object.entries(GROWING_CHOICE_KEYWORDS)) {
-      if (seen.has(label)) continue;
       const entry = (klass.optionProgression || []).find((p) => p.name?.toLowerCase() === label);
       if (!entry) continue;
       const budget = tableColumnAt(klass.tables, keyword, level) ?? progressionAt(entry.byLevel, level);
@@ -587,7 +584,26 @@ export default function CharacterCreator() {
           hasSpellcasting: false, pact: null, knownSpells: new Set(),
           ancestryBase: ancestry?.baseName, ancestryLineage: ancestry?.lineageName, proficient: () => true,
         }));
-      if (pool.length) groups.push({ key: `growing-${keyword}`, label: entry.name, budget, pool });
+      if (!pool.length) continue;
+      /* The bridged choice and a feature's own enumerated options can be
+         the SAME choice wearing two names: 2024's Warlock carries both an
+         "Eldritch Invocations" progression and an "Eldritch Invocation
+         Options" feature whose `options` block lists the whole invocation
+         catalogue. Rendering both gave that class two invocation pickers
+         side by side, one of them claiming a budget of 1 when the table
+         says 5. Sameness is decided on the option POOLS rather than on the
+         two labels, which never matched and, being prose, can't be relied
+         on to: whichever pool is smaller is the honest basis for
+         comparison, since the bridged pool is prerequisite-filtered and
+         the feature's is not. The progression's budget is the one the
+         class table actually prints, so the bridged group is the keeper
+         and the feature-derived duplicate goes. */
+      const ids = new Set(pool.map((o) => o.id));
+      for (let i = groups.length - 1; i >= 0; i--) {
+        const overlap = groups[i].pool.filter((o) => ids.has(o.id)).length;
+        if (overlap && overlap >= Math.min(groups[i].pool.length, pool.length) / 2) groups.splice(i, 1);
+      }
+      groups.push({ key: `growing-${keyword}`, label: entry.name, budget, pool });
     }
     return groups;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2034,8 +2050,8 @@ export default function CharacterCreator() {
           (Subclass panel, Skills panel, Proficiencies panel, one panel per
           level with a feature/ASI to show), not one merged box. */}
       {e.klass.subclassLevel != null && (
-        <div className="byo-panel" style={{ marginBottom: 12 }}>
-          <h3>{e.klass.subclassTitle || "Subclass"}</h3>
+        <Section style={{ marginBottom: 12 }} title={e.klass.subclassTitle || "Subclass"}
+                 flag={e.subclassOn && !e.subclassId}>
           {e.subclassOn ? (
             <div className="byo-card-grid" style={{ marginTop: 8 }}>
               {e.klass.subclasses.map((s) => {
@@ -2062,16 +2078,17 @@ export default function CharacterCreator() {
               {e.klass.name}s choose at level {e.klass.subclassLevel}. This entry is level {e.level}.
             </p>
           )}
-        </div>
+        </Section>
       )}
 
       {/* Skills is its own top-level panel here, same as the primary
           class's "Skills" panel — not nested under Proficiencies gained,
           so the two tabs read the same way. */}
       {mcSkillCount > 0 && (
-        <div className="byo-panel" style={{ marginBottom: 12 }}>
-          <h3>Skills <span className="byo-count">{picks.length}/{mcSkillCount}</span></h3>
-          <div className="byo-skills">
+        <Section style={{ marginBottom: 12 }} title="Skills"
+                 count={`${picks.length}/${mcSkillCount}`}
+                 flag={picks.length < mcSkillCount}>
+          <div className={`byo-skills${picks.length < mcSkillCount ? " byo-live" : ""}`}>
             {mcSkillPool.map((s) => {
               const on = picks.includes(s);
               const full = !on && mcSkillCount !== 1 && picks.length >= mcSkillCount;
@@ -2082,12 +2099,11 @@ export default function CharacterCreator() {
               );
             })}
           </div>
-        </div>
+        </Section>
       )}
 
       {pg && (
-        <div className="byo-panel" style={{ marginBottom: 12 }}>
-          <h3>Proficiencies gained (multiclassing in)</h3>
+        <Section style={{ marginBottom: 12 }} title="Proficiencies gained (multiclassing in)">
           {pg.armor.fixed.length === 0 && pg.weapons.fixed.length === 0 && pg.tools.fixed.length === 0 ? (
             <p className="byo-note">Nothing beyond what you already have.</p>
           ) : (
@@ -2102,7 +2118,7 @@ export default function CharacterCreator() {
                 <span className="byo-mod" style={{ width: "auto" }}>{pg.tools.fixed.join(", ") || "None"}</span></div>
             </>
           )}
-        </div>
+        </Section>
       )}
 
       {/* Level-by-level, same as the primary class's own section below:
