@@ -65,9 +65,15 @@ export default function Section({
    toggle only when there is actually something hidden — a two-line
    feature with a "Show More" under it is noise. Measured rather than
    guessed from a character count, because a feature's blocks can be a
-   table or a list, not just a paragraph. */
+   table or a list, not just a paragraph.
+
+   Starts EXPANDED, like the sections themselves: nothing on the page
+   arrives with text already hidden, and every collapse is something the
+   reader did on purpose. The clamp is still measured on first paint, so
+   the "Show Less" toggle only appears where there is enough content for
+   collapsing to be worth offering. */
 export function ShowMore({ max = 168, label = "body text", children }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [over, setOver] = useState(false);
   const ref = useRef(null);
 
