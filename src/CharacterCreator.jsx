@@ -885,36 +885,6 @@ export default function CharacterCreator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mcEntries, masteryEligibleWeapons]);
 
-  const armorOptions = useMemo(() => {
-    const list = (content?.armor || []).filter((a) => armorProfCats.includes(a.category));
-    return [null, ...list];
-  }, [content, armorProfCats]);
-  const armor = armorOptions.find((a) => a?.id === armorId) || null;
-  /* Magic armor swelled armorOptions well past a button-grid's comfort
-     zone (216 armor records vs. a dozen mundane ones). The grid stays
-     small by default — mundane armor only, same shape this UI was
-     built for — and magic armor surfaces solely through search, capped
-     like the item browser below. Whatever's actually equipped stays
-     pinned in so switching away from a magic piece doesn't hide it. */
-  const mundaneArmorOptions = useMemo(
-    () => armorOptions.filter((a) => a === null || a.rarity === "none"),
-    [armorOptions]);
-  const [armorSearch, setArmorSearch] = useState("");
-  const ARMOR_RESULTS_CAP = 20;
-  const armorResults = useMemo(() => {
-    const q = armorSearch.trim().toLowerCase();
-    const magicMatches = q
-      ? armorOptions.filter((a) => a && a.rarity !== "none" && a.name.toLowerCase().includes(q))
-      : [];
-    const pinned = armor && armor.rarity !== "none" && !magicMatches.includes(armor) ? [armor] : [];
-    return {
-      rows: [...pinned, ...magicMatches.slice(0, ARMOR_RESULTS_CAP)],
-      total: magicMatches.length,
-    };
-  }, [armorOptions, armorSearch, armor]);
-  const shieldAllowed = armorProfCats.includes("shield");
-  const shieldOn = shieldAllowed && hasShield;
-
   /* ------------------------------------------------------------------
      BACKGROUND
   ------------------------------------------------------------------- */
@@ -1090,6 +1060,39 @@ export default function CharacterCreator() {
     customResolved.forEach((ci) => push(ci.resolved, ci.quantity || 1, { attuned: !!ci.attuned }));
     return out;
   }, [classEquipItems, bgEquipItems, customResolved]);
+
+
+  /* ------------------------------------------------------------------
+     ARMOR — what you're WEARING, picked from what you're CARRYING.
+
+     The option list is the inventory (starting equipment plus anything
+     added on this step), filtered to the categories the character is
+     proficient with. It used to be the whole armor catalogue, all 216
+     records, which let a character wear plate they had never been
+     granted and never bought. Nothing here auto-equips: equipping is
+     still an explicit pick, this only decides what can be picked.
+
+     Sits below the inventory memos because it reads them.
+  ------------------------------------------------------------------- */
+  const ownedArmor = useMemo(() => {
+    const seen = new Set();
+    return inventory
+      .map((r) => r.item)
+      .filter((a) => a?.kind === "armor" && !seen.has(a.id) && seen.add(a.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [inventory]);
+  const armorOptions = useMemo(
+    () => [null, ...ownedArmor.filter((a) => a.category !== "shield" && armorProfCats.includes(a.category))],
+    [ownedArmor, armorProfCats]);
+  /* Null when armorId points at armor that has left the inventory — the
+     AC falls back to Unarmoured on its own, so a removed item can't go
+     on quietly contributing. The id itself is left alone: re-add the
+     piece and you are wearing it again, which is friendlier than
+     silently clearing the pick the moment an item is deleted. */
+  const armor = armorOptions.find((a) => a?.id === armorId) || null;
+  const shieldAllowed = armorProfCats.includes("shield")
+    && ownedArmor.some((a) => a.category === "shield");
+  const shieldOn = shieldAllowed && hasShield;
 
   const startingGold = useMemo(() => {
     const cp = [...classEquipItems, ...bgEquipItems]
@@ -3374,41 +3377,25 @@ export default function CharacterCreator() {
                 <>
                   <div className="byo-panel">
                     <h3>Armor</h3>
-                    {armorOptions.length === 1 ? (
+                    {!armorProfCats.length ? (
                       <p className="byo-note">{klass.name}s aren't proficient with any armor.</p>
+                    ) : armorOptions.length === 1 ? (
+                      /* The list is the inventory, so an empty one is a
+                         statement about the character's gear, not their
+                         class — and it names where armor comes from. */
+                      <p className="byo-note">
+                        You aren't carrying any armor you can wear. Take some in Starting Equipment,
+                        or add it under <b>Add an item</b> below.
+                      </p>
                     ) : (
-                      <>
-                        {armor && armor.rarity !== "none" && (
-                          <p className="byo-note" style={{ marginBottom: 10 }}>Wearing <b>{armor.name}</b> — search below to change it.</p>
-                        )}
-                        <div className="byo-skills">
-                          {mundaneArmorOptions.map((a) => (
-                            <button key={a?.id ?? "none"} className={`byo-skill ${(armor?.id ?? null) === (a?.id ?? null) ? "is-sel" : ""}`}
-                                    onClick={() => setArmorId(a?.id ?? null)} aria-pressed={(armor?.id ?? null) === (a?.id ?? null)}>
-                              {a ? `${a.name} ${a.ac}` : "None"}
-                            </button>
-                          ))}
-                        </div>
-                        <input className="byo-input" style={{ fontSize: 15, margin: "12px 0 10px" }} value={armorSearch}
-                               onChange={(e) => setArmorSearch(e.target.value)} placeholder="Search magic armor…"
-                               aria-label="Search magic armor" />
-                        {armorSearch.trim() && (
-                          <div className="byo-skills byo-scroll-y">
-                            {armorResults.rows.map((a) => (
-                              <button key={a.id} className={`byo-skill ${armor?.id === a.id ? "is-sel" : ""}`}
-                                      onClick={() => setArmorId(a.id)} aria-pressed={armor?.id === a.id}>
-                                {a.name} {a.ac}
-                              </button>
-                            ))}
-                            {armorResults.rows.length === 0 && <p className="byo-note">No magic armor matches "{armorSearch}".</p>}
-                            {armorResults.total > ARMOR_RESULTS_CAP && (
-                              <p className="byo-note" style={{ width: "100%" }}>
-                                {armorResults.total - ARMOR_RESULTS_CAP} more — narrow your search to see them.
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </>
+                      <div className="byo-skills">
+                        {armorOptions.map((a) => (
+                          <button key={a?.id ?? "none"} className={`byo-skill ${(armor?.id ?? null) === (a?.id ?? null) ? "is-sel" : ""}`}
+                                  onClick={() => setArmorId(a?.id ?? null)} aria-pressed={(armor?.id ?? null) === (a?.id ?? null)}>
+                            {a ? `${a.name} ${a.ac}` : "None"}
+                          </button>
+                        ))}
+                      </div>
                     )}
                     {armorProfDerived.noMetal && (
                       <p className="byo-note" style={{ marginTop: 10 }}>{klass.name}s traditionally refuse metal armor and shields — a table-by-table call, not enforced here.</p>
