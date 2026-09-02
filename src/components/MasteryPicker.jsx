@@ -73,12 +73,12 @@ export default function MasteryPicker({ label, note, ceiling, floor = 0, eligibl
       {left > 0 && (
         <>
           {note && <p className="byo-note byo-ct-picker-note">{note}</p>}
-          <input className="byo-input" style={{ fontSize: 15, marginBottom: 10 }} value={search}
+          <input className="byo-input byo-live" style={{ fontSize: 15, marginBottom: 10 }} value={search}
                  onChange={(e) => setSearch(e.target.value)}
                  placeholder="Search weapons you're proficient with…"
                  aria-label="Search mastered weapons" />
           {search.trim() && (
-            <div className="byo-scroll-y">
+            <div className="byo-scroll-y byo-live">
               {results.slice(0, 20).map((w) => (
                 <div className="byo-row" key={w.id}>
                   <span className="byo-row-label">{w.name}</span>

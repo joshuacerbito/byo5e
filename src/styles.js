@@ -174,10 +174,15 @@ export const STYLES = `
 .byo-sec-b.is-shut .byo-card-blurb,
 .byo-sec-b.is-shut .byo-card-kind,
 .byo-sec-b.is-shut .byo-pills,
-.byo-sec-b.is-shut .byo-skills,
-.byo-sec-b.is-shut .byo-choice,
-.byo-sec-b.is-shut .byo-input,
-.byo-sec-b.is-shut .byo-scroll-y{display:none;}
+.byo-sec-b.is-shut .byo-skills:not(.byo-live),
+.byo-sec-b.is-shut .byo-choice:not(.byo-live),
+.byo-sec-b.is-shut .byo-input:not(.byo-live),
+.byo-sec-b.is-shut .byo-scroll-y:not(.byo-live){display:none;}
+/* byo-live marks a control that still OWES the player a pick. A shut
+   section hides its reference content, never an unanswered question:
+   the section a player closed by mistake must still be the one they can
+   finish. Once the pick is made the marker comes off and the control
+   collapses with everything else, so a finished section shuts flat. */
 /* The Show More toggle stays visible while shut — inside a section it
    drives the section's own state, so it is the chevron's twin at the
    foot of the panel, and hiding it would leave the way back in only at

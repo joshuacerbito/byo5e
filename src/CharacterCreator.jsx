@@ -2126,7 +2126,7 @@ export default function CharacterCreator() {
             </ShowMore>
             {isAsi && (
             <>
-            <div className="byo-skills">
+            <div className={`byo-skills${complete ? "" : " byo-live"}`}>
               {pool.map((f) => {
                 const sel = entry?.featId === f.id;
                 return (
@@ -2140,7 +2140,7 @@ export default function CharacterCreator() {
                 <FeatureBlocks blocks={asiFeat.blocks} />
                 {asiFeat.ability && (
                   <>
-                    <div className="byo-choice" style={{ margin: "8px 0" }}>
+                    <div className={`byo-choice${complete ? "" : " byo-live"}`} style={{ margin: "8px 0" }}>
                       {asiFeat.ability.choices.map((alt, ai) => {
                         const slots = abilityChoiceSlots(alt);
                         const label = `${slots.amountAt(0)}${slots.count > 1 ? ` to ${slots.count}` : " to one"}`;
@@ -2150,7 +2150,7 @@ export default function CharacterCreator() {
                         );
                       })}
                     </div>
-                    <div className="byo-choice">
+                    <div className={`byo-choice${complete ? "" : " byo-live"}`}>
                       {abilityChoiceSlots(entry.abilitySpec).from.map((k) => {
                         const slots = abilityChoiceSlots(entry.abilitySpec);
                         const picks = entry.abilityPicks || [];
@@ -2759,7 +2759,7 @@ export default function CharacterCreator() {
                           {[...ancestrySkillsGranted].join(" and ")} {ancestrySkillsGranted.size > 1 ? "are" : "is"} already yours from your species, so {ancestrySkillsGranted.size > 1 ? "they're" : "it's"} not offered here.
                         </p>
                       )}
-                      <div className="byo-skills">
+                      <div className={`byo-skills${skillsLeft > 0 ? " byo-live" : ""}`}>
                         {skillPool.map((s) => {
                           const on = skillPicks.includes(s);
                           const full = !on && classSkillCount !== 1 && skillPicks.length >= classSkillCount;
@@ -2803,7 +2803,7 @@ export default function CharacterCreator() {
                     <Section key={g.key} title={g.label}
                              count={`${(optionPicks[g.key] || []).length}/${g.budget}`}
                              flag={(optionPicks[g.key] || []).length < g.budget}>
-                      <div className="byo-skills">
+                      <div className={`byo-skills${(optionPicks[g.key] || []).length < g.budget ? " byo-live" : ""}`}>
                         {g.pool.map((o) => {
                           const on = (optionPicks[g.key] || []).includes(o.id);
                           const full = !on && g.budget !== 1 && (optionPicks[g.key] || []).length >= g.budget;
@@ -2883,7 +2883,7 @@ export default function CharacterCreator() {
                         </ShowMore>
                         {isAsi && (
                           <>
-                            <div className="byo-skills">
+                            <div className={`byo-skills${asiComplete(atLevel) ? "" : " byo-live"}`}>
                               {pool.map((f) => {
                                 const sel = entry?.featId === f.id;
                                 return (
@@ -2897,7 +2897,7 @@ export default function CharacterCreator() {
                                 <FeatureBlocks blocks={asiFeat.blocks} />
                                 {asiFeat.ability && (
                                   <>
-                                    <div className="byo-choice" style={{ margin: "8px 0" }}>
+                                    <div className={`byo-choice${asiComplete(atLevel) ? "" : " byo-live"}`} style={{ margin: "8px 0" }}>
                                       {asiFeat.ability.choices.map((alt, ai) => {
                                         const slots = abilityChoiceSlots(alt);
                                         const label = `${slots.amountAt(0)}${slots.count > 1 ? ` to ${slots.count}` : " to one"}`;
@@ -2907,7 +2907,7 @@ export default function CharacterCreator() {
                                         );
                                       })}
                                     </div>
-                                    <div className="byo-choice">
+                                    <div className={`byo-choice${asiComplete(atLevel) ? "" : " byo-live"}`}>
                                       {abilityChoiceSlots(entry.abilitySpec).from.map((k) => {
                                         const slots = abilityChoiceSlots(entry.abilitySpec);
                                         const picks = entry.abilityPicks || [];
