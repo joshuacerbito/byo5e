@@ -406,8 +406,31 @@ export default function CharacterCreator() {
     }).filter(Boolean);
   }, [ancestry, content]);
 
+  /* A 2024 lineage can carry a spellcasting ability choice of its own:
+     Tiefling's Fiendish Legacy grants its spells with "Intelligence,
+     Wisdom, or Charisma ... (choose the ability when you select the
+     legacy)". The choice only exists once a legacy is picked, and it is
+     re-read from the picked option each time, so switching legacy can
+     never leave a stale ability behind. */
+  const lineageAbilityChoice = useMemo(() => {
+    for (const g of ancestryChoiceGroups) {
+      if (g.kind !== "lineage") continue;
+      const id = (ancestryPicks[g.ci] || [])[0];
+      const from = id ? g.optionsById[id]?.ability?.choose : null;
+      if (Array.isArray(from) && from.length > 1) return { ci: g.ci, key: `${g.ci}:ability`, from };
+    }
+    return null;
+  }, [ancestryChoiceGroups, ancestryPicks]);
+
+  const lineageAbilityPick = useMemo(() => {
+    if (!lineageAbilityChoice) return null;
+    const k = (ancestryPicks[lineageAbilityChoice.key] || [])[0];
+    return k && lineageAbilityChoice.from.includes(k) ? k : null;
+  }, [lineageAbilityChoice, ancestryPicks]);
+
   const ancestryChoiceMade = ancestryChoiceGroups.every((g) =>
-    g.auto || (ancestryPicks[g.ci] || []).length === g.count);
+    g.auto || (ancestryPicks[g.ci] || []).length === g.count)
+    && (!lineageAbilityChoice || !!lineageAbilityPick);
 
   const chosenLineagePick = useMemo(() => {
     const g = ancestryChoiceGroups.find((x) => x.kind === "lineage");
@@ -1480,8 +1503,13 @@ export default function CharacterCreator() {
         abilityKey = block.ability;
         abilityMod = mod(finalScore(block.ability));
       } else if (block.ability?.choose?.length) {
-        abilityKey = block.ability.choose.reduce(
-          (best, k) => (mod(finalScore(k)) > mod(finalScore(best)) ? k : best), block.ability.choose[0]);
+        /* The player's own pick when the lineage asked for one; the best
+           of the candidates only as a fallback, for a block that offers
+           the choice outside a lineage (nothing in the SRD today). */
+        abilityKey = (lineageAbilityPick && block.ability.choose.includes(lineageAbilityPick))
+          ? lineageAbilityPick
+          : block.ability.choose.reduce(
+            (best, k) => (mod(finalScore(k)) > mod(finalScore(best)) ? k : best), block.ability.choose[0]);
         abilityMod = mod(finalScore(abilityKey));
       }
       block.grants.forEach((g, gi) => {
@@ -2662,6 +2690,27 @@ export default function CharacterCreator() {
                         <FeatureBlocks blocks={g.optionsById[id].blocks} />
                       </div>
                     ))}
+                    {/* The legacy's own spellcasting ability. Sits inside
+                        this panel rather than getting one of its own: it
+                        is part of picking the legacy, and it does not
+                        exist until one is picked. */}
+                    {lineageAbilityChoice?.ci === g.ci && (
+                      <div style={{ marginTop: 12 }}>
+                        <div className="byo-ct-picker-h">
+                          <span className="byo-ct-picker-l">Spellcasting ability</span>
+                          <span className="byo-count">{lineageAbilityPick ? "done" : "1 to go"}</span>
+                        </div>
+                        <div className={`byo-skills${lineageAbilityPick ? "" : " byo-live"}`}>
+                          {lineageAbilityChoice.from.map((k) => (
+                            <button key={k} className={`byo-skill ${lineageAbilityPick === k ? "is-sel" : ""}`}
+                                    onClick={() => toggleAncestryPick(lineageAbilityChoice.key, k, 1)}
+                                    aria-pressed={lineageAbilityPick === k}>
+                              {ABILITIES.find((a) => a.key === k)?.label || k.toUpperCase()} {fmt(mod(finalScore(k)))}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </React.Fragment>
               ))}
