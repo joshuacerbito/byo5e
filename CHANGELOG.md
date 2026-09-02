@@ -7,6 +7,120 @@ Dates are the day the work landed.
 
 ---
 
+## 2026-09-02
+
+Everything below is the Class step. Two features were built (Weapon Mastery, collapsible
+sections), one panel was redesigned in stages (Core Traits), and a level 1-20 QA sweep
+across both SRD editions turned up the fixes at the bottom.
+
+### Added
+
+- **Weapon Mastery (2024 rules), built from nothing** — the app previously printed every
+  carried weapon's mastery property unconditionally, ignoring the 2/3/4 (Barbarian) or
+  3/4/5/6 (Fighter) cap entirely. It is now a real, tracked choice:
+  `weaponMasteryFromTable()` (`src/content/classes.js`) parses the class table's own
+  "Weapon Mastery" column into a per-level count, and a new `MasteryPicker.jsx` offers a
+  search-to-add field (the pool is the whole weapon list, so a toggle grid like Skills
+  would have been a wall of buttons) with removable chips. `stepComplete("Class")` waits
+  on it, and a weapon's "Mastery:" note on the sheet now appears only for weapons you
+  actually mastered.
+- Mastery is picked by weapon **type**, not by item: a `+2 Greatsword` shares the mundane
+  Greatsword's mastery property, so mastering "Greatsword" covers every variant and the
+  search returns one row instead of four. The link comes from `baseItemName`, written by
+  the pack generator's variant expansion (`scripts/build-srd-pack.mjs`) where the base
+  name is already known, rather than parsing "+N " back out of a display string.
+- The picker is **split by level**: Core Traits asks only for the level 1 baseline, and
+  each later level whose count rises (Barbarian 4/10, Fighter 4/10/16) gets its own
+  bracket inside that level's own panel, asking only for the difference. Each bracket
+  owns its own search state and shows only its own chips.
+- **Multiclass entries earn their own Weapon Mastery.** A secondary class reads its own
+  table at its own class level — a level 1 Rogue dipped into from Fighter 5 gets the
+  Rogue table's row 1, not row 5 — into per-entry picks kept separate from the primary
+  class's, because the slots are. Eligibility stays character-wide, since mastery
+  requires proficiency and proficiency belongs to the character.
+- **Collapsible sections on the Class step** (`src/components/Section.jsx`). A chevron in
+  any section header shuts that section; Show More / Show Less at the foot of a long one
+  is the same switch, reachable from the end you actually scrolled to. Collapsing strips
+  a section back to its **headings** — a shut "Level 1" still reads Rage / Unarmored
+  Defense / Weapon Mastery, and shut Core Traits still lists Primary Ability through
+  Starting Equipment without their values — because a bar reading nothing but "Level 1"
+  is a worse table of contents than the panel it replaced.
+- A control that still **owes you a pick** survives the collapse (`byo-live`): the skill
+  grid while skills are short, an option group under budget, the ASI feat pool on either
+  tab, the mastery search. Shutting a section by mistake can't strand a pick you can no
+  longer make. The marker comes off the moment the pick lands, so a finished section
+  shuts flat, warning flag and all.
+- **The class grid collapses to the class you picked**, under a "Change class" chip.
+  Eleven rejected cards sat on top of a step that keeps growing. Clicking the selected
+  card toggles the grid too, so there are two ways back; the selected card never re-picks
+  itself, which would have reset that class's skill and option picks.
+
+### Changed
+
+- **Core Traits**, redesigned in stages into the layout the books and D&D Beyond use: the
+  Class step's opening panel is now a collapsible header carrying the number of choices
+  the section asks for, an "As a Level 1 Character" preamble, and a two-column traits
+  table. Along the way it absorbed the separate Proficiencies panel, gained the class's
+  primary ability, and lost three duplications — the skill pool printed both in the table
+  and in the picker below it, the header's redundant "N to go" badge, and a table caption
+  that repeated the section header directly above it.
+- The table is **descriptive only**; the pickers sit below it under a rule, so everything
+  above the line is reference and everything below it is the step.
+- `primaryAbility` is **backfilled for SRD 5.1**. 5etools never encoded it for 2014
+  classes at all (not something our generator was dropping), and both editions assign the
+  same abilities, so `build-srd-pack.mjs` fills it in by class name. A new
+  `primaryAbilityGroups` keeps 5etools' un-flattened shape, where a group with two keys
+  means AND — so Monk reads "Dexterity and Wisdom", not "Dexterity or Wisdom".
+- The **subclass panel now sits next to the level that earns it** instead of at the top of
+  the step, where it put a choice you may not be able to make yet ahead of the traits you
+  get immediately. The level is read from the pack, never hardcoded: 2024 unified every
+  class on 3, but 2014 has Clerics, Sorcerers and Warlocks choosing at 1 and Wizards at 2.
+- **Multiclass tabs collapse like the primary one.** Subclass, Skills and Proficiencies
+  gained had been plain boxes with no chevron next to collapsible level panels. The class
+  header card stays chevron-less on purpose — the primary tab's is the same, and
+  everything in one is a control a collapse would leave standing anyway.
+- Nothing on the page starts with its text hidden. Sections already defaulted open;
+  Show More used to arrive clamped, so a level's features loaded half concealed. Every
+  collapse on this page is now something the reader did on purpose.
+
+### Fixed
+
+- **Picking a Paladin or a Ranger at level 1 crashed the whole Character Creator** to its
+  error boundary ("Cannot read properties of undefined (reading 'length')"). Their table
+  has no spell slots until level 2, so casting came back as a pending stub and
+  `highestSlot` read `.slots.length` off it without checking. The empty array is now
+  carried on the stub itself, since every other consumer checks and a later reader would
+  have hit the same edge.
+- **The 2024 Warlock showed two Eldritch Invocation pickers side by side**, one of them
+  claiming a budget of 1 where the class table says 5. The 2024 pack carries both an
+  "Eldritch Invocations" progression and an "Eldritch Invocation Options" feature that
+  lists the whole catalogue, and the dedup compared their names, which never matched.
+  Sameness is decided on the option pools now, and the progression's count — the one the
+  class table actually prints — wins. 5.1's Warlock legitimately has two choices (Pact
+  Boon and Invocations) and still shows both.
+- **Paladins, Rangers and Rogues could not pick their mastered weapons at all**, on any
+  tab. Only Barbarian and Fighter print a Weapon Mastery table column, because only their
+  count grows; the other three get a flat two stated in the feature's prose, so reading
+  only the column left all three showing "you can use the mastery properties of two kinds
+  of weapons of your choice" with no way to choose them. The count now falls back to the
+  feature's own text.
+- Every mastery picker was rendering the chips for the **whole** pick list rather than its
+  own bracket, so filling the base 3 and a level 4 bonus showed all 4 chips in both
+  sections. Each bracket now shows only its own slice, and removal works from whichever
+  section shows the chip.
+- The mastery chips rendered outside the picker's own bordered box, so they read as part
+  of the Skills picker above them; and a level 4 panel's ASI content sat against the
+  merged-in Weapon Mastery subsection with no divider. Both now use the same rule-and-gap
+  treatment every other subsection on the step already had.
+- A mastery bump rendered as its own standalone panel stacked above the level box that
+  granted it; it is now inside that box, alongside Ability Score Improvement.
+- 2014 starting equipment ran its choices together — "...or (b) a dagger (a) a component
+  pouch..." — because those packs carry one prose line per choice and we joined on a
+  space. They join on a middle dot now. 2024 packs carry structured groups and were
+  already fine.
+
+---
+
 ## 2026-08-31
 
 ### Added
