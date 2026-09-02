@@ -372,14 +372,38 @@ export default function CharacterCreator() {
         return { ci, kind: "skill", label: "Skills", count: c.count,
           pool: c.any ? (content?.skills.map((s) => s.name) || []) : c.from };
       }
-      if (c.kind === "lineage") {
-        return { ci, kind: "lineage", label: c.label || "Lineage", count: c.count,
+      /* "lineage" and "trait" render identically — a row of named
+         options, each showing its own description once picked. They
+         differ only in where the mapper found them (a species'
+         additionalSpells blocks vs. the trait's own table or list), and
+         nothing at this layer cares which. */
+      if (c.kind === "lineage" || c.kind === "trait") {
+        return { ci, kind: c.kind, label: c.label || "Lineage", count: c.count,
           pool: c.options.map((o) => o.id), optionsById: Object.fromEntries(c.options.map((o) => [o.id, o])) };
+      }
+      /* An open tool or language slot (2014 Dwarf's artisan's tool,
+         2014 High Elf's extra language). `from` is an explicit list;
+         otherwise `any` names the group to draw the pool from — the
+         language list is content, so it is filled in here rather than
+         in the mapper. Anything left with no pool to offer renders as
+         nothing at all rather than as an empty picker. */
+      if (c.kind === "tool" || c.kind === "language") {
+        const known = new Set((c.kind === "tool" ? ancestry.tools : ancestry.languages).fixed);
+        const pool = (c.from
+          || (c.kind === "language"
+            ? (content?.languages || [])
+              .filter((l) => c.any === "*" || l.type === c.any)
+              .map((l) => l.name)
+            : [])
+        ).filter((v) => !known.has(v));
+        if (!pool.length) return null;
+        return { ci, kind: c.kind, count: c.count, pool,
+          label: c.kind === "tool" ? "Tool proficiency" : "Language" };
       }
       const slots = abilityChoiceSlots(c.spec);
       return { ci, kind: "ability", label: "Ability increases", count: slots.auto ? 0 : slots.count,
         pool: slots.from, slots, auto: slots.auto };
-    });
+    }).filter(Boolean);
   }, [ancestry, content]);
 
   const ancestryChoiceMade = ancestryChoiceGroups.every((g) =>
@@ -391,6 +415,37 @@ export default function CharacterCreator() {
     const id = (ancestryPicks[g.ci] || [])[0];
     return id ? g.optionsById[id] : null;
   }, [ancestryChoiceGroups, ancestryPicks]);
+
+  /* The damage type a trait choice resolves to, if it has one —
+     Dragonborn's dragon decides both the Breath Weapon's type and which
+     of the five damage types its Damage Resistance actually is. */
+  const ancestryChoiceDamageType = useMemo(() => {
+    for (const g of ancestryChoiceGroups) {
+      if (g.kind !== "trait") continue;
+      const opt = g.optionsById[(ancestryPicks[g.ci] || [])[0]];
+      if (opt?.damageType) return opt.damageType;
+    }
+    return null;
+  }, [ancestryChoiceGroups, ancestryPicks]);
+
+  /* Species languages and tools, the fixed ones plus whatever open slot
+     the player filled — the sheet and the export read these rather than
+     `.fixed` alone, which silently dropped a chosen language. */
+  const ancestryLanguagesGranted = useMemo(() => {
+    const out = [...(ancestry?.languages.fixed || [])];
+    for (const g of ancestryChoiceGroups) {
+      if (g.kind === "language") out.push(...(ancestryPicks[g.ci] || []));
+    }
+    return [...new Set(out)];
+  }, [ancestry, ancestryChoiceGroups, ancestryPicks]);
+
+  const ancestryToolsGranted = useMemo(() => {
+    const out = [...(ancestry?.tools.fixed || [])];
+    for (const g of ancestryChoiceGroups) {
+      if (g.kind === "tool") out.push(...(ancestryPicks[g.ci] || []));
+    }
+    return [...new Set(out)];
+  }, [ancestry, ancestryChoiceGroups, ancestryPicks]);
 
   const ancestryAbilityBonuses = useMemo(() => {
     const out = { ...(ancestry?.abilityIncreases?.fixed || {}) };
@@ -1764,7 +1819,7 @@ export default function CharacterCreator() {
   const resolved = ancestry ? {
     size: ancestry.size, darkvision: ancestry.darkvision || 0, blindsight: 0,
     speed: ancestry.speed.walk || 0,
-    languages: ancestry.languages.fixed,
+    languages: ancestryLanguagesGranted,
     traits: ancestry.traits,
     droppedTraits: [],
     asi: allBonuses,
@@ -1817,7 +1872,7 @@ export default function CharacterCreator() {
       ...customResolved.filter((ci) => ci.resolved?.kind === "gear")
         .map((ci) => `${ci.resolved.name}${ci.quantity > 1 ? ` ×${ci.quantity}` : ""}${magicSuffix(ci.resolved, ci.attuned)}`),
     ],
-    toolsList: background?.tools.fixed || [],
+    toolsList: [...new Set([...ancestryToolsGranted, ...(background?.tools.fixed || [])])],
     edition,
     inventory,
     /* Senses and damage defenses, for the Sheet's Stats screen. Damage
@@ -1837,7 +1892,12 @@ export default function CharacterCreator() {
       resistances: [...new Set([
         ...(ancestry?.resist || []).map((r) => (r.type
           ? r.type
-          : `one of ${(r.from || []).join(", ")}`)),
+          /* A choice-shaped resistance resolves once the trait behind it
+             is picked (Dragonborn choosing Black -> Acid); until then it
+             still says which choice it is rather than guessing a type. */
+          : (ancestryChoiceDamageType && (r.from || []).includes(ancestryChoiceDamageType)
+            ? ancestryChoiceDamageType
+            : `one of ${(r.from || []).join(", ")}`))),
         ...effectsOfType(activeItemEffects, "resistance").flatMap((e) => e.value || []),
       ])],
       immunities: [],
@@ -1940,7 +2000,7 @@ export default function CharacterCreator() {
       L.push("(* = proficient)");
     }
     L.push(`Speed ${speed}   Size ${ancestry.size}${ancestry.darkvision ? `   Darkvision ${ancestry.darkvision}` : ""}`);
-    L.push(`Languages: ${ancestry.languages.fixed.join(", ")}`);
+    L.push(`Languages: ${ancestryLanguagesGranted.join(", ")}`);
     if (allSkills.size) L.push(`Skills: ${[...allSkills].join(", ")}`);
     if (casting && !casting.pending) {
       L.push("");
@@ -2586,8 +2646,8 @@ export default function CharacterCreator() {
                     <h3>{g.label} <span className="byo-count">{(ancestryPicks[g.ci] || []).length}/{g.count} chosen</span></h3>
                     <div className="byo-skills">
                       {g.pool.map((v) => {
-                        const id = g.kind === "lineage" ? v : v;
-                        const label = g.kind === "lineage" ? g.optionsById[v].name : v;
+                        const id = v;
+                        const label = g.optionsById ? g.optionsById[v].name : v;
                         const on = (ancestryPicks[g.ci] || []).includes(id);
                         const full = !on && g.count !== 1 && (ancestryPicks[g.ci] || []).length >= g.count;
                         return (
@@ -2597,7 +2657,7 @@ export default function CharacterCreator() {
                         );
                       })}
                     </div>
-                    {g.kind === "lineage" && (ancestryPicks[g.ci] || []).map((id) => (
+                    {(g.kind === "lineage" || g.kind === "trait") && (ancestryPicks[g.ci] || []).map((id) => (
                       <div key={id} style={{ marginTop: 10 }}>
                         <FeatureBlocks blocks={g.optionsById[id].blocks} />
                       </div>

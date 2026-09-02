@@ -43,7 +43,9 @@ function normBlocks(arr, label) {
   return out;
 }
 
-const titleCase = (s) => String(s).replace(/\b[a-z]/g, (m) => m.toUpperCase());
+/* Not after an apostrophe: \b puts a word boundary there too, so the
+   naive form title-cased the possessive itself ("Smith'S Tools"). */
+const titleCase = (s) => String(s).replace(/(^|[^A-Za-z'])([a-z])/g, (_, pre, c) => pre + c.toUpperCase());
 
 /* Skill/language/tool keys arrive lowercased ("animal handling"). */
 export const normSkills = (arr) => normBlocks(arr, titleCase);

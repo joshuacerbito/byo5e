@@ -111,6 +111,66 @@ function lineageChoices(addl, traits) {
   }];
 }
 
+function collectLists(blocks, out = []) {
+  for (const b of blocks || []) {
+    if (b.type === "list") out.push(b);
+    if (b.blocks) collectLists(b.blocks, out);
+  }
+  return out;
+}
+
+/* A choice a trait states in its own prose and then enumerates itself,
+   with nothing anywhere else in the record pointing at it: Dragonborn's
+   Draconic Ancestry (a table of ten dragons, and the row you pick is
+   what decides your breath weapon's damage type and your resistance),
+   Goliath's Giant Ancestry and 2024 Gnome's Gnomish Lineage (a hanging
+   list of named benefits). These read as description because that is
+   all the pack gives them -- there is no `choose` block, no named
+   additionalSpells, nothing structured to hang a picker off. So the
+   options are read out of the trait's own table rows or list items.
+
+   Guarded on the trait actually SAYING it is a choice: plenty of traits
+   print a table (a breath weapon's damage by level, a height and weight
+   range) that the reader is meant to consult, not choose from. A
+   lineage already surfaced by lineageChoices is skipped rather than
+   offered twice -- that path knows about the spells and spellcasting
+   ability behind each option, and this one only knows the prose. */
+const CHOOSE_RE = /\bchoose\b/i;
+
+function traitChoices(traits, taken) {
+  const out = [];
+  for (const t of traits) {
+    if (taken.has(String(t.name).toLowerCase())) continue;
+    if (!CHOOSE_RE.test(t.text || "")) continue;
+    const table = collectTables(t.blocks).find((tb) => (tb.rows || []).length >= 2);
+    if (table) {
+      /* The column that resolves this species' choice-shaped `resist`
+         (Black -> Acid). Only Dragonborn has one today; anything else
+         just gets a picker whose options carry no damage type. */
+      const dmg = (table.colLabels || []).findIndex((l) => /damage\s*type/i.test(l));
+      out.push({
+        kind: "trait", count: 1, label: t.name,
+        options: table.rows.map((row) => ({
+          id: slugify(String(row[0])), name: String(row[0]),
+          damageType: dmg > 0 && row[dmg] ? String(row[dmg]).toLowerCase() : null,
+          blocks: lineageOptionBlocks(table, String(row[0])),
+        })),
+      });
+      continue;
+    }
+    const list = collectLists(t.blocks).find((l) => (l.items || []).filter((i) => i.name).length >= 2);
+    if (list) {
+      out.push({
+        kind: "trait", count: 1, label: t.name,
+        options: list.items.filter((i) => i.name).map((i) => ({
+          id: slugify(i.name), name: i.name, damageType: null, blocks: i.blocks,
+        })),
+      });
+    }
+  }
+  return out;
+}
+
 function one(race, sub, reg, mint) {
   const named = !!sub?.name;
   const name = named ? `${sub.name} ${race.name}` : race.name;
@@ -119,6 +179,8 @@ function one(race, sub, reg, mint) {
   const addl = normAdditionalSpells([...(race.additionalSpells || []), ...(sub?.additionalSpells || [])]);
   const sizes = (pick(sub, race, "size") || []).map((s) => SIZE_LABEL[s] || s);
   const skills = bothProf(sub, race, "skillProficiencies", normSkills);
+  const tools = bothProf(sub, race, "toolProficiencies", normTools);
+  const languages = bothProf(sub, race, "languageProficiencies", normLanguages);
 
   const traits = [...traitsOf(race, reg, name), ...traitsOf(sub, reg, name)];
   const flat = flatten([...(race.entries || []), ...(sub?.entries || [])]);
@@ -138,9 +200,9 @@ function one(race, sub, reg, mint) {
     darkvision: pick(sub, race, "darkvision") ?? null,
     /* null for 2024 — the increases live on the background. */
     abilityIncreases: abilityRaw && (Object.keys(abilityRaw.fixed).length || abilityRaw.choices.length) ? abilityRaw : null,
-    languages: bothProf(sub, race, "languageProficiencies", normLanguages),
+    languages,
     skills,
-    tools: bothProf(sub, race, "toolProficiencies", normTools),
+    tools,
     weapons: bothProf(sub, race, "weaponProficiencies", normWeaponUids),
     /* Damage resistances arrive as either a bare type ("poison", Dwarf)
        or a choice ({ choose: { from: [...] } } — Dragonborn's Draconic
@@ -158,6 +220,15 @@ function one(race, sub, reg, mint) {
     additionalSpells: addl,
     choices: [
       ...lineageChoices(addl, traits),
+      ...traitChoices(traits, new Set(lineageChoices(addl, traits).map((c) => String(c.label).toLowerCase()))),
+      /* Tools and languages a species leaves open (2014 Dwarf picks one
+         artisan's tool, 2014 High Elf one extra standard language) were
+         normalised into `choices` on their own blocks all along and then
+         read by nobody -- the step printed the fixed half and dropped
+         the choice. `any` pools are filled in by the caller, which is
+         where the language and tool lists live. */
+      ...tools.choices.map((c) => ({ kind: "tool", ...c })),
+      ...languages.choices.map((c) => ({ kind: "language", ...c })),
       ...skills.choices.map((c) => ({ kind: "skill", ...c })),
       /* `c` already carries its own discriminant ("pick" | "weighted",
          see normAbilityIncrease) for src/rules/choices.js to switch on —
