@@ -245,7 +245,17 @@ export default function Sheet({ ctx, onEdit, exportSection, rulesetSection, acco
         <h3>Passive & Senses</h3>
         {(passiveSkills || []).map((p) => <Row key={p.name} label={`Passive ${p.name}`} value={p.value} />)}
         {(defenses?.senses || []).map(([label, value]) => <Row key={label} label={label} value={value} />)}
-        <Row label="Resistances" value={defenses?.resistances?.length ? defenses.resistances.join(", ") : "None"} />
+        <Row label="Resistances" value={defenses?.resistances?.length
+          ? defenses.resistances.map((r, i) => (
+              <span key={r}>
+                {i > 0 && ", "}
+                {/* An unresolved choice ("one of acid, cold, ...") already
+                    names itself; only a settled type gets the "Resistant
+                    to" framing, with the type bolded. */}
+                {r.startsWith("one of ") ? r : <>Resistant to <b>{r}</b></>}
+              </span>
+            ))
+          : "None"} />
         <Row label="Immunities" value={defenses?.immunities?.length ? defenses.immunities.join(", ") : "None"} />
       </div>
 
