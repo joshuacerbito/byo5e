@@ -80,13 +80,20 @@ function findLineageTable(traits, names) {
 
 /* One option's description: its table row, one paragraph per column
    after the name column (prefixed with that column's own header where
-   there's more than one, e.g. "Level 3. Ray of Sickness."). */
-function lineageOptionBlocks(table, name) {
+   there's more than one, e.g. "Level 3. Ray of Sickness").
+
+   `skipCol` drops a column this option already carries as a field of its
+   own. Only the damage-type column uses it: every place that prints a
+   resolved resistance gives it a sentence of its own, so leaving the
+   raw cell in the description as well printed the same word twice --
+   once framed, once bare ("Resistant to Lightning" / "Lightning"). */
+function lineageOptionBlocks(table, name, skipCol = -1) {
   if (!table) return [];
   const row = table.rows.find((r) => String(r[0]).toLowerCase() === name.toLowerCase());
   if (!row) return [];
   return row.slice(1)
     .map((cell, i) => {
+      if (i + 1 === skipCol) return { type: "para", text: "" };
       const label = table.colLabels[i + 1];
       return { type: "para", text: label && table.colLabels.length > 2 ? `${label}. ${cell}` : cell };
     })
@@ -105,16 +112,22 @@ function lineageOptionBlocks(table, name) {
    the player picked their resistance freely, which the rules text is
    explicit they do not.
 
-   Null for an option that resolves nothing, which is most of them. */
+   `stated` says whether the option's own visible description already
+   says it in words. A legacy's prose does ("You have Resistance to
+   Poison damage. You also know..."), and a caller that adds its own
+   "Resistant to X" line on top of that prints the same fact twice in
+   two voices; a dragon's table cell does not, which is exactly why that
+   line exists. Null type for an option that resolves nothing, which is
+   most of them. */
 const RESIST_RE = /resistance to (\w+) damage/i;
 
 function damageTypeOf(blocks, fromColumn) {
-  if (fromColumn) return String(fromColumn).toLowerCase();
+  if (fromColumn) return { type: String(fromColumn).toLowerCase(), stated: false };
   for (const b of blocks || []) {
     const m = RESIST_RE.exec(b.text || "");
-    if (m) return m[1].toLowerCase();
+    if (m) return { type: m[1].toLowerCase(), stated: true };
   }
-  return null;
+  return { type: null, stated: false };
 }
 
 /* The 2024 species lineage choice, read off named additionalSpells
@@ -130,9 +143,10 @@ function lineageChoices(addl, traits) {
     label: label || "Lineage",
     options: named.map((b) => {
       const blocks = lineageOptionBlocks(table, b.name);
+      const dmg = damageTypeOf(blocks, null);
       return {
         id: slugify(b.name), name: b.name, ability: b.ability, grants: b.grants,
-        damageType: damageTypeOf(blocks, null), blocks,
+        damageType: dmg.type, damageTypeStated: dmg.stated, blocks,
       };
     }),
   }];
@@ -178,10 +192,16 @@ function traitChoices(traits, taken) {
       out.push({
         kind: "trait", count: 1, label: t.name,
         options: table.rows.map((row) => {
-          const blocks = lineageOptionBlocks(table, String(row[0]));
+          /* The damage-type column is dropped from the description here,
+             not filtered downstream: it arrives labelled in a 3-column
+             table ("Damage Type. Acid") and bare in a 2-column one
+             ("Lightning"), and a consumer matching one shape silently
+             misses the other. */
+          const blocks = lineageOptionBlocks(table, String(row[0]), dmg);
+          const dt = damageTypeOf(blocks, dmg > 0 ? row[dmg] : null);
           return {
             id: slugify(String(row[0])), name: String(row[0]),
-            damageType: damageTypeOf(blocks, dmg > 0 ? row[dmg] : null), blocks,
+            damageType: dt.type, damageTypeStated: dt.stated, blocks,
           };
         }),
       });
@@ -191,10 +211,13 @@ function traitChoices(traits, taken) {
     if (list) {
       out.push({
         kind: "trait", count: 1, label: t.name,
-        options: list.items.filter((i) => i.name).map((i) => ({
-          id: slugify(i.name), name: i.name,
-          damageType: damageTypeOf(i.blocks, null), blocks: i.blocks,
-        })),
+        options: list.items.filter((i) => i.name).map((i) => {
+          const dt = damageTypeOf(i.blocks, null);
+          return {
+            id: slugify(i.name), name: i.name,
+            damageType: dt.type, damageTypeStated: dt.stated, blocks: i.blocks,
+          };
+        }),
       });
     }
   }

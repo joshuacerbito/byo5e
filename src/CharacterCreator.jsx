@@ -2710,20 +2710,19 @@ export default function CharacterCreator() {
                     </div>
                     {(g.kind === "lineage" || g.kind === "trait" || g.kind === "feat") && (ancestryPicks[g.ci] || []).map((id) => {
                       const opt = g.optionsById[id];
-                      /* A table-shaped choice (Dragonborn's dragons) carries
-                         its damage type as a raw column dump ("Damage Type.
-                         Acid") once read out of the table row — say what it
-                         means and bold the type, matching the Sheet's own
-                         Resistances row for this same resolved value. */
-                      const blocks = opt.damageType
-                        ? opt.blocks.filter((b) => !/^damage type\.\s*/i.test(b.text || ""))
-                        : opt.blocks;
+                      /* A dragon's damage type reaches this panel as a bare
+                         table cell with nothing saying what it is, so it gets
+                         a sentence and a bolded type, matching the Sheet's own
+                         Resistances row for the same resolved value. An option
+                         whose own prose already states it (a Tiefling legacy's
+                         "You have Resistance to Poison damage") says it once,
+                         in its own voice — see damageTypeStated. */
                       return (
                         <div key={id} style={{ marginTop: 10 }}>
-                          {opt.damageType && (
+                          {opt.damageType && !opt.damageTypeStated && (
                             <p className="byo-fb-p">Resistant to <b>{opt.damageType[0].toUpperCase() + opt.damageType.slice(1)}</b></p>
                           )}
-                          <FeatureBlocks blocks={blocks} />
+                          <FeatureBlocks blocks={opt.blocks} />
                         </div>
                       );
                     })}
