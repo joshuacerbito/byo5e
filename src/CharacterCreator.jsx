@@ -400,6 +400,19 @@ export default function CharacterCreator() {
         return { ci, kind: c.kind, count: c.count, pool,
           label: c.kind === "tool" ? "Tool proficiency" : "Language" };
       }
+      /* 2024 Human's Versatile. The pool is the feat list filtered to
+         the categories the species names ("O" = origin), which is why it
+         is built here and not in the mapper. Prerequisites aren't
+         checked: no SRD origin feat has one, and the ability scores they
+         would test against don't exist until two steps later. */
+      if (c.kind === "feat") {
+        const opts = (content?.feats || [])
+          .filter((f) => !c.categories.length || c.categories.includes(f.category));
+        const catLabel = opts.find((f) => f.categoryLabel)?.categoryLabel;
+        return { ci, kind: "feat", count: c.count,
+          label: c.categories.length && catLabel ? `${catLabel} feat` : "Feat",
+          pool: opts.map((f) => f.id), optionsById: Object.fromEntries(opts.map((f) => [f.id, f])) };
+      }
       const slots = abilityChoiceSlots(c.spec);
       return { ci, kind: "ability", label: "Ability increases", count: slots.auto ? 0 : slots.count,
         pool: slots.from, slots, auto: slots.auto };
@@ -1643,10 +1656,17 @@ export default function CharacterCreator() {
         out.push({ feat, from: `${e.klass.name} level ${atLevel}`, abilityPicks: entry.abilityPicks, bonus });
       }
     }
+    for (const g of ancestryChoiceGroups) {
+      if (g.kind !== "feat") continue;
+      for (const id of ancestryPicks[g.ci] || []) {
+        const feat = g.optionsById[id];
+        if (feat) out.push({ feat, from: ancestry.name, abilityPicks: [], bonus: null });
+      }
+    }
     if (bgFeat) out.push({ feat: bgFeat, from: background.name, abilityPicks: [], bonus: null });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [asiPicks, mcAsiPicks, mcEntries, bgFeat, background]);
+  }, [asiPicks, mcAsiPicks, mcEntries, bgFeat, background, ancestry, ancestryChoiceGroups, ancestryPicks]);
 
   const actions = useMemo(() => {
     const out = [];
@@ -2685,7 +2705,7 @@ export default function CharacterCreator() {
                         );
                       })}
                     </div>
-                    {(g.kind === "lineage" || g.kind === "trait") && (ancestryPicks[g.ci] || []).map((id) => (
+                    {(g.kind === "lineage" || g.kind === "trait" || g.kind === "feat") && (ancestryPicks[g.ci] || []).map((id) => (
                       <div key={id} style={{ marginTop: 10 }}>
                         <FeatureBlocks blocks={g.optionsById[id].blocks} />
                       </div>

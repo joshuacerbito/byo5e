@@ -171,6 +171,22 @@ function traitChoices(traits, taken) {
   return out;
 }
 
+/* A species that hands out a feat: 2024 Human's Versatile ("You gain an
+   Origin feat of your choice"). The pack states it structurally, as
+   `feats: [{ anyFromCategory: { category: ["O"], count: 1 } }]`, and the
+   trait's own prose names no options — so this is the only place the
+   choice exists, and the pool has to come from the feat list, which is
+   content the caller holds. A bare `{ any: n }` means any feat at all. */
+function featChoices(race, sub) {
+  const out = [];
+  for (const blk of (pick(sub, race, "feats") || [])) {
+    const cat = blk?.anyFromCategory;
+    if (cat) out.push({ kind: "feat", count: cat.count ?? 1, categories: (cat.category || []).slice() });
+    else if (blk?.any) out.push({ kind: "feat", count: blk.any, categories: [] });
+  }
+  return out;
+}
+
 function one(race, sub, reg, mint) {
   const named = !!sub?.name;
   const name = named ? `${sub.name} ${race.name}` : race.name;
@@ -230,6 +246,7 @@ function one(race, sub, reg, mint) {
       ...tools.choices.map((c) => ({ kind: "tool", ...c })),
       ...languages.choices.map((c) => ({ kind: "language", ...c })),
       ...skills.choices.map((c) => ({ kind: "skill", ...c })),
+      ...featChoices(race, sub),
       /* `c` already carries its own discriminant ("pick" | "weighted",
          see normAbilityIncrease) for src/rules/choices.js to switch on —
          nested under `spec` rather than spread, so it can't collide with
