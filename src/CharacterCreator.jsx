@@ -73,7 +73,7 @@ const DEFAULTS = {
   name: "", backstory: "",
   classId: null, level: 1, subclassId: null,
   skillPicks: [], optionPicks: {}, asiPicks: {}, masteryPicks: [],
-  multiclasses: [], mcSkillPicks: {}, mcAsiPicks: {},
+  multiclasses: [], mcSkillPicks: {}, mcAsiPicks: {}, mcMasteryPicks: {},
   bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [],
   armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {},
   pickedSpellIds: [],
@@ -107,6 +107,23 @@ const swapPick = (cur, value, max) =>
   cur.includes(value) ? cur.filter((x) => x !== value)
     : cur.length < max ? [...cur, value]
     : max === 1 ? [value] : cur;
+
+/* Every level up to `upTo` where a class's cumulative Weapon Mastery
+   count actually rises, as { level, from, to }. Shared by the primary
+   class and by each multiclass entry, which read the identical table off
+   their own class record at their own level. */
+function masteryBumpsFor(cl, upTo) {
+  const byLevel = cl?.weaponMasteryByLevel;
+  if (!byLevel) return [];
+  const out = [];
+  let prev = 0;
+  for (let l = 1; l <= upTo; l++) {
+    const to = byLevel[l - 1] ?? prev;
+    if (to > prev) out.push({ level: l, from: prev, to });
+    prev = to;
+  }
+  return out;
+}
 
 function tableColumnAt(tables, keyword, level) {
   for (const t of tables || []) {
@@ -280,6 +297,12 @@ export default function CharacterCreator() {
   // ASI/feat picks for multiclass entries, keyed classId -> level -> the
   // same pick-entry shape asiPicks uses for the primary class (see below).
   const [mcAsiPicks, setMcAsiPicks] = useState(saved?.mcAsiPicks ?? DEFAULTS.mcAsiPicks);
+  // Weapon Mastery for multiclass entries, keyed classId -> the same flat
+  // array of weapon-TYPE keys masteryPicks holds for the primary class.
+  // Separate per entry rather than pooled: a secondary class's table
+  // grants ITS own slots, and spending a Fighter slot on a Rogue's
+  // allowance (or the reverse) isn't a thing the rules let you do.
+  const [mcMasteryPicks, setMcMasteryPicks] = useState(saved?.mcMasteryPicks ?? DEFAULTS.mcMasteryPicks);
   const [skillPicks, setSkillPicks] = useState(saved?.skillPicks ?? DEFAULTS.skillPicks);
   const [optionPicks, setOptionPicks] = useState(saved?.optionPicks ?? DEFAULTS.optionPicks);
   const [asiPicks, setAsiPicks] = useState(saved?.asiPicks ?? DEFAULTS.asiPicks);
@@ -319,6 +342,7 @@ export default function CharacterCreator() {
     setMode(DEFAULTS.mode); setScores(DEFAULTS.scores); setArrayAssign(DEFAULTS.arrayAssign);
     setClassId(DEFAULTS.classId); setLevel(DEFAULTS.level); setSubclassId(DEFAULTS.subclassId);
     setMulticlasses(DEFAULTS.multiclasses); setMcSkillPicks(DEFAULTS.mcSkillPicks); setMcAsiPicks(DEFAULTS.mcAsiPicks);
+    setMcMasteryPicks(DEFAULTS.mcMasteryPicks);
     setSkillPicks(DEFAULTS.skillPicks); setOptionPicks(DEFAULTS.optionPicks); setAsiPicks(DEFAULTS.asiPicks);
     setMasteryPicks(DEFAULTS.masteryPicks);
     setBgId(DEFAULTS.bgId); setBgSkillPicks(DEFAULTS.bgSkillPicks);
@@ -709,27 +733,63 @@ export default function CharacterCreator() {
   const removeMastery = (key) => {
     setMasteryPicks((p) => p.filter((x) => x !== key));
   };
-  /* Every level (up to the character's current one) where the table's
+  /* Every level (up to the given class level) where the table's
      cumulative count actually goes up — level 1 is always first (the
      baseline, off `from: 0`), a class with no such level ever again
      (most of them — masteryCount stays null) yields an empty array. */
-  const masteryBumpLevels = useMemo(() => {
-    const byLevel = klass?.weaponMasteryByLevel;
-    if (!byLevel) return [];
-    const out = [];
-    let prev = 0;
-    for (let l = 1; l <= level; l++) {
-      const to = byLevel[l - 1] ?? prev;
-      if (to > prev) out.push({ level: l, from: prev, to });
-      prev = to;
-    }
-    return out;
-  }, [klass, level]);
+  const masteryBumpLevels = useMemo(() => masteryBumpsFor(klass, level), [klass, level]);
   const masteryBaseCount = masteryBumpLevels[0]?.level === 1 ? masteryBumpLevels[0].to : null;
   /* Level 1's entry is the baseline Core Traits already renders — only
      the LATER bumps (Barbarian L4/L10, Fighter L4/L10/L16) render as
      content inside the level panel that grants them. */
   const masteryExtraBumps = masteryBumpLevels.filter((b) => b.level > 1);
+
+  /* The same table, read for a multiclass entry instead of the primary
+     class. A secondary class earns Weapon Mastery on its OWN class
+     levels — a level-1 Rogue dipped into from Fighter 5 gets the Rogue
+     table's 2, not row 5 of it — so this reads e.level, and the picks it
+     fills live under that entry's classId, never merged with the primary
+     class's. Eligibility is deliberately NOT per-entry: mastery needs
+     proficiency with the weapon, and proficiency is a property of the
+     character (weaponProf already folds in what multiclassing granted),
+     so both tabs choose from the same pool. */
+  const mcMasteryBumps = (e) => masteryBumpsFor(e.klass, e.level);
+  const mcMasteryCount = (e) => (e.klass?.weaponMasteryByLevel ? (e.klass.weaponMasteryByLevel[e.level - 1] ?? 0) : null);
+  const mcMasteryLeft = (e) => {
+    const cap = mcMasteryCount(e);
+    return cap == null ? 0 : cap - (mcMasteryPicks[e.classId] || []).length;
+  };
+  const addMcMastery = (cid, key, ceiling) => {
+    setMcMasteryPicks((prev) => {
+      const cur = prev[cid] || [];
+      if (cur.includes(key) || cur.length >= ceiling) return prev;
+      return { ...prev, [cid]: [...cur, key] };
+    });
+  };
+  const removeMcMastery = (cid, key) => {
+    setMcMasteryPicks((prev) => ({ ...prev, [cid]: (prev[cid] || []).filter((x) => x !== key) }));
+  };
+  /* Drop picks a level-down, a removed entry or a proficiency change made
+     illegal — the same pruning mcSkillPicks does a few lines up, for the
+     same reason: a pick that no longer exists must not keep counting. */
+  useEffect(() => {
+    const eligibleKeys = new Set(masteryEligibleWeapons.map((w) => w.id));
+    setMcMasteryPicks((prev) => {
+      let changed = false;
+      const next = {};
+      for (const e of mcEntries) {
+        const cap = mcMasteryCount(e);
+        const cur = prev[e.classId] || [];
+        if (cap == null) { if (cur.length) changed = true; continue; }
+        const kept = cur.filter((key) => eligibleKeys.has(key)).slice(0, cap);
+        if (kept.length) next[e.classId] = kept;
+        if (kept.length !== cur.length) changed = true;
+      }
+      if (Object.keys(prev).some((k) => !next[k] && prev[k]?.length)) changed = true;
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mcEntries, masteryEligibleWeapons]);
 
   const armorOptions = useMemo(() => {
     const list = (content?.armor || []).filter((a) => armorProfCats.includes(a.category));
@@ -1221,6 +1281,12 @@ export default function CharacterCreator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [klass, level, mcEntries, scores, arrayAssign, mode, allBonuses]);
 
+  /* Mastered weapon types from every class the character has levels in,
+     as one lookup — see the note at the mastery line inside attackRows. */
+  const allMasteryKeys = useMemo(
+    () => new Set([...masteryPicks, ...Object.values(mcMasteryPicks).flat()]),
+    [masteryPicks, mcMasteryPicks]);
+
   const attackRows = useMemo(() => {
     if (!klass) return [];
     const grouped = groupWeapons(carriedWeapons);
@@ -1239,7 +1305,11 @@ export default function CharacterCreator() {
          magic version specifically. A weapon's mastery text is what it
          WOULD grant if mastered, not something every wielder gets for
          free just by carrying it. */
-      if (masteryPicks.includes(w.masteryKey)) (w.mastery || []).forEach((m) => notes.push(`Mastery: ${m.name}`));
+      /* Every class the character has levels in contributes its own
+         mastered types (masteryPicks for the primary, one array per
+         multiclass entry) — the sheet cares that the weapon is mastered,
+         not which class's table paid for it. */
+      if (allMasteryKeys.has(w.masteryKey)) (w.mastery || []).forEach((m) => notes.push(`Mastery: ${m.name}`));
       return {
         key: w.id, name: qty > 1 ? `${w.name} ×${qty}` : w.name,
         range: w.range ? `${w.range.label.replace("/", " / ")} ft` : (w.weaponKind === "ranged" ? "—" : "5 ft"),
@@ -1257,7 +1327,7 @@ export default function CharacterCreator() {
       hitOrDC: fmt(strMod + pb), damage: `${1 + strMod}`, dmgType: "bludgeoning", notes: "", proficient: true });
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [klass, carriedWeapons, weaponProf, pb, scores, arrayAssign, mode, allBonuses, masteryPicks]);
+  }, [klass, carriedWeapons, weaponProf, pb, scores, arrayAssign, mode, allBonuses, allMasteryKeys]);
 
   /* How many attacks the Attack action itself makes, from Extra Attack.
      Multiclassing doesn't add Extra Attacks together — you use whichever
@@ -1592,6 +1662,7 @@ export default function CharacterCreator() {
         const { count } = mcSkillPoolFor(e.klass);
         if ((mcSkillPicks[e.classId] || []).length < count) return false;
         if (mcAsiLevelsReached(e).some((l) => !mcAsiComplete(e.classId, l))) return false;
+        if (mcMasteryLeft(e) > 0) return false;
       }
       return true;
     }
@@ -1639,12 +1710,12 @@ export default function CharacterCreator() {
   const snapshot = useMemo(() => ({
     edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
-    multiclasses, mcSkillPicks, mcAsiPicks,
+    multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
     classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, currency,
   }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
-    multiclasses, mcSkillPicks, mcAsiPicks,
+    multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
     classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, currency]);
 
@@ -1999,7 +2070,16 @@ export default function CharacterCreator() {
     }
     for (const list of mcFeaturesByLevel.values()) list.sort((a, b) => a.name.localeCompare(b.name));
     const mcAsiLvls = mcAsiLevelsReached(e);
-    const mcLevelsShown = [...new Set([...mcFeaturesByLevel.keys(), ...mcAsiLvls])]
+    /* Weapon Mastery for this entry, read off its own class table at its
+       own level (mcMasteryBumps). Unlike the primary class there is no
+       Core Traits panel here to hold the level-1 baseline, so every
+       bracket — the level-1 one included — renders inside the Level panel
+       that grants it, which is where the mc tab already puts ASI. A bump
+       level with no feature and no ASI still needs a panel to live in,
+       hence the bump levels joining mcLevelsShown. */
+    const mcBumps = mcMasteryBumps(e);
+    const mcPicks = mcMasteryPicks[e.classId] || [];
+    const mcLevelsShown = [...new Set([...mcFeaturesByLevel.keys(), ...mcAsiLvls, ...mcBumps.map((b) => b.level)])]
       .filter((l) => l <= e.level).sort((a, b) => a - b);
     return (
       <>
@@ -2133,10 +2213,12 @@ export default function CharacterCreator() {
         const pool = isAsi ? mcAsiFeatPool(e.classId, atLevel) : [];
         const asiFeat = isAsi ? pool.find((f) => f.id === entry?.featId) : null;
         const complete = isAsi ? mcAsiComplete(e.classId, atLevel) : true;
+        const bump = mcBumps.find((b) => b.level === atLevel) || null;
+        const bumpLeft = bump ? Math.max(0, bump.to - mcPicks.length) : 0;
         return (
           <Section key={atLevel} style={{ marginBottom: 12 }} title={`Level ${atLevel}`}
                    count={isAsi ? (complete ? "done" : "to pick") : null}
-                   flag={isAsi && !complete}>
+                   flag={(isAsi && !complete) || bumpLeft > 0}>
             <ShowMore label={`level ${atLevel} features`}>
               {levelFeats.map((f) => (
                 <div key={f.id} style={{ marginBottom: 10 }}>
@@ -2193,6 +2275,21 @@ export default function CharacterCreator() {
               </div>
             )}
             </>
+            )}
+            {/* Same MasteryPicker the primary tab uses, pointed at this
+                entry's own picks and its own cumulative ceiling. The
+                level-1 bracket reads as the class's baseline ("Choose 2
+                mastered weapons"); a later one asks only for the
+                difference, exactly as the primary class's bump panels do. */}
+            {bump && (
+              <MasteryPicker label={bump.level === 1 ? "Weapon Mastery" : `Choose ${bump.to - bump.from} more`}
+                             note={bump.level === 1
+                               ? `Choose ${bump.to} mastered weapon${bump.to === 1 ? "" : "s"}`
+                               : `Your ${e.klass.name} mastery count rises to ${bump.to}, up from ${bump.from}.`}
+                             ceiling={bump.to} floor={bump.from}
+                             eligibleWeapons={masteryEligibleWeapons} picks={mcPicks}
+                             onAdd={(id) => addMcMastery(e.classId, id, bump.to)}
+                             onRemove={(id) => removeMcMastery(e.classId, id)} />
             )}
           </Section>
         );
