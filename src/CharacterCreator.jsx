@@ -305,6 +305,11 @@ export default function CharacterCreator() {
   // not persisted, and clamped back to 0 below if its entry disappears.
   const [classTab, setClassTab] = useState(0);
   const [showAddMcModal, setShowAddMcModal] = useState(false);
+  // Once a class is picked the 12-card grid collapses to the chosen card
+  // alone — the rest of the Class step (Core Traits, levels) is long, and
+  // eleven rejected cards push all of it below the fold. Transient: reopened
+  // by the "Change class" chip or by clicking the selected card again.
+  const [classGridOpen, setClassGridOpen] = useState(false);
 
   const pickEdition = (ed) => {
     setEdition(ed);
@@ -415,6 +420,9 @@ export default function CharacterCreator() {
   ------------------------------------------------------------------- */
   const klass = content?.classes.find((c) => c.id === classId) || null;
   const subclass = klass?.subclasses.find((s) => s.id === subclassId) || null;
+  // With nothing picked there is nothing to collapse to, so the grid is
+  // always full until a class exists.
+  const classGridShowsAll = !klass || classGridOpen;
   const subclassOn = subclassActive(klass?.subclassLevel, level);
 
   const pickClass = (id) => {
@@ -2623,24 +2631,42 @@ export default function CharacterCreator() {
                   every multiclass entry's own prereqs/levels, so the picker
                   only makes sense pre-multiclass. */}
               {mcEntries.length === 0 && (
-                <div className="byo-card-grid" style={{ marginTop: 8 }}>
-                  {content.classes.map((c) => {
-                    const sel = c.id === classId;
-                    return (
-                      <button key={c.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                              onClick={() => pickClass(c.id)} aria-pressed={sel}>
-                        <div className="byo-card-top">
-                          <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
-                          <span className="byo-card-name">{c.name}</span>
-                          <span className="byo-card-kind">d{c.hitDie} hit die</span>
-                        </div>
-                        <p className="byo-card-blurb">
-                          Saves: {c.saves.map((s) => s.toUpperCase()).join(", ")} · {c.skillChoices.count} skills ·{" "}
-                          {c.subclasses.length ? `${c.subclassTitle || "subclass"} at ${c.subclassLevel}` : "no subclass"}
-                        </p>
+                <div className="byo-classpick">
+                  {klass && (
+                    <div className="byo-classpick-head">
+                      <span className="byo-classpick-l">Class</span>
+                      <button type="button" className="byo-chip-b"
+                              onClick={() => setClassGridOpen((o) => !o)}
+                              aria-expanded={classGridShowsAll}>
+                        {classGridShowsAll ? `Keep ${klass.name}` : "Change class"}
                       </button>
-                    );
-                  })}
+                    </div>
+                  )}
+                  <div className={`byo-card-grid${classGridShowsAll ? "" : " is-one"}`}>
+                    {(classGridShowsAll ? content.classes : content.classes.filter((c) => c.id === classId)).map((c) => {
+                      const sel = c.id === classId;
+                      return (
+                        <button key={c.id} className={`byo-card ${sel ? "is-sel" : ""}`}
+                                onClick={() => {
+                                  // Re-picking the class already chosen would wipe its
+                                  // skill/option picks, so the selected card only toggles
+                                  // the grid open or shut.
+                                  if (sel) setClassGridOpen((o) => !o);
+                                  else { pickClass(c.id); setClassGridOpen(false); }
+                                }} aria-pressed={sel}>
+                          <div className="byo-card-top">
+                            <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
+                            <span className="byo-card-name">{c.name}</span>
+                            <span className="byo-card-kind">d{c.hitDie} hit die</span>
+                          </div>
+                          <p className="byo-card-blurb">
+                            Saves: {c.saves.map((s) => s.toUpperCase()).join(", ")} · {c.skillChoices.count} skills ·{" "}
+                            {c.subclasses.length ? `${c.subclassTitle || "subclass"} at ${c.subclassLevel}` : "no subclass"}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

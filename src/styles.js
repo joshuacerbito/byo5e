@@ -186,6 +186,14 @@ export const STYLES = `
 .byo-panel-grid .byo-panel{margin-bottom:0;}
 .byo-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;}
 .byo-card-grid .byo-card{margin-bottom:0;}
+/* Class picker — collapsed to the chosen card, the grid would stretch that
+   one card the full width, so cap it to a single readable column. */
+.byo-classpick{margin-top:8px;}
+.byo-classpick-head{display:flex;align-items:baseline;justify-content:space-between;
+  gap:12px;margin-bottom:8px;}
+.byo-classpick-l{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--bone-dim);}
+.byo-card-grid.is-one{grid-template-columns:minmax(240px,360px);}
 /* Splash screen — its own narrower, centered wrap rather than the
    wizard's near-full-width one, and its 3 entry options stacked in a
    single column rather than the grid other multi-panel screens use:
