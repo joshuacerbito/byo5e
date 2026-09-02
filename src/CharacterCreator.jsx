@@ -1296,7 +1296,12 @@ export default function CharacterCreator() {
     const label = casterList.length > 1
       ? `Multiclass spellcasting (${casterList.map((c) => `${c.className} ${c.level}`).join(" / ")})`
       : `${primaryCaster.className} spellcasting`;
-    if (!slots.length && !pact) return { pending: true, label };
+    /* A caster who has no slots yet — a half caster at level 1, whose
+       class table starts at 2. Every consumer below checks `pending`
+       first, except highestSlot, which read casting.slots.length and
+       crashed the whole step; the empty array is carried here rather
+       than guarded there so no future reader can trip on it either. */
+    if (!slots.length && !pact) return { pending: true, label, slots: [], pact: null };
     const cantrips = casterList.reduce((n, c) => n + (cantripsKnown(c.casting, c.level) || 0), 0) || null;
     const known = casterList.filter((c) => c.casting.prepares === "known")
       .reduce((n, c) => n + (spellsKnown(c.casting, c.level) || 0), 0) || null;
