@@ -1090,6 +1090,15 @@ export default function CharacterCreator() {
      piece and you are wearing it again, which is friendlier than
      silently clearing the pick the moment an item is deleted. */
   const armor = armorOptions.find((a) => a?.id === armorId) || null;
+  /* The armor rows the Inventory step lists under the picker: granted
+     pieces (no controls, like every other granted item) and added ones
+     (quantity and attunement, carried over from where they used to
+     live in the Gear list). Kept as one memo so the section can ask
+     whether there is anything to show at all. */
+  const carriedArmor = useMemo(() => ({
+    granted: [...classEquipItems, ...bgEquipItems].filter((it) => it.resolved?.kind === "armor"),
+    added: customResolved.map((ci, idx) => ({ ci, idx })).filter(({ ci }) => ci.resolved?.kind === "armor"),
+  }), [classEquipItems, bgEquipItems, customResolved]);
   const shieldAllowed = armorProfCats.includes("shield")
     && ownedArmor.some((a) => a.category === "shield");
   const shieldOn = shieldAllowed && hasShield;
@@ -3375,57 +3384,6 @@ export default function CharacterCreator() {
                 </div>
               ) : (
                 <>
-                  <div className="byo-panel">
-                    <h3>Armor</h3>
-                    {!armorProfCats.length ? (
-                      <p className="byo-note">{klass.name}s aren't proficient with any armor.</p>
-                    ) : armorOptions.length === 1 ? (
-                      /* The list is the inventory, so an empty one is a
-                         statement about the character's gear, not their
-                         class — and it names where armor comes from. */
-                      <p className="byo-note">
-                        You aren't carrying any armor you can wear. Take some in Starting Equipment,
-                        or add it under <b>Add an item</b> below.
-                      </p>
-                    ) : (
-                      <div className="byo-skills">
-                        {armorOptions.map((a) => (
-                          <button key={a?.id ?? "none"} className={`byo-skill ${(armor?.id ?? null) === (a?.id ?? null) ? "is-sel" : ""}`}
-                                  onClick={() => setArmorId(a?.id ?? null)} aria-pressed={(armor?.id ?? null) === (a?.id ?? null)}>
-                            {a ? `${a.name} ${a.ac}` : "None"}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {armorProfDerived.noMetal && (
-                      <p className="byo-note" style={{ marginTop: 10 }}>{klass.name}s traditionally refuse metal armor and shields — a table-by-table call, not enforced here.</p>
-                    )}
-                    {shieldAllowed && (
-                      <div className="byo-row" style={{ marginTop: 12 }}>
-                        <span className="byo-row-label">Shield <span className="byo-count">+2 AC</span></span>
-                        <button className={`byo-opt ${shieldOn ? "is-sel" : ""}`} onClick={() => setHasShield((v) => !v)} aria-pressed={shieldOn}>
-                          {shieldOn ? "Carrying" : "No shield"}
-                        </button>
-                      </div>
-                    )}
-                    {armor?.strReq && finalScore("str") < armor.strReq && (
-                      <p className="byo-warn">{armor.name} needs Strength {armor.strReq} and you have {finalScore("str")} — check whether your table applies the speed penalty.</p>
-                    )}
-                    {armor?.stealthDisadvantage && <p className="byo-warn">{armor.name} gives disadvantage on Stealth checks.</p>}
-                  </div>
-
-                  {acRows.length > 1 && (
-                    <div className="byo-panel">
-                      <h3>Why that number</h3>
-                      {acRows.map((c) => (
-                        <div className={`byo-row ${c.value === bestAC.value ? "" : "byo-dim"}`} key={c.id}>
-                          <span className="byo-row-label">{c.label}<span className="byo-ac-parts">{c.parts}</span></span>
-                          <span className={c.value === bestAC.value ? "byo-final" : "byo-mod"}>{c.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
                   {/* Class and background each grant their own starting-equipment
                       choice — two independent picks, not one merged pool — but
                       they used to live on two different steps (this one, and
@@ -3495,7 +3453,92 @@ export default function CharacterCreator() {
                   </div>
 
                   <div className="byo-panel">
-                    <h3>Gear <span className="byo-count">{attunedCount}/3 attuned</span></h3>
+                    <h3>Armor</h3>
+                    {!armorProfCats.length ? (
+                      <p className="byo-note">{klass.name}s aren't proficient with any armor.</p>
+                    ) : armorOptions.length === 1 ? (
+                      /* The list is the inventory, so an empty one is a
+                         statement about the character's gear, not their
+                         class — and it names where armor comes from. */
+                      <p className="byo-note">
+                        You aren't carrying any armor you can wear. Take some in Starting Equipment,
+                        or add it under <b>Add an item</b> below.
+                      </p>
+                    ) : (
+                      <div className="byo-skills">
+                        {armorOptions.map((a) => (
+                          <button key={a?.id ?? "none"} className={`byo-skill ${(armor?.id ?? null) === (a?.id ?? null) ? "is-sel" : ""}`}
+                                  onClick={() => setArmorId(a?.id ?? null)} aria-pressed={(armor?.id ?? null) === (a?.id ?? null)}>
+                            {a ? `${a.name} ${a.ac}` : "None"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {armorProfDerived.noMetal && (
+                      <p className="byo-note" style={{ marginTop: 10 }}>{klass.name}s traditionally refuse metal armor and shields — a table-by-table call, not enforced here.</p>
+                    )}
+                    {shieldAllowed && (
+                      <div className="byo-row" style={{ marginTop: 12 }}>
+                        <span className="byo-row-label">Shield <span className="byo-count">+2 AC</span></span>
+                        <button className={`byo-opt ${shieldOn ? "is-sel" : ""}`} onClick={() => setHasShield((v) => !v)} aria-pressed={shieldOn}>
+                          {shieldOn ? "Carrying" : "No shield"}
+                        </button>
+                      </div>
+                    )}
+                    {armor?.strReq && finalScore("str") < armor.strReq && (
+                      <p className="byo-warn">{armor.name} needs Strength {armor.strReq} and you have {finalScore("str")} — check whether your table applies the speed penalty.</p>
+                    )}
+                    {armor?.stealthDisadvantage && <p className="byo-warn">{armor.name} gives disadvantage on Stealth checks.</p>}
+
+                    {/* What you are actually carrying, under the picker that
+                        chooses from it — armor used to be listed down in Gear,
+                        which is why it appeared twice once the picker started
+                        reading the inventory. Quantity and attunement stay
+                        here with it; the granted pieces have no controls,
+                        same as everywhere else. */}
+                    {(carriedArmor.granted.length > 0 || carriedArmor.added.length > 0) && (
+                      <div style={{ marginTop: 14 }}>
+                        <div className="byo-actgroup-l">Carrying</div>
+                        {carriedArmor.granted.map((it, i) => (
+                          <div className="byo-row" key={`armor-fixed-${i}`} style={{ flexWrap: "wrap" }}>
+                            <span className="byo-row-label">{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ""}</span>
+                          </div>
+                        ))}
+                        {carriedArmor.added.map(({ ci, idx }) => (
+                          <div className="byo-row" key={`armor-custom-${idx}`} style={{ flexWrap: "wrap" }}>
+                            <span className="byo-row-label">{ci.resolved.name}{ci.quantity > 1 ? ` ×${ci.quantity}` : ""}{magicSuffix(ci.resolved, ci.attuned)}</span>
+                            <div className="byo-step">
+                              <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity - 1)} aria-label={`Fewer ${ci.resolved.name}`}>−</button>
+                              <span className="byo-num">{ci.quantity}</span>
+                              <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity + 1)} aria-label={`More ${ci.resolved.name}`}>+</button>
+                            </div>
+                            {!!ci.resolved.reqAttune && (
+                              <button className={`byo-opt ${ci.attuned ? "is-sel" : ""}`}
+                                      disabled={!ci.attuned && attunedCount >= 3}
+                                      onClick={() => toggleAttune(idx)} aria-pressed={ci.attuned}>
+                                {ci.attuned ? "Attuned" : "Attune"}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {acRows.length > 1 && (
+                    <div className="byo-panel">
+                      <h3>Why that number</h3>
+                      {acRows.map((c) => (
+                        <div className={`byo-row ${c.value === bestAC.value ? "" : "byo-dim"}`} key={c.id}>
+                          <span className="byo-row-label">{c.label}<span className="byo-ac-parts">{c.parts}</span></span>
+                          <span className={c.value === bestAC.value ? "byo-final" : "byo-mod"}>{c.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="byo-panel">
+                    <h3>Other Gear <span className="byo-count">{attunedCount}/3 attuned</span></h3>
                     {[...classEquipItems, ...bgEquipItems].filter((it) => !it.currency && it.resolved?.kind !== "weapon" && it.resolved?.kind !== "armor").map((it, i) => (
                       <div className="byo-row" key={`fixed-${i}`} style={{ flexWrap: "wrap" }}>
                         <span className="byo-row-label">{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ""}{!it.resolved && !it.currency ? " (choose specific item at the table)" : ""}
@@ -3504,7 +3547,11 @@ export default function CharacterCreator() {
                       </div>
                     ))}
                     {customResolved.map((ci, idx) => {
-                      if (!ci.resolved || ci.kind === "weapon") return null;
+                      /* Weapons and armor have their own sections above; this
+                         one is what is left. The granted half of the list has
+                         always filtered both out — only the added half hadn't,
+                         so an added breastplate showed up in two places. */
+                      if (!ci.resolved || ci.kind === "weapon" || ci.kind === "armor") return null;
                       const attunable = !!ci.resolved.reqAttune;
                       return (
                         <div className="byo-row" key={`custom-${idx}`} style={{ flexWrap: "wrap" }}>
