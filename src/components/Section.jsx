@@ -2,16 +2,17 @@
    One collapsible wizard panel, and the "Show More" clamp for long
    body content inside one.
 
-   Two separate affordances on purpose. The chevron in the header strips
-   a section back to its HEADINGS — every feature name, label and title
-   inside it stays on screen, and only the explanatory prose and the
-   controls under them go. Collapsing "Level 1" should still tell you
-   what you get at level 1; a bar reading nothing but "Level 1" is a
-   worse table of contents than the panel it replaced.
-   Show More clamps a run of body text INSIDE a section you're keeping
-   open, so a level panel whose feature happens to print a full table
-   doesn't push the next level off the screen. Collapsing everything
-   with one control would have meant choosing between those.
+   Collapsing a section strips it back to its HEADINGS — every feature
+   name, label and title inside it stays on screen, and only the
+   explanatory prose and the controls under them go. Collapsing "Level 1"
+   should still tell you what you get at level 1; a bar reading nothing
+   but "Level 1" is a worse table of contents than the panel it replaced.
+
+   Two controls drive that one state: the chevron in the header, and the
+   Show More / Show Less toggle at the foot of a long section, so a
+   section you have scrolled to the bottom of can be closed without
+   scrolling back up. They are the same switch, not two depths of
+   collapse.
 
    Core Traits owned the header treatment first (the rotating chevron,
    the mono subtitle under the title); it now renders through this
@@ -21,7 +22,11 @@
    it's a ROW that expands, several to a list, with a section header
    that opens all of them at once. These are page sections.
 ------------------------------------------------------------------- */
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
+
+/* Lets a ShowMore inside a section drive that section's own open state
+   instead of its local clamp — see the note on ShowMore below. */
+const SectionCtx = createContext(null);
 
 const Chevron = ({ up }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -36,6 +41,7 @@ export default function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
+    <SectionCtx.Provider value={{ open, setOpen }}>
     <div className="byo-panel" style={style}>
       {/* Outside the collapsed body: a section that still needs a pick
           has to say so while it's shut, or the player closes it and
@@ -58,24 +64,39 @@ export default function Section({
           unmounting the body would take the headings with it. */}
       <div className={`byo-sec-b${open ? "" : " is-shut"}`}>{children}</div>
     </div>
+    </SectionCtx.Provider>
   );
 }
 
-/* Clamp long body content to `max` px with a fade, and offer the
-   toggle only when there is actually something hidden — a two-line
-   feature with a "Show More" under it is noise. Measured rather than
-   guessed from a character count, because a feature's blocks can be a
-   table or a list, not just a paragraph.
+/* The Show More / Show Less control for a long run of body content.
 
-   Starts EXPANDED, like the sections themselves: nothing on the page
-   arrives with text already hidden, and every collapse is something the
-   reader did on purpose. The clamp is still measured on first paint, so
-   the "Show Less" toggle only appears where there is enough content for
-   collapsing to be worth offering. */
+   Inside a Section it is the header chevron's twin at the foot of the
+   panel: same state, same shut treatment (headings stay, descriptions
+   go), same label direction. Two controls that both said "less" and
+   then collapsed to different depths was the confusing part; one
+   behaviour, reachable from either end of a long section, is not.
+
+   Standalone — no Section around it — it falls back to what it was: a
+   local clamp to `max` px behind a fade, for body text that needs
+   shortening without a section to close.
+
+   Either way the control only appears once the content is actually
+   taller than `max`, measured rather than guessed from a character
+   count, because a feature's blocks can be a table or a list, not just
+   a paragraph. And it starts expanded: nothing on the page arrives with
+   text already hidden. */
 export function ShowMore({ max = 168, label = "body text", children }) {
-  const [open, setOpen] = useState(true);
+  const [own, setOwn] = useState(true);
   const [over, setOver] = useState(false);
   const ref = useRef(null);
+  /* Inside a Section, this toggle IS that section's chevron: same state,
+     same shut treatment, same everything — Josh asked for one behaviour
+     rather than two collapses that look alike and do different things.
+     The local clamp is what a ShowMore does on its own, outside a
+     section, where there is no header to defer to. */
+  const section = useContext(SectionCtx);
+  const open = section ? section.open : own;
+  const setOpen = section ? (v) => section.setOpen(v) : setOwn;
 
   /* No dependency list: the content can change height without this
      component's props changing (a feature block finishing layout, a
@@ -83,10 +104,16 @@ export function ShowMore({ max = 168, label = "body text", children }) {
      no-op re-render bail-out in React, so this is cheap. */
   useLayoutEffect(() => {
     const el = ref.current;
-    if (el) setOver(el.scrollHeight > max + 24);
+    /* Not while the section is shut: the body is a short list of
+       headings then, and re-measuring it would decide there is nothing
+       worth a toggle and take away the way back open. */
+    if (el && (!section || section.open)) setOver(el.scrollHeight > max + 24);
   });
 
-  const clamped = over && !open;
+  /* Only the standalone case clamps. In a section, "closed" is the
+     section's own shut treatment, which keeps the headings — clamping
+     the same content on top of that would fight it. */
+  const clamped = over && !open && !section;
   return (
     <div className="byo-more">
       <div ref={ref} className={`byo-more-b${clamped ? " is-clamped" : ""}`}
@@ -96,7 +123,7 @@ export function ShowMore({ max = 168, label = "body text", children }) {
       {over && (
         <button type="button" className="byo-more-t" aria-expanded={open}
                 aria-label={open ? `Show less ${label}` : `Show more ${label}`}
-                onClick={() => setOpen((o) => !o)}>
+                onClick={() => setOpen(!open)}>
           {open ? "Show Less" : "Show More"}
         </button>
       )}

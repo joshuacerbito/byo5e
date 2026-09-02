@@ -177,8 +177,11 @@ export const STYLES = `
 .byo-sec-b.is-shut .byo-skills,
 .byo-sec-b.is-shut .byo-choice,
 .byo-sec-b.is-shut .byo-input,
-.byo-sec-b.is-shut .byo-scroll-y,
-.byo-sec-b.is-shut .byo-more-t{display:none;}
+.byo-sec-b.is-shut .byo-scroll-y{display:none;}
+/* The Show More toggle stays visible while shut — inside a section it
+   drives the section's own state, so it is the chevron's twin at the
+   foot of the panel, and hiding it would leave the way back in only at
+   the top of a section you have just scrolled past. */
 /* The feature name is a byo-note like the prose around it, so it needs
    to win the rule above by specificity rather than by source order. */
 .byo-sec-b.is-shut .byo-note.byo-feat-n{display:block;margin:0 0 4px;}
