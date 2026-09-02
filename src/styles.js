@@ -142,17 +142,37 @@ export const STYLES = `
    Book-page layout: a collapsible header carrying the choice count,
    the level-1 preamble, then the traits table. The table is prose;
    the skill picker under it is the only interactive part. --------- */
-.byo-ct-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
+/* Section header — the collapsible header every wizard panel now uses
+   (Section.jsx). Core Traits wore it first; the class is no longer
+   named after it because every level panel and picker wears it too. */
+.byo-sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;
   background:none;border:none;padding:0;margin:0 0 10px;color:inherit;text-align:left;cursor:pointer;}
-.byo-ct-head:hover .byo-ct-h3{color:var(--gold);}
-.byo-ct-head:focus-visible{outline:2px solid var(--jade);outline-offset:3px;}
-.byo-ct-title{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.byo-ct-h3{font-family:'Vollkorn',serif;font-weight:600;font-size:17.5px;}
-.byo-ct-sub{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;
+.byo-sec-head:hover .byo-sec-h3{color:var(--gold);}
+.byo-sec-head:focus-visible{outline:2px solid var(--jade);outline-offset:3px;}
+.byo-sec-title{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.byo-sec-h3{font-family:'Vollkorn',serif;font-weight:600;font-size:17.5px;}
+.byo-sec-sub{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--bone-dim);}
-.byo-ct-sub .byo-count{margin-left:10px;}
-.byo-ct-chev{flex:none;color:var(--line-bright);display:flex;align-items:center;}
-.byo-ct-chev svg{width:20px;height:20px;transition:transform .15s ease-out;}
+.byo-sec-sub .byo-count,.byo-sec-h3 .byo-count{margin-left:10px;}
+.byo-sec-chev{flex:none;color:var(--line-bright);display:flex;align-items:center;}
+.byo-sec-chev svg{width:20px;height:20px;transition:transform .15s ease-out;}
+/* Collapsed, the header is the panel's only child — its bottom margin
+   would otherwise leave a strip of dead padding under a shut section. */
+.byo-panel > .byo-sec-head:last-child{margin-bottom:0;}
+/* Show More — clamps a run of body text inside an open section. The
+   fade says the text is cut rather than finished; the toggle sits
+   under it as its own control, not on the header. */
+.byo-more{margin:0;}
+.byo-more-b{position:relative;}
+.byo-more-b.is-clamped{overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom,#000 60%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000 60%,transparent 100%);}
+.byo-more-t{background:none;border:none;padding:8px 0 0;margin:0;cursor:pointer;
+  font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--gold);text-decoration:underline;
+  text-underline-offset:3px;}
+.byo-more-t:hover{color:var(--bone);}
+.byo-more-t:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 .byo-ct-lead{margin:0 0 4px;}
 .byo-ct-bullets{margin:0 0 14px;padding-left:18px;font-size:14.5px;color:var(--bone-dim);line-height:1.5;}
 .byo-ct-bullets li{margin:2px 0;}

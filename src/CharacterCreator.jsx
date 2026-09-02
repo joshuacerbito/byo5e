@@ -52,6 +52,7 @@ import AddRuleset from "./components/AddRuleset.jsx";
 import Terms from "./components/Terms.jsx";
 import Privacy from "./components/Privacy.jsx";
 import CoreTraits from "./components/CoreTraits.jsx";
+import Section, { ShowMore } from "./components/Section.jsx";
 import MasteryPicker from "./components/MasteryPicker.jsx";
 
 const APP_TITLE = document.title;
@@ -1900,9 +1901,8 @@ export default function CharacterCreator() {
      read off the pack's own subclass feature levels in content/classes.js),
      so nothing here hardcodes a level. */
   const renderSubclassPanel = () => (
-    <div className="byo-panel">
-      {subclassOn && !subclass && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
-      <h3>{klass.subclassTitle || "Subclass"}</h3>
+    <Section title={klass.subclassTitle || "Subclass"}
+             flag={subclassOn && !subclass}>
       {!subclassOn ? (
         <p className="byo-note">{klass.name}s choose at level {klass.subclassLevel}. You're level {level}, so nothing to decide yet.</p>
       ) : (
@@ -1927,7 +1927,7 @@ export default function CharacterCreator() {
           })}
         </div>
       )}
-    </div>
+    </Section>
   );
 
   /* One of masteryExtraBumps — a level where the class's Weapon Mastery
@@ -2113,15 +2113,17 @@ export default function CharacterCreator() {
         const asiFeat = isAsi ? pool.find((f) => f.id === entry?.featId) : null;
         const complete = isAsi ? mcAsiComplete(e.classId, atLevel) : true;
         return (
-          <div className="byo-panel" style={{ marginBottom: 12 }} key={atLevel}>
-            {isAsi && !complete && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
-            <h3>Level {atLevel} {isAsi && <span className="byo-count">{complete ? "done" : "to pick"}</span>}</h3>
-            {levelFeats.map((f) => (
-              <div key={f.id} style={{ marginBottom: 10 }}>
-                <p className="byo-note" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
-                <FeatureBlocks blocks={f.blocks} />
-              </div>
-            ))}
+          <Section key={atLevel} style={{ marginBottom: 12 }} title={`Level ${atLevel}`}
+                   count={isAsi ? (complete ? "done" : "to pick") : null}
+                   flag={isAsi && !complete}>
+            <ShowMore label={`level ${atLevel} features`}>
+              {levelFeats.map((f) => (
+                <div key={f.id} style={{ marginBottom: 10 }}>
+                  <p className="byo-note" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
+                  <FeatureBlocks blocks={f.blocks} />
+                </div>
+              ))}
+            </ShowMore>
             {isAsi && (
             <>
             <div className="byo-skills">
@@ -2171,7 +2173,7 @@ export default function CharacterCreator() {
             )}
             </>
             )}
-          </div>
+          </Section>
         );
       })}
       </>
@@ -2798,11 +2800,9 @@ export default function CharacterCreator() {
                   </CoreTraits>
 
                   {optionChoiceGroups.map((g) => (
-                    <div className="byo-panel" key={g.key}>
-                      {(optionPicks[g.key] || []).length < g.budget && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
-                      <h3>{g.label} <span className="byo-count">
-                        {(optionPicks[g.key] || []).length}/{g.budget}
-                      </span></h3>
+                    <Section key={g.key} title={g.label}
+                             count={`${(optionPicks[g.key] || []).length}/${g.budget}`}
+                             flag={(optionPicks[g.key] || []).length < g.budget}>
                       <div className="byo-skills">
                         {g.pool.map((o) => {
                           const on = (optionPicks[g.key] || []).includes(o.id);
@@ -2828,7 +2828,7 @@ export default function CharacterCreator() {
                           </div>
                         );
                       })}
-                    </div>
+                    </Section>
                   ))}
 
                     </>
@@ -2865,15 +2865,22 @@ export default function CharacterCreator() {
                           character hasn't reached it yet there is no such
                           panel, so it goes last instead (see below). */}
                       {atLevel === subclassAnchor && renderSubclassPanel()}
-                      <div className="byo-panel">
-                        {isAsi && !asiComplete(atLevel) && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
-                        <h3>Level {atLevel} {isAsi && <span className="byo-count">{asiComplete(atLevel) ? "done" : "to pick"}</span>}</h3>
-                        {feats.map((f) => (
-                          <div key={f.id} style={{ marginBottom: 10 }}>
-                            <p className="byo-note" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
-                            <FeatureBlocks blocks={f.blocks} />
-                          </div>
-                        ))}
+                      <Section title={`Level ${atLevel}`}
+                               count={isAsi ? (asiComplete(atLevel) ? "done" : "to pick") : null}
+                               flag={isAsi && !asiComplete(atLevel)}>
+                        {/* The features are the long part of a level — a
+                            single one can print a whole table. Clamped so a
+                            level you've read doesn't push the next one off
+                            the screen; the toggle only appears when there is
+                            something actually hidden. */}
+                        <ShowMore label={`level ${atLevel} features`}>
+                          {feats.map((f) => (
+                            <div key={f.id} style={{ marginBottom: 10 }}>
+                              <p className="byo-note" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
+                              <FeatureBlocks blocks={f.blocks} />
+                            </div>
+                          ))}
+                        </ShowMore>
                         {isAsi && (
                           <>
                             <div className="byo-skills">
@@ -2926,7 +2933,7 @@ export default function CharacterCreator() {
                         {masteryExtraBumps.filter((b) => b.level === atLevel).map((b) => (
                           <React.Fragment key={`mastery-${b.level}`}>{renderMasteryBumpContent(b)}</React.Fragment>
                         ))}
-                      </div>
+                      </Section>
                       </React.Fragment>
                     );
                   }))}

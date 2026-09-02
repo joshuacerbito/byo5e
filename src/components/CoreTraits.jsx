@@ -13,7 +13,8 @@
    the Inventory step, off this screen entirely, so that row carries the
    book's full prose line.
 ------------------------------------------------------------------- */
-import React, { useState } from "react";
+import React from "react";
+import Section from "./Section.jsx";
 import { ABILITY_LABEL } from "../rules/abilities.js";
 
 /* Full ability words, not the STR/DEX shorts primaryAbilityLabel emits:
@@ -46,16 +47,7 @@ function equipmentText(se) {
   return lines.length ? lines.join(" ") : null;
 }
 
-const Chevron = ({ up }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-       style={{ transform: up ? "rotate(180deg)" : "none" }}>
-    <path d="m6 9 6 6 6-6" />
-  </svg>
-);
-
 export default function CoreTraits({ klass, skillChoiceText, skillsLeft, masteryChoiceText, masteryLeft, children }) {
-  const [open, setOpen] = useState(true);
   const equip = equipmentText(klass.startingEquipment);
   /* Choices this section asks the player to make: the skill picker is
      always one, weapon mastery is one more when the class has the
@@ -80,39 +72,25 @@ export default function CoreTraits({ klass, skillChoiceText, skillsLeft, mastery
   ].filter(([, v]) => v);
 
   return (
-    <div className="byo-panel">
-      {(skillsLeft > 0 || masteryLeft > 0) && <span className="byo-panel-flag" title="Needs your pick">⚠</span>}
-      <button type="button" className="byo-ct-head" aria-expanded={open}
-              onClick={() => setOpen((o) => !o)}>
-        <span className="byo-ct-title">
-          <span className="byo-ct-h3">Core {klass.name} Traits</span>
-          <span className="byo-ct-sub">
-            {choices} {choices === 1 ? "Choice" : "Choices"} · 1st level
-          </span>
-        </span>
-        <span className="byo-ct-chev"><Chevron up={open} /></span>
-      </button>
+    <Section title={`Core ${klass.name} Traits`}
+             meta={`${choices} ${choices === 1 ? "Choice" : "Choices"} · 1st level`}
+             flag={skillsLeft > 0 || masteryLeft > 0}>
+      <p className="byo-note byo-ct-lead">As a Level 1 Character:</p>
+      <ul className="byo-ct-bullets">
+        <li>Gain all the traits in the Core {klass.name} Traits table.</li>
+        <li>Gain the {klass.name}'s level 1 features.</li>
+      </ul>
 
-      {open && (
-        <>
-          <p className="byo-note byo-ct-lead">As a Level 1 Character:</p>
-          <ul className="byo-ct-bullets">
-            <li>Gain all the traits in the Core {klass.name} Traits table.</li>
-            <li>Gain the {klass.name}'s level 1 features.</li>
-          </ul>
-
-          <div className="byo-ct-table">
-            {rows.map(([label, value]) => (
-              <div className="byo-ct-row" key={label}>
-                <span className="byo-ct-k">{label}</span>
-                <span className="byo-ct-v">{value}</span>
-              </div>
-            ))}
+      <div className="byo-ct-table">
+        {rows.map(([label, value]) => (
+          <div className="byo-ct-row" key={label}>
+            <span className="byo-ct-k">{label}</span>
+            <span className="byo-ct-v">{value}</span>
           </div>
+        ))}
+      </div>
 
-          {children}
-        </>
-      )}
-    </div>
+      {children}
+    </Section>
   );
 }
