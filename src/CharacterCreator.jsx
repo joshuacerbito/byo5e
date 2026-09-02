@@ -1044,8 +1044,15 @@ export default function CharacterCreator() {
       : itemKindFilter === "weapon" ? (content?.weapons || [])
         : itemKindFilter === "armor" ? (content?.armor || []) : (content?.gear || []);
     const q = itemSearch.trim().toLowerCase();
+    /* Mundane first, then alphabetical. Straight alphabetical put every
+       "+1 ..." magic variant at the top and the cap did the rest: a
+       browse with no search showed 60 magic items and not one club or
+       rope, which read as "this list has no ordinary gear in it". Same
+       principle as the Armor picker above — ordinary kit up front,
+       magic through search. */
     const matches = (q ? pool.filter((it) => it.name.toLowerCase().includes(q)) : pool)
-      .slice().sort((a, b) => a.name.localeCompare(b.name));
+      .slice().sort((a, b) => (a.rarity === "none" ? 0 : 1) - (b.rarity === "none" ? 0 : 1)
+        || a.name.localeCompare(b.name));
     return { rows: matches.slice(0, ITEM_RESULTS_CAP), total: matches.length };
   }, [itemBrowsePool, itemKindFilter, itemSearch, content]);
 
