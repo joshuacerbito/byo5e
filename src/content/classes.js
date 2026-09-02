@@ -88,6 +88,30 @@ function weaponMasteryFromTable(groups) {
   return null;
 }
 
+/* Not every class that HAS Weapon Mastery prints it as a table column.
+   Barbarian and Fighter do (their count grows with level, so it needs a
+   row per level); Paladin, Ranger and Rogue get a flat two for their
+   whole career, so the 2024 data states the number in the feature's own
+   prose and gives them no column at all. Reading only the column left
+   those three showing the feature's promise of "two kinds of weapons of
+   your choice" with no way to choose them.
+
+   The count is spelled as an English word ("two kinds of"), which is why
+   this parses prose at all — there is no structured field carrying it.
+   Anything that doesn't match is left as null, the same "this class has
+   no Weapon Mastery" answer the missing column gives. */
+const COUNT_WORD = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+
+function weaponMasteryFromFeature(features) {
+  const f = (features || []).find((x) => /^weapon mastery$/i.test(x.name));
+  if (!f) return null;
+  const m = /properties of ([a-z]+) kinds? of/i.exec(f.text || "");
+  const n = m ? COUNT_WORD[m[1].toLowerCase()] : null;
+  if (!n) return null;
+  /* Flat from the level that grants it — no column means no growth. */
+  return Array.from({ length: 20 }, (_, i) => (i + 1 >= f.level ? n : 0));
+}
+
 function buildCasting(cl) {
   const prog = cl.casterProgression ? (PROGRESSION[cl.casterProgression] || cl.casterProgression) : null;
   if (!prog && !cl.spellcastingAbility) return null;
@@ -280,7 +304,7 @@ export function buildClasses(reg, optionIdOf) {
       subclassTitle: cl.subclassTitle ? stripTags(cl.subclassTitle) : null,
       asiLevels,
       features,
-      weaponMasteryByLevel: weaponMasteryFromTable(cl.classTableGroups),
+      weaponMasteryByLevel: weaponMasteryFromTable(cl.classTableGroups) ?? weaponMasteryFromFeature(features),
       tables: classTables(cl.classTableGroups),
       optionProgression: progressionBlock(cl.optionalfeatureProgression, "types"),
       featProgression: progressionBlock(cl.featProgression, "categories"),
