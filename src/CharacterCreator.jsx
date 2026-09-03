@@ -130,6 +130,16 @@ const EQUIP_TYPE_POOLS = {
   weaponMartialMelee: (c) => c.weapons.filter((w) => w.category === "martial" && w.weaponKind === "melee" && w.rarity === "none"),
 };
 
+/* Which option a group counts as taken. equipPickList falls back
+   past an explicit pick to the fixed option and then to the first one,
+   so a group nobody has touched still grants its option A — this is the
+   same fallback, so the highlighted button and the picker below it
+   agree with what the character is actually holding. NONE_PICK matches
+   no key, which is how Clear Inventory leaves a group with nothing
+   selected and nothing granted. */
+const chosenEquipKey = (picks, gi, g) =>
+  picks[gi] ?? g.options.find((x) => x.fixed)?.key ?? g.options[0]?.key;
+
 const equipTypePool = (content, type) =>
   (content && EQUIP_TYPE_POOLS[type] ? EQUIP_TYPE_POOLS[type](content) : [])
     .slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -3624,7 +3634,7 @@ export default function CharacterCreator() {
                             <div key={gi} style={{ marginBottom: 8 }}>
                               <div className="byo-skills">
                                 {g.options.map((o) => {
-                                  const sel = (classEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key) === o.key;
+                                  const sel = chosenEquipKey(classEquipPicks, gi, g) === o.key;
                                   const label = o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");
                                   return (
                                     <button key={o.key} className={`byo-skill ${sel ? "is-sel" : ""}`}
@@ -3639,16 +3649,11 @@ export default function CharacterCreator() {
                           that contains it, in the same toggle grid every
                           other pool on this wizard uses. */}
                               {(() => {
-                                const chosen = (classEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key);
-                                /* Strictly the SELECTED option — no falling
-                                   back to the first one. equipPickList does
-                                   fall back that way when deciding what a
-                                   character is holding, but the buttons above
-                                   don't, so a group with nothing picked reads
-                                   as nothing picked; a picker appearing under
-                                   it asked for a choice inside a bundle the
-                                   player hadn't taken. */
-                                const opt = g.options.find((o) => o.key === chosen) || null;
+                                /* The taken option, by the same rule the
+                                   buttons above and equipPickList both use —
+                                   a picker must never ask about a bundle the
+                                   character isn't holding. */
+                                const opt = g.options.find((o) => o.key === chosenEquipKey(classEquipPicks, gi, g)) || null;
                                 return (opt?.items || []).map((it, ii) => {
                                   if (!it.equipmentType) return null;
                                   const slotKey = `class:${gi}:${ii}`;
@@ -3683,7 +3688,7 @@ export default function CharacterCreator() {
                             <div key={gi} style={{ marginBottom: 8 }}>
                               <div className="byo-skills">
                                 {g.options.map((o) => {
-                                  const sel = (bgEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key) === o.key;
+                                  const sel = chosenEquipKey(bgEquipPicks, gi, g) === o.key;
                                   const label = o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");
                                   return (
                                     <button key={o.key} className={`byo-skill ${sel ? "is-sel" : ""}`}
@@ -3693,16 +3698,11 @@ export default function CharacterCreator() {
                                 })}
                               </div>
                               {(() => {
-                                const chosen = (bgEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key);
-                                /* Strictly the SELECTED option — no falling
-                                   back to the first one. equipPickList does
-                                   fall back that way when deciding what a
-                                   character is holding, but the buttons above
-                                   don't, so a group with nothing picked reads
-                                   as nothing picked; a picker appearing under
-                                   it asked for a choice inside a bundle the
-                                   player hadn't taken. */
-                                const opt = g.options.find((o) => o.key === chosen) || null;
+                                /* The taken option, by the same rule the
+                                   buttons above and equipPickList both use —
+                                   a picker must never ask about a bundle the
+                                   character isn't holding. */
+                                const opt = g.options.find((o) => o.key === chosenEquipKey(bgEquipPicks, gi, g)) || null;
                                 return (opt?.items || []).map((it, ii) => {
                                   if (!it.equipmentType) return null;
                                   const slotKey = `bg:${gi}:${ii}`;
