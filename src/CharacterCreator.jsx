@@ -3914,10 +3914,10 @@ export default function CharacterCreator() {
                       ))}
                     </div>
 
-                    <div className="byo-currency-l">Total currency</div>
-                    <div className="byo-row">
-                      <span className="byo-row-label">Carried</span>
-                      <span className="byo-mod" style={{ width: "auto" }}>{formatCurrency(totalCurrency)}</span>
+                    <Rule />
+                    <div className="byo-currency-total">
+                      <span>Total currency carried</span>
+                      <span>{formatCurrency(totalCurrency)}</span>
                     </div>
                   </div>
 
