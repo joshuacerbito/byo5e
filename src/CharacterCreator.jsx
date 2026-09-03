@@ -919,7 +919,14 @@ export default function CharacterCreator() {
     return [...byKey.values()].map((w) => ({ id: w.masteryKey, name: w.masteryKey }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [content, weaponProf]);
+  /* Nothing to prune against until the pack has loaded: content is null on
+     the first render after a reload, which makes masteryEligibleWeapons
+     empty and masteryCount null, and without this guard that first pass
+     would clear the picks restored from the snapshot — and then the save
+     effect would write the emptied array straight back to storage. Before
+     the pack lands a pick isn't ineligible, only unknown. */
   useEffect(() => {
+    if (!content) return;
     if (masteryCount == null) { if (masteryPicks.length) setMasteryPicks([]); return; }
     const eligibleKeys = new Set(masteryEligibleWeapons.map((w) => w.id));
     setMasteryPicks((prev) => {
@@ -981,8 +988,12 @@ export default function CharacterCreator() {
   };
   /* Drop picks a level-down, a removed entry or a proficiency change made
      illegal — the same pruning mcSkillPicks does a few lines up, for the
-     same reason: a pick that no longer exists must not keep counting. */
+     same reason: a pick that no longer exists must not keep counting.
+     Same pre-load guard as the primary class's prune above, for the same
+     reason — an empty eligibility list on the first render is ignorance,
+     not a verdict. */
   useEffect(() => {
+    if (!content) return;
     const eligibleKeys = new Set(masteryEligibleWeapons.map((w) => w.id));
     setMcMasteryPicks((prev) => {
       let changed = false;
