@@ -38,8 +38,18 @@ function normItem(e, reg, from) {
     out.name = stripTags(e.special);
     out.special = true;
   } else if (e.equipmentType) {
-    /* "focusSpellcastingArcane" — a category, not a specific item. */
-    out.name = String(e.equipmentType).replace(/([A-Z])/g, " $1").trim().toLowerCase();
+    /* A category, not a specific item. 5etools names these noun-first
+       and qualifier-last ("setGaming", "weaponMartialMelee",
+       "focusSpellcastingArcane") so that they sort together; English
+       wants the reverse. Splitting on the capitals and keeping that
+       order printed "set gaming" and "weapon martial melee". Reversed,
+       the same three words read as the thing they name — "Gaming Set",
+       "Melee Martial Weapon", "Arcane Spellcasting Focus" — which is
+       one rule for all of them rather than a lookup table that a new
+       pack could fall out of. */
+    out.name = String(e.equipmentType)
+      .replace(/([A-Z])/g, " $1").trim().toLowerCase().split(/\s+/).reverse()
+      .join(" ").replace(/^./, (ch) => ch.toUpperCase());
     out.equipmentType = e.equipmentType;
   } else {
     out.name = stripTags(JSON.stringify(e));

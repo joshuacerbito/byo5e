@@ -75,7 +75,7 @@ const DEFAULTS = {
   skillPicks: [], optionPicks: {}, asiPicks: {}, masteryPicks: [],
   multiclasses: [], mcSkillPicks: {}, mcAsiPicks: {}, mcMasteryPicks: {},
   bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [],
-  armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {},
+  armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {}, equipTypePicks: {},
   pickedSpellIds: [],
   customItems: [], containerOf: {}, currency: { cp: 0, sp: 0, gp: 0, pp: 0 },
 };
@@ -105,6 +105,34 @@ const KIND_COLLECTION = { weapon: "weapons", armor: "armor", gear: "gear" };
    count in the class's own table — just not wired to that one feature.
    This is the one place that gap is bridged by hand. */
 const GROWING_CHOICE_KEYWORDS = { "eldritch invocations": "invocation" };
+
+/* A starting-equipment slot that names a CATEGORY rather than an item
+   ("a martial weapon", "a gaming set") — 5etools' `equipmentType`. The
+   category is the whole point: the book is telling you to choose, so
+   each of these is a pick, and this is the pool it picks from. Keyed by
+   the raw 5etools string so a value this table doesn't know simply
+   renders as its label and grants nothing, the way all of them did
+   before.
+
+   Magic items are excluded everywhere (`rarity === "none"`): the pack's
+   Horn of Blasting is typed as an instrument and the Hat of Many Spells
+   as a spellcasting focus, and neither is what a level 1 Bard is being
+   handed. */
+const EQUIP_TYPE_POOLS = {
+  setGaming: (c) => c.gear.filter((g) => g.typeCode === "GS" && g.rarity === "none"),
+  instrumentMusical: (c) => c.gear.filter((g) => g.typeCode === "INS" && g.rarity === "none"),
+  focusSpellcastingArcane: (c) => c.gear.filter((g) => g.typeCode === "SCF" && g.focusType === "arcane"),
+  focusSpellcastingDruidic: (c) => c.gear.filter((g) => g.typeCode === "SCF" && g.focusType === "druid"),
+  focusSpellcastingHoly: (c) => c.gear.filter((g) => g.typeCode === "SCF" && g.focusType === "holy"),
+  weaponSimple: (c) => c.weapons.filter((w) => w.category === "simple" && w.rarity === "none"),
+  weaponMartial: (c) => c.weapons.filter((w) => w.category === "martial" && w.rarity === "none"),
+  weaponSimpleMelee: (c) => c.weapons.filter((w) => w.category === "simple" && w.weaponKind === "melee" && w.rarity === "none"),
+  weaponMartialMelee: (c) => c.weapons.filter((w) => w.category === "martial" && w.weaponKind === "melee" && w.rarity === "none"),
+};
+
+const equipTypePool = (content, type) =>
+  (content && EQUIP_TYPE_POOLS[type] ? EQUIP_TYPE_POOLS[type](content) : [])
+    .slice().sort((a, b) => a.name.localeCompare(b.name));
 
 /* Every choose-up-to-N-of-many picker (a species' lineage table, Fighting
    Style, class/background skills, ...) shares this shape. For a 1/1
@@ -365,6 +393,10 @@ export default function CharacterCreator() {
   const [hasShield, setHasShield] = useState(saved?.hasShield ?? DEFAULTS.hasShield);
   const [classEquipPicks, setClassEquipPicks] = useState(saved?.classEquipPicks ?? DEFAULTS.classEquipPicks);
   const [bgEquipPicks, setBgEquipPicks] = useState(saved?.bgEquipPicks ?? DEFAULTS.bgEquipPicks);
+  /* Which item fills each category slot, keyed "<scope>:<group>:<slot>"
+     — one flat map for the class and background lists alike, since the
+     scope is already in the key. */
+  const [equipTypePicks, setEquipTypePicks] = useState(saved?.equipTypePicks ?? DEFAULTS.equipTypePicks);
   const [pickedSpellIds, setPickedSpellIds] = useState(saved?.pickedSpellIds ?? DEFAULTS.pickedSpellIds);
   const [customItems, setCustomItems] = useState(saved?.customItems ?? DEFAULTS.customItems);
   /* rowId -> container rowId. Sparse: anything missing is on your person,
@@ -404,6 +436,7 @@ export default function CharacterCreator() {
     setBgAbilityAlt(DEFAULTS.bgAbilityAlt); setBgAbilityPicks(DEFAULTS.bgAbilityPicks);
     setArmorId(DEFAULTS.armorId); setHasShield(DEFAULTS.hasShield);
     setClassEquipPicks(DEFAULTS.classEquipPicks); setBgEquipPicks(DEFAULTS.bgEquipPicks);
+    setEquipTypePicks(DEFAULTS.equipTypePicks);
     setPickedSpellIds(DEFAULTS.pickedSpellIds);
     setCustomItems(DEFAULTS.customItems); setContainerOf(DEFAULTS.containerOf); setCurrency(DEFAULTS.currency);
   };
@@ -983,32 +1016,42 @@ export default function CharacterCreator() {
 
   /* ------------------------------------------------------------------
      STARTING EQUIPMENT — one generic renderer for class and background
-     groups alike. A "you get X of your choice" slot with no enumerated
-     item (a weapon category, a focus type) is shown as its category
-     text rather than drilled into a specific item — the app doesn't
-     invent which one, it just doesn't invent one for you either.
+     groups alike. A slot that names a CATEGORY rather than an item —
+     "a martial weapon", "a gaming set" — is a choice the book is asking
+     you to make, so it gets its own picker below the option that
+     contains it (see EQUIP_TYPE_POOLS). Until something is picked it
+     still shows as its category text and grants nothing, which is what
+     every one of these did before there was a picker at all.
   ------------------------------------------------------------------- */
-  const resolveEquipItem = (it) => {
+  const resolveEquipItem = (it, slotKey) => {
     if (it.currency) return { ...it, kind: "currency" };
-    const rec = it.itemId
-      ? (content?.weapons.find((w) => w.name === it.itemId)
-        || content?.armor.find((a) => a.name === it.itemId)
-        || content?.gear.find((g) => g.name === it.itemId))
+    /* A category slot resolves to whatever was picked for it; the name
+       follows, so the inventory reads "Dice Set", not "Gaming set". */
+    const picked = it.equipmentType && slotKey ? equipTypePicks[slotKey] : null;
+    const wanted = picked || it.itemId;
+    const rec = wanted
+      ? (content?.weapons.find((w) => w.name === wanted)
+        || content?.armor.find((a) => a.name === wanted)
+        || content?.gear.find((g) => g.name === wanted))
       : null;
-    return { ...it, resolved: rec || null };
+    return { ...it, name: rec && picked ? rec.name : it.name, resolved: rec || null };
   };
 
-  const equipPickList = (groups, picks) => (groups || []).flatMap((g, gi) => {
+  const equipPickList = (groups, picks, scope) => (groups || []).flatMap((g, gi) => {
     const key = picks[gi];
     const opt = key === NONE_PICK ? null
       : g.options.find((o) => o.key === key) || g.options.find((o) => o.fixed) || g.options[0];
-    return (opt?.items || []).map(resolveEquipItem);
+    return (opt?.items || []).map((it, ii) => resolveEquipItem(it, `${scope}:${gi}:${ii}`));
   });
 
   const classEquipItems = useMemo(
-    () => equipPickList(klass?.startingEquipment.groups, classEquipPicks), [klass, classEquipPicks]);
+    () => equipPickList(klass?.startingEquipment.groups, classEquipPicks, "class"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [klass, classEquipPicks, equipTypePicks, content]);
   const bgEquipItems = useMemo(
-    () => equipPickList(background?.equipment, bgEquipPicks), [background, bgEquipPicks]);
+    () => equipPickList(background?.equipment, bgEquipPicks, "bg"),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [background, bgEquipPicks, equipTypePicks, content]);
 
   /* ------------------------------------------------------------------
      CUSTOM ITEMS + CURRENCY — the Inventory step's add-item browser and
@@ -1969,12 +2012,12 @@ export default function CharacterCreator() {
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, containerOf, currency,
+    classEquipPicks, bgEquipPicks, equipTypePicks, pickedSpellIds, customItems, containerOf, currency,
   }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, containerOf, currency]);
+    classEquipPicks, bgEquipPicks, equipTypePicks, pickedSpellIds, customItems, containerOf, currency]);
 
   useEffect(() => { saveSnapshot(snapshot); }, [snapshot]);
 
@@ -3551,6 +3594,37 @@ export default function CharacterCreator() {
                                   );
                                 })}
                               </div>
+                      {/* A category slot inside the chosen option — "a
+                          gaming set", "a martial weapon" — is a second,
+                          nested choice. It renders under the option row
+                          that contains it, in the same toggle grid every
+                          other pool on this wizard uses. */}
+                              {(() => {
+                                const chosen = (classEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key);
+                                const opt = g.options.find((o) => o.key === chosen) || g.options.find((o) => o.fixed) || g.options[0];
+                                return (opt?.items || []).map((it, ii) => {
+                                  if (!it.equipmentType) return null;
+                                  const slotKey = `class:${gi}:${ii}`;
+                                  const pool = equipTypePool(content, it.equipmentType);
+                                  if (!pool.length) return null;
+                                  const picked = equipTypePicks[slotKey];
+                                  return (
+                                    <div key={slotKey} className="byo-ct-picker">
+                                      <div className="byo-ct-picker-h">
+                                        <span className="byo-ct-picker-l">{it.name}</span>
+                                        <span className="byo-count">{picked ? "done" : "1 to go"}</span>
+                                      </div>
+                                      <div className={`byo-skills${picked ? "" : " byo-live"}`}>
+                                        {pool.map((r) => (
+                                          <button key={r.id} className={`byo-skill ${picked === r.name ? "is-sel" : ""}`}
+                                                  onClick={() => setEquipTypePicks((p) => ({ ...p, [slotKey]: p[slotKey] === r.name ? undefined : r.name }))}
+                                                  aria-pressed={picked === r.name}>{r.name}</button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
                             </div>
                           ))}
                         </div>
@@ -3571,6 +3645,32 @@ export default function CharacterCreator() {
                                   );
                                 })}
                               </div>
+                              {(() => {
+                                const chosen = (bgEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key);
+                                const opt = g.options.find((o) => o.key === chosen) || g.options.find((o) => o.fixed) || g.options[0];
+                                return (opt?.items || []).map((it, ii) => {
+                                  if (!it.equipmentType) return null;
+                                  const slotKey = `bg:${gi}:${ii}`;
+                                  const pool = equipTypePool(content, it.equipmentType);
+                                  if (!pool.length) return null;
+                                  const picked = equipTypePicks[slotKey];
+                                  return (
+                                    <div key={slotKey} className="byo-ct-picker">
+                                      <div className="byo-ct-picker-h">
+                                        <span className="byo-ct-picker-l">{it.name}</span>
+                                        <span className="byo-count">{picked ? "done" : "1 to go"}</span>
+                                      </div>
+                                      <div className={`byo-skills${picked ? "" : " byo-live"}`}>
+                                        {pool.map((r) => (
+                                          <button key={r.id} className={`byo-skill ${picked === r.name ? "is-sel" : ""}`}
+                                                  onClick={() => setEquipTypePicks((p) => ({ ...p, [slotKey]: p[slotKey] === r.name ? undefined : r.name }))}
+                                                  aria-pressed={picked === r.name}>{r.name}</button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
                             </div>
                           ))}
                         </div>
