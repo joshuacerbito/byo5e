@@ -2162,7 +2162,13 @@ export default function CharacterCreator() {
       mod: fmt(mod(finalScore(key))), score: finalScore(key) })),
     skillTable: skillRows, casting, chosenSpells: pickedSpells, appendix,
     bgChoice: null, finalScore, attackRows, attacksPerAction, carriedWeapons, masteryEnabled: true,
-    startingGold, currency,
+    /* The sheet contract carries the TOTAL — starting gold plus whatever
+       was entered on top of it — because that is what the character has.
+       `currency` the state stays additional-only and unmigrated; nothing
+       downstream of here edits it, all four renderers only format it, and
+       sending the total from one place keeps them in lockstep (see
+       CLAUDE.md) instead of teaching each of them the same arithmetic. */
+    startingGold, currency: totalCurrency,
     gearList: [
       ...[...classEquipItems, ...bgEquipItems]
         .filter((it) => !it.currency && it.resolved?.kind !== "weapon" && it.resolved?.kind !== "armor")
