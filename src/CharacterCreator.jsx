@@ -27,10 +27,9 @@ import { abilityChoiceSlots, resolveAbilityChoice } from "./rules/choices.js";
 import { meetsPrerequisite } from "./rules/prereq.js";
 import { buildSteps } from "./lib/steps.js";
 import {
-  groupWeapons, spellHitDC, spellEffect, ACTION_ORDER, ACTION_LABELS,
+  groupWeapons, spellHitDC, spellEffect,
   recommendedSpread, splitCastingTime, inferActionBucket,
 } from "./lib/derive.js";
-import { basicActionNames } from "./content/basicActions.js";
 import { buildSheetHTML } from "./lib/sheetHtml.js";
 import { saveSheetPDF } from "./pdf/sheetPdf.js";
 import { saveSheetRasterPDF } from "./pdf/sheetRaster.js";
@@ -3925,11 +3924,6 @@ export default function CharacterCreator() {
                       </div>
                     </div>
                   ))}
-
-                  <div className="byo-panel">
-                    <h3>Actions in Combat</h3>
-                    <p className="byo-note">{basicActionNames(edition).join(", ")}.</p>
-                  </div>
                 </>
               )}
             </>
