@@ -435,6 +435,10 @@ export default function CharacterCreator() {
   // eleven rejected cards push all of it below the fold. Transient: reopened
   // by the "Change class" chip or by clicking the selected card again.
   const [classGridOpen, setClassGridOpen] = useState(false);
+  /* Same for the two other card grids that pick one thing out of many.
+     Transient like the class one — a reopened grid isn't worth saving. */
+  const [speciesGridOpen, setSpeciesGridOpen] = useState(false);
+  const [bgGridOpen, setBgGridOpen] = useState(false);
 
   const pickEdition = (ed) => {
     setEdition(ed);
@@ -460,6 +464,7 @@ export default function CharacterCreator() {
      ANCESTRY
   ------------------------------------------------------------------- */
   const ancestry = content?.ancestries.find((a) => a.id === ancestryId) || null;
+  const speciesGridShowsAll = !ancestry || speciesGridOpen;
   const pickAncestry = (id) => { setAncestryId(id); setAncestryPicks({}); setAncestrySpellPicks({}); };
 
   const toggleAncestryPick = (ci, value, max) => {
@@ -992,6 +997,7 @@ export default function CharacterCreator() {
      BACKGROUND
   ------------------------------------------------------------------- */
   const background = content?.backgrounds.find((b) => b.id === bgId) || null;
+  const bgGridShowsAll = !background || bgGridOpen;
   const pickBackground = (id) => { setBgId(id); setBgSkillPicks([]); setBgAbilityAlt(0); setBgAbilityPicks([]); setBgEquipPicks({}); };
 
   const bgSkillsGranted = useMemo(() => {
@@ -2918,15 +2924,36 @@ export default function CharacterCreator() {
           {/* ---------------- SPECIES/RACE ---------------- */}
           {here === "Species/Race" && content && (
             <>
-              <div className="byo-card-grid">
-                {content.ancestries.map((a) => {
+              {/* Collapses to the picked card, like the class grid — the
+                  .byo-classpick classes are shared with it rather than
+                  duplicated, since it is one pattern wearing three
+                  labels. */}
+              <div className="byo-classpick">
+                {ancestry && (
+                  <div className="byo-classpick-head">
+                    <span className="byo-classpick-l">Species</span>
+                    <button type="button" className="byo-chip-b"
+                            onClick={() => setSpeciesGridOpen((o) => !o)}
+                            aria-expanded={speciesGridShowsAll}>
+                      {speciesGridShowsAll ? `Keep ${ancestry.name}` : "Change species"}
+                    </button>
+                  </div>
+                )}
+                <div className={`byo-card-grid${speciesGridShowsAll ? "" : " is-one"}`}>
+                {(speciesGridShowsAll ? content.ancestries : content.ancestries.filter((a) => a.id === ancestryId)).map((a) => {
                   const sel = a.id === ancestryId;
                   const asiStr = a.abilityIncreases
                     ? Object.entries(a.abilityIncreases.fixed).map(([k, v]) => `${k.toUpperCase()} +${v}`).join(" ")
                     : null;
                   return (
                     <button key={a.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                            onClick={() => pickAncestry(a.id)} aria-pressed={sel}>
+                            onClick={() => {
+                              /* Re-picking the species you already have would
+                                 clear its lineage, skill and ability choices,
+                                 so the selected card only toggles the grid. */
+                              if (sel) setSpeciesGridOpen((o) => !o);
+                              else { pickAncestry(a.id); setSpeciesGridOpen(false); }
+                            }} aria-pressed={sel}>
                       <div className="byo-card-top">
                         <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
                         <span className="byo-card-name">{a.name}</span>
@@ -2941,6 +2968,7 @@ export default function CharacterCreator() {
                     </button>
                   );
                 })}
+                </div>
               </div>
 
               {ancestry && ancestryChoiceGroups.filter((g) => !g.auto).map((g) => (
@@ -3468,14 +3496,31 @@ export default function CharacterCreator() {
           {/* ---------------- BACKGROUND ---------------- */}
           {here === "Background" && content && (
             <>
-              <div className="byo-card-grid">
-                {content.backgrounds.map((b) => {
+              <div className="byo-classpick">
+                {background && (
+                  <div className="byo-classpick-head">
+                    <span className="byo-classpick-l">Background</span>
+                    <button type="button" className="byo-chip-b"
+                            onClick={() => setBgGridOpen((o) => !o)}
+                            aria-expanded={bgGridShowsAll}>
+                      {bgGridShowsAll ? `Keep ${background.name}` : "Change background"}
+                    </button>
+                  </div>
+                )}
+                <div className={`byo-card-grid${bgGridShowsAll ? "" : " is-one"}`}>
+                {(bgGridShowsAll ? content.backgrounds : content.backgrounds.filter((b) => b.id === bgId)).map((b) => {
                   const sel = b.id === bgId;
                   const sk = b.skills.fixed.length ? b.skills.fixed.join(", ")
                     : b.skills.choices[0] ? `${b.skills.choices[0].count} of your choice` : "";
                   return (
                     <button key={b.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                            onClick={() => pickBackground(b.id)} aria-pressed={sel}>
+                            onClick={() => {
+                              /* Same guard as species and class: re-picking
+                                 the background you already have would clear
+                                 its skill, ability and equipment picks. */
+                              if (sel) setBgGridOpen((o) => !o);
+                              else { pickBackground(b.id); setBgGridOpen(false); }
+                            }} aria-pressed={sel}>
                       <div className="byo-card-top">
                         <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
                         <span className="byo-card-name">{b.name}</span>
@@ -3488,6 +3533,7 @@ export default function CharacterCreator() {
                     </button>
                   );
                 })}
+                </div>
               </div>
 
               {background && (
