@@ -945,6 +945,14 @@ export default function CharacterCreator() {
      the LATER bumps (Barbarian L4/L10, Fighter L4/L10/L16) render as
      content inside the level panel that grants them. */
   const masteryExtraBumps = masteryBumpLevels.filter((b) => b.level > 1);
+  /* How many picks a bump bracket still owes, by the same arithmetic
+     MasteryPicker prints as its own "N to go" — bounded by the bracket's
+     own size as well as by the distance to the cumulative ceiling, so a
+     panel's warning flag and the counter inside it can never disagree.
+     A level with no bump owes nothing. */
+  const masteryBumpLeftAt = (atLevel) => masteryExtraBumps
+    .filter((b) => b.level === atLevel)
+    .reduce((n, b) => n + Math.max(0, Math.min(b.to - masteryPicks.length, b.to - b.from)), 0);
 
   /* The same table, read for a multiclass entry instead of the primary
      class. A secondary class earns Weapon Mastery on its OWN class
@@ -3409,9 +3417,14 @@ export default function CharacterCreator() {
                           character hasn't reached it yet there is no such
                           panel, so it goes last instead (see below). */}
                       {atLevel === subclassAnchor && renderSubclassPanel()}
+                      {/* A level can owe a Weapon Mastery pick as well as
+                          (or instead of) an ASI — the flag was only ever
+                          asking about the ASI, so a Barbarian's level 4 and
+                          10 brackets sat unfilled with nothing on the panel
+                          saying so. */}
                       <Section title={`Level ${atLevel}`}
                                count={isAsi ? (asiComplete(atLevel) ? "done" : "to pick") : null}
-                               flag={isAsi && !asiComplete(atLevel)}>
+                               flag={(isAsi && !asiComplete(atLevel)) || masteryBumpLeftAt(atLevel) > 0}>
                         {/* The features are the long part of a level — a
                             single one can print a whole table. Clamped so a
                             level you've read doesn't push the next one off
