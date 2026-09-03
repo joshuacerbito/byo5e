@@ -3640,7 +3640,15 @@ export default function CharacterCreator() {
                           other pool on this wizard uses. */}
                               {(() => {
                                 const chosen = (classEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key);
-                                const opt = g.options.find((o) => o.key === chosen) || g.options.find((o) => o.fixed) || g.options[0];
+                                /* Strictly the SELECTED option — no falling
+                                   back to the first one. equipPickList does
+                                   fall back that way when deciding what a
+                                   character is holding, but the buttons above
+                                   don't, so a group with nothing picked reads
+                                   as nothing picked; a picker appearing under
+                                   it asked for a choice inside a bundle the
+                                   player hadn't taken. */
+                                const opt = g.options.find((o) => o.key === chosen) || null;
                                 return (opt?.items || []).map((it, ii) => {
                                   if (!it.equipmentType) return null;
                                   const slotKey = `class:${gi}:${ii}`;
@@ -3686,7 +3694,15 @@ export default function CharacterCreator() {
                               </div>
                               {(() => {
                                 const chosen = (bgEquipPicks[gi] ?? g.options.find((x) => x.fixed)?.key);
-                                const opt = g.options.find((o) => o.key === chosen) || g.options.find((o) => o.fixed) || g.options[0];
+                                /* Strictly the SELECTED option — no falling
+                                   back to the first one. equipPickList does
+                                   fall back that way when deciding what a
+                                   character is holding, but the buttons above
+                                   don't, so a group with nothing picked reads
+                                   as nothing picked; a picker appearing under
+                                   it asked for a choice inside a bundle the
+                                   player hadn't taken. */
+                                const opt = g.options.find((o) => o.key === chosen) || null;
                                 return (opt?.items || []).map((it, ii) => {
                                   if (!it.equipmentType) return null;
                                   const slotKey = `bg:${gi}:${ii}`;
