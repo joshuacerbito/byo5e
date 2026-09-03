@@ -161,6 +161,14 @@ function magicSuffix(resolved, attuned) {
   return ` (${resolved.rarity}${attuned ? ", attuned" : ""})`;
 }
 
+/* "AC 14" for body armor, "+2 AC" for a shield — what the piece would
+   give if it were worn, printed next to it in the inventory list. It is
+   a label, not a calculation: the wizard does not equip anything. */
+function acLabel(resolved) {
+  if (resolved?.kind !== "armor" || resolved.ac == null) return "";
+  return resolved.category === "shield" ? ` · +${resolved.ac} AC` : ` · AC ${resolved.ac}`;
+}
+
 /* "+1 AC, +1 saving throws" — the flat-bonus half of an item's effects
    (itemEffectsOverlay.js), same summarizing job attachedSpells does for
    the charges half. Not gated on attunement here — this is "what the
@@ -3376,11 +3384,15 @@ export default function CharacterCreator() {
                 <div className="byo-vital"><div className="byo-vital-n">{fmt(mod(finalScore("dex")))}</div><div className="byo-vital-l">Initiative</div></div>
                 <div className="byo-vital"><div className="byo-vital-n">{speed}</div><div className="byo-vital-l">Speed</div></div>
               </div>
+              {/* Says what the number is before someone works out for
+                  themselves that it never moved. */}
+              <p className="byo-note">Armor Class here is your unarmoured number. Nothing on this
+                step is worn yet — equipping happens on your live sheet, and the number follows there.</p>
 
               {!klass ? (
                 <div className="byo-stub">
                   <p className="byo-stub-t">Pick a class first</p>
-                  <p className="byo-stub-s">Armor proficiency decides what you can wear.</p>
+                  <p className="byo-stub-s">Armor proficiency decides what armor you can use.</p>
                 </div>
               ) : (
                 <>
@@ -3452,61 +3464,30 @@ export default function CharacterCreator() {
                     }) : <p className="byo-note">Nothing yet — pick starting equipment above, or add one below.</p>}
                   </div>
 
+                  {/* A LIST, not a control. Equipping — and the AC that
+                      follows from it — is the live sheet's job once that
+                      exists; at wizard time this step only answers "what am
+                      I carrying". The options are still inventory-scoped,
+                      which was the point of making them so. */}
                   <div className="byo-panel">
                     <h3>Armor</h3>
-                    {!armorProfCats.length ? (
-                      <p className="byo-note">{klass.name}s aren't proficient with any armor.</p>
-                    ) : armorOptions.length === 1 ? (
-                      /* The list is the inventory, so an empty one is a
-                         statement about the character's gear, not their
-                         class — and it names where armor comes from. */
+                    {carriedArmor.granted.length === 0 && carriedArmor.added.length === 0 ? (
                       <p className="byo-note">
-                        You aren't carrying any armor you can wear. Take some in Starting Equipment,
-                        or add it under <b>Add an item</b> below.
+                        {armorProfCats.length
+                          ? <>Nothing yet — take some in Starting Equipment above, or add it under <b>Add an item</b> below.</>
+                          : <>{klass.name}s aren't proficient with any armor.</>}
                       </p>
                     ) : (
-                      <div className="byo-skills">
-                        {armorOptions.map((a) => (
-                          <button key={a?.id ?? "none"} className={`byo-skill ${(armor?.id ?? null) === (a?.id ?? null) ? "is-sel" : ""}`}
-                                  onClick={() => setArmorId(a?.id ?? null)} aria-pressed={(armor?.id ?? null) === (a?.id ?? null)}>
-                            {a ? `${a.name} ${a.ac}` : "None"}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {armorProfDerived.noMetal && (
-                      <p className="byo-note" style={{ marginTop: 10 }}>{klass.name}s traditionally refuse metal armor and shields — a table-by-table call, not enforced here.</p>
-                    )}
-                    {shieldAllowed && (
-                      <div className="byo-row" style={{ marginTop: 12 }}>
-                        <span className="byo-row-label">Shield <span className="byo-count">+2 AC</span></span>
-                        <button className={`byo-opt ${shieldOn ? "is-sel" : ""}`} onClick={() => setHasShield((v) => !v)} aria-pressed={shieldOn}>
-                          {shieldOn ? "Carrying" : "No shield"}
-                        </button>
-                      </div>
-                    )}
-                    {armor?.strReq && finalScore("str") < armor.strReq && (
-                      <p className="byo-warn">{armor.name} needs Strength {armor.strReq} and you have {finalScore("str")} — check whether your table applies the speed penalty.</p>
-                    )}
-                    {armor?.stealthDisadvantage && <p className="byo-warn">{armor.name} gives disadvantage on Stealth checks.</p>}
-
-                    {/* What you are actually carrying, under the picker that
-                        chooses from it — armor used to be listed down in Gear,
-                        which is why it appeared twice once the picker started
-                        reading the inventory. Quantity and attunement stay
-                        here with it; the granted pieces have no controls,
-                        same as everywhere else. */}
-                    {(carriedArmor.granted.length > 0 || carriedArmor.added.length > 0) && (
-                      <div style={{ marginTop: 14 }}>
-                        <div className="byo-actgroup-l">Carrying</div>
+                      <>
                         {carriedArmor.granted.map((it, i) => (
                           <div className="byo-row" key={`armor-fixed-${i}`} style={{ flexWrap: "wrap" }}>
-                            <span className="byo-row-label">{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ""}</span>
+                            <span className="byo-row-label">{it.name}{acLabel(it.resolved)}</span>
+                            {it.quantity > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{it.quantity}</span>}
                           </div>
                         ))}
                         {carriedArmor.added.map(({ ci, idx }) => (
                           <div className="byo-row" key={`armor-custom-${idx}`} style={{ flexWrap: "wrap" }}>
-                            <span className="byo-row-label">{ci.resolved.name}{ci.quantity > 1 ? ` ×${ci.quantity}` : ""}{magicSuffix(ci.resolved, ci.attuned)}</span>
+                            <span className="byo-row-label">{ci.resolved.name}{acLabel(ci.resolved)}{magicSuffix(ci.resolved, ci.attuned)}</span>
                             <div className="byo-step">
                               <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity - 1)} aria-label={`Fewer ${ci.resolved.name}`}>−</button>
                               <span className="byo-num">{ci.quantity}</span>
@@ -3521,7 +3502,14 @@ export default function CharacterCreator() {
                             )}
                           </div>
                         ))}
-                      </div>
+                      </>
+                    )}
+                    <p className="byo-note" style={{ marginTop: 10 }}>
+                      Carrying armor isn't wearing it. Your Armor Class above stays unarmoured
+                      here — you'll equip on your live sheet, and it'll count then.
+                    </p>
+                    {armorProfDerived.noMetal && (
+                      <p className="byo-note">{klass.name}s traditionally refuse metal armor and shields — a table-by-table call, not enforced here.</p>
                     )}
                   </div>
 
