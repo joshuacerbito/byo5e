@@ -343,6 +343,11 @@ export const STYLES = `
    narrows to a phone's width long before the row does, so at 4-up each
    field's label gets crushed against the next field's input. 2-up keeps
    every field readable at any width. */
+/* The label over each half of the section — "Additional currency", then
+   "Total currency". Same small mono caption the rest of the wizard uses
+   for a sub-heading inside a panel. */
+.byo-currency-l{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--bone-dim);margin:14px 0 6px;}
 .byo-currency{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
 .byo-currency-f{display:flex;align-items:center;gap:6px;}
 .byo-currency-f .byo-sel{width:100%;min-width:0;}

@@ -38,7 +38,7 @@ import { loadSaved, saveSnapshot, clearSaved, buildCharacterExport, characterFil
   from "./lib/storage.js";
 import { syncEnabled, onSessionChange, signInWithGoogle, createCharacter, updateCharacter } from "./lib/sync.js";
 import Account from "./components/Account.jsx";
-import { formatCurrency } from "./lib/currency.js";
+import { formatCurrency, addGold } from "./lib/currency.js";
 import Rule from "./components/Rule.jsx";
 import FeatureBlocks from "./components/FeatureBlocks.jsx";
 import SpellTableRow from "./components/SpellTableRow.jsx";
@@ -1326,15 +1326,20 @@ export default function CharacterCreator() {
     setBagGiven(true);
   }, [content, bagGiven]);
 
-  const startingGold = useMemo(() => {
-    const cp = [...classEquipItems, ...bgEquipItems]
-      .filter((it) => it.currency).reduce((s, it) => s + it.valueCp, 0);
-    return cp / 100;
-  }, [classEquipItems, bgEquipItems]);
+  /* Kept in copper as well as gold: gold is what the line on the
+     Inventory step states, copper is what the total is summed in, and
+     an equipment entry's own value is already copper. */
+  const startingGoldCp = useMemo(
+    () => [...classEquipItems, ...bgEquipItems]
+      .filter((it) => it.currency).reduce((sum, it) => sum + it.valueCp, 0),
+    [classEquipItems, bgEquipItems]);
+  const startingGold = startingGoldCp / 100;
 
-  /* One-shot: fills the gp field from the derived class/background total
-     but never re-syncs on its own, so it can't clobber a manual edit. */
-  const useStartingGold = () => setCurrency((prev) => ({ ...prev, gp: startingGold }));
+  /* What the character actually has: the class and background baseline,
+     plus whatever was entered on top of it. The player's own coins are
+     never re-denominated — see addGold. */
+  const totalCurrency = useMemo(
+    () => addGold(currency, startingGoldCp), [currency, startingGoldCp]);
 
   /* ------------------------------------------------------------------
      ABILITY SCORES, all sources merged
@@ -3881,6 +3886,18 @@ export default function CharacterCreator() {
 
                   <div className="byo-panel">
                     <h3>Currency</h3>
+                    {/* The baseline, stated rather than offered: it used to
+                        be a "Use this" link that wrote the number into the
+                        gp field, which made starting gold something you
+                        could forget to apply, apply twice, or overwrite.
+                        It is simply what the class and background give you
+                        now, and the fields below are what you have on top
+                        of it. */}
+                    <p className="byo-note">
+                      Starting gold from class + background: <b>{startingGold} gp</b>.
+                    </p>
+
+                    <div className="byo-currency-l">Additional currency</div>
                     <div className="byo-currency">
                       {[["pp", "Platinum"], ["gp", "Gold"], ["sp", "Silver"], ["cp", "Copper"]].map(([k, label]) => (
                         <span key={k} className="byo-currency-f">
@@ -3890,12 +3907,12 @@ export default function CharacterCreator() {
                         </span>
                       ))}
                     </div>
-                    {background && (
-                      <p className="byo-note" style={{ marginTop: 10 }}>
-                        Starting gold from class + background: <b>{startingGold} gp</b>.{" "}
-                        <button className="byo-linkbtn" onClick={useStartingGold}>Use this</button>
-                      </p>
-                    )}
+
+                    <div className="byo-currency-l">Total currency</div>
+                    <div className="byo-row">
+                      <span className="byo-row-label">Carried</span>
+                      <span className="byo-mod" style={{ width: "auto" }}>{formatCurrency(totalCurrency)}</span>
+                    </div>
                   </div>
 
                   {ancestrySpellGrants.length > 0 && (
