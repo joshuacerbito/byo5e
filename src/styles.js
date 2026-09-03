@@ -256,6 +256,16 @@ export const STYLES = `
 /* Class picker — collapsed to the chosen card, the grid would stretch that
    one card the full width, so cap it to a single readable column. */
 .byo-classpick{margin-top:8px;}
+/* The Gear Summary's "where is this kept" control. Same chrome as the
+   rail's own select, written out rather than shared: that one is a
+   phone-only element (display:none above the breakpoint), and this one
+   has to work at every width. */
+.byo-place-select{appearance:none;
+  background:var(--rock) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="%237A2E2E"/></svg>') no-repeat right 10px center;
+  border:1px solid var(--line-bright);border-radius:3px;color:var(--gold);
+  font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.04em;
+  padding:5px 26px 5px 10px;max-width:190px;cursor:pointer;}
+.byo-place-select:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 .byo-classpick-head{display:flex;align-items:baseline;justify-content:space-between;
   gap:12px;margin-bottom:8px;}
 .byo-classpick-l{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;

@@ -77,8 +77,19 @@ const DEFAULTS = {
   bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [],
   armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {},
   pickedSpellIds: [],
-  customItems: [], currency: { cp: 0, sp: 0, gp: 0, pp: 0 },
+  customItems: [], containerOf: {}, currency: { cp: 0, sp: 0, gp: 0, pp: 0 },
 };
+
+/* Where an item sits when it hasn't been put in anything: on your person.
+   Not a real container record — you can't delete it, and it has no
+   capacity — which is why it is a bare string rather than an entry in
+   the container list. */
+const EQUIPMENT = "equipment";
+/* A starting-equipment group with nothing taken from it. equipPickList
+   falls back to the fixed option (and then to the first one), so
+   "nothing" needs saying explicitly — Clear Inventory is the only thing
+   that says it, and picking any option again clears it. */
+const NONE_PICK = "__none";
 
 /* Collection a customItems row's `kind` (the item view model's own
    `.kind` field — "weapon"/"armor"/"gear") resolves against via
@@ -159,6 +170,21 @@ function grantCadence(g) {
 function magicSuffix(resolved, attuned) {
   if (!resolved?.rarity || resolved.rarity === "none") return "";
   return ` (${resolved.rarity}${attuned ? ", attuned" : ""})`;
+}
+
+/* "holds 30 lb" / "holds 20" / "holds 4 cu ft" — what the pack says a
+   container takes, printed next to its name. Three shapes because the
+   packs have three (and 2024 moved the Chest from one to another), and
+   the extradimensional ones say so instead of pretending to weigh
+   anything. Nothing enforces it. */
+function capacityLabel(item) {
+  const cap = item?.containerCapacity;
+  if (!cap) return "";
+  if (cap.weightless) return "extradimensional";
+  if (cap.weight?.length) return `holds ${cap.weight[0]} lb`;
+  if (cap.volume?.length) return `holds ${cap.volume[0]} cu ft`;
+  if (cap.item?.length) return "holds a set amount";
+  return "";
 }
 
 /* "AC 14" for body armor, "+2 AC" for a shield — what the piece would
@@ -329,8 +355,17 @@ export default function CharacterCreator() {
   const [bgEquipPicks, setBgEquipPicks] = useState(saved?.bgEquipPicks ?? DEFAULTS.bgEquipPicks);
   const [pickedSpellIds, setPickedSpellIds] = useState(saved?.pickedSpellIds ?? DEFAULTS.pickedSpellIds);
   const [customItems, setCustomItems] = useState(saved?.customItems ?? DEFAULTS.customItems);
+  /* rowId -> container rowId. Sparse: anything missing is on your person,
+     so the common case costs nothing to store and an item whose container
+     is deleted falls back on its own. */
+  const [containerOf, setContainerOf] = useState(saved?.containerOf ?? DEFAULTS.containerOf);
   const [currency, setCurrency] = useState(saved?.currency ?? DEFAULTS.currency);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  /* The container awaiting a delete confirmation, and the Clear
+     Inventory confirmation — both destructive, both use the same modal
+     the "Start over" button already uses. */
+  const [confirmContainer, setConfirmContainer] = useState(null);
+  const [showClearInventory, setShowClearInventory] = useState(false);
   // Which class's panels (Subclass/Skills/Proficiencies/etc) the Class step
   // is showing, once multiclassing puts more than one class in play: 0 is
   // the primary class, 1..n index into mcEntries. Transient UI state only —
@@ -358,7 +393,7 @@ export default function CharacterCreator() {
     setArmorId(DEFAULTS.armorId); setHasShield(DEFAULTS.hasShield);
     setClassEquipPicks(DEFAULTS.classEquipPicks); setBgEquipPicks(DEFAULTS.bgEquipPicks);
     setPickedSpellIds(DEFAULTS.pickedSpellIds);
-    setCustomItems(DEFAULTS.customItems); setCurrency(DEFAULTS.currency);
+    setCustomItems(DEFAULTS.customItems); setContainerOf(DEFAULTS.containerOf); setCurrency(DEFAULTS.currency);
   };
 
   /* ------------------------------------------------------------------
@@ -953,7 +988,8 @@ export default function CharacterCreator() {
 
   const equipPickList = (groups, picks) => (groups || []).flatMap((g, gi) => {
     const key = picks[gi];
-    const opt = g.options.find((o) => o.key === key) || g.options.find((o) => o.fixed) || g.options[0];
+    const opt = key === NONE_PICK ? null
+      : g.options.find((o) => o.key === key) || g.options.find((o) => o.fixed) || g.options[0];
     return (opt?.items || []).map(resolveEquipItem);
   });
 
@@ -1018,9 +1054,13 @@ export default function CharacterCreator() {
   const [itemKindFilter, setItemKindFilter] = useState("all");
   const ITEM_RESULTS_CAP = 60;
   const itemResults = useMemo(() => {
+    /* Containers cut across the kinds rather than being one of them —
+       the packs mark them with containerCapacity and nothing else, so
+       this filter runs over everything. */
     const pool = itemKindFilter === "all" ? itemBrowsePool
-      : itemKindFilter === "weapon" ? (content?.weapons || [])
-        : itemKindFilter === "armor" ? (content?.armor || []) : (content?.gear || []);
+      : itemKindFilter === "container" ? itemBrowsePool.filter((it) => it.containerCapacity)
+        : itemKindFilter === "weapon" ? (content?.weapons || [])
+          : itemKindFilter === "armor" ? (content?.armor || []) : (content?.gear || []);
     const q = itemSearch.trim().toLowerCase();
     /* Mundane first, then alphabetical. Straight alphabetical put every
        "+1 ..." magic variant at the top and the cap did the rest: a
@@ -1110,6 +1150,78 @@ export default function CharacterCreator() {
   const shieldAllowed = armorProfCats.includes("shield")
     && ownedArmor.some((a) => a.category === "shield");
   const shieldOn = shieldAllowed && hasShield;
+
+  /* ------------------------------------------------------------------
+     CONTAINERS — where each carried thing is kept.
+
+     A container is any owned item whose record carries containerCapacity
+     (Backpack, Quiver, Bag of Holding). That field is the packs' only
+     container signal — there is no type code for it — and it comes in
+     three shapes across the two editions, so nothing here reads its
+     contents, only its presence. Capacity is NOT enforced: this tracks
+     where things are, not whether they fit.
+
+     There is no separate container list to keep in step with the
+     inventory: a container IS an inventory row, so deleting the item
+     deletes the section, and the assignments are a plain rowId -> rowId
+     map beside it.
+  ------------------------------------------------------------------- */
+  const containers = useMemo(
+    () => inventory.filter((r) => r.item?.containerCapacity)
+      .map((r) => ({ key: r.id, name: r.name, item: r.item })),
+    [inventory]);
+
+  /* Falls back to Equipment for anything pointing at a container that is
+     no longer carried — the map is left alone rather than pruned, so
+     re-adding a Backpack puts its contents back. */
+  const containerKeys = useMemo(() => new Set(containers.map((c) => c.key)), [containers]);
+  const placeOf = (rowId) => {
+    const at = containerOf[rowId];
+    return at && containerKeys.has(at) && at !== rowId ? at : EQUIPMENT;
+  };
+  const setPlace = (rowId, key) => setContainerOf((prev) => {
+    const next = { ...prev };
+    if (!key || key === EQUIPMENT) delete next[rowId]; else next[rowId] = key;
+    return next;
+  });
+
+  /* Everything in one place: the row, and where it lives. Container rows
+     are in here too — a Backpack can be inside a Chest. */
+  const placedRows = useMemo(
+    () => inventory.map((r) => ({ ...r, place: placeOf(r.id) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [inventory, containerOf, containerKeys]);
+
+  /* Deleting a container takes what is inside it with it — but only the
+     things it CAN take. An item granted by starting equipment is derived
+     from a pick two sections up, so deleting it here would just have it
+     reappear; those come back to Equipment instead. */
+  const deleteContainer = (key) => {
+    const inside = new Set(placedRows.filter((r) => r.place === key).map((r) => r.id));
+    setCustomItems((prev) => prev.filter((ci) => ci.itemId !== key && !inside.has(ci.itemId)));
+    setContainerOf((prev) => {
+      const next = {};
+      for (const [rowId, at] of Object.entries(prev)) {
+        if (rowId === key || at === key || inside.has(rowId)) continue;
+        next[rowId] = at;
+      }
+      return next;
+    });
+    setConfirmContainer(null);
+  };
+
+  /* Back to nothing carried: every starting-equipment group explicitly
+     empty, every added item gone. Containers are added items, so they go
+     with the rest — an empty named Backpack left standing after "clear"
+     is the kind of leftover that reads as a bug. */
+  const clearInventory = () => {
+    const noneFor = (groups) => Object.fromEntries((groups || []).map((_, gi) => [gi, NONE_PICK]));
+    setClassEquipPicks(noneFor(klass?.startingEquipment.groups));
+    setBgEquipPicks(noneFor(background?.equipment));
+    setCustomItems([]);
+    setContainerOf({});
+    setShowClearInventory(false);
+  };
 
   const startingGold = useMemo(() => {
     const cp = [...classEquipItems, ...bgEquipItems]
@@ -1845,12 +1957,12 @@ export default function CharacterCreator() {
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, currency,
+    classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, containerOf, currency,
   }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, currency]);
+    classEquipPicks, bgEquipPicks, pickedSpellIds, customItems, containerOf, currency]);
 
   useEffect(() => { saveSnapshot(snapshot); }, [snapshot]);
 
@@ -3526,43 +3638,85 @@ export default function CharacterCreator() {
                     </div>
                   )}
 
-                  <div className="byo-panel">
-                    <h3>Other Gear <span className="byo-count">{attunedCount}/3 attuned</span></h3>
-                    {[...classEquipItems, ...bgEquipItems].filter((it) => !it.currency && it.resolved?.kind !== "weapon" && it.resolved?.kind !== "armor").map((it, i) => (
-                      <div className="byo-row" key={`fixed-${i}`} style={{ flexWrap: "wrap" }}>
-                        <span className="byo-row-label">{it.name}{it.quantity > 1 ? ` ×${it.quantity}` : ""}{!it.resolved && !it.currency ? " (choose specific item at the table)" : ""}
-                          {chargesLine(it.resolved) && <span className="byo-item-mech">{chargesLine(it.resolved)}</span>}
-                        </span>
-                      </div>
-                    ))}
-                    {customResolved.map((ci, idx) => {
-                      /* Weapons and armor have their own sections above; this
-                         one is what is left. The granted half of the list has
-                         always filtered both out — only the added half hadn't,
-                         so an added breastplate showed up in two places. */
-                      if (!ci.resolved || ci.kind === "weapon" || ci.kind === "armor") return null;
-                      const attunable = !!ci.resolved.reqAttune;
-                      return (
-                        <div className="byo-row" key={`custom-${idx}`} style={{ flexWrap: "wrap" }}>
-                          <span className="byo-row-label">{ci.resolved.name}{ci.quantity > 1 ? ` ×${ci.quantity}` : ""}{magicSuffix(ci.resolved, ci.attuned)}
-                            {chargesLine(ci.resolved) && <span className="byo-item-mech">{chargesLine(ci.resolved)}</span>}
-                          </span>
-                          <div className="byo-step">
-                            <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity - 1)} aria-label={`Fewer ${ci.resolved.name}`}>−</button>
-                            <span className="byo-num">{ci.quantity}</span>
-                            <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity + 1)} aria-label={`More ${ci.resolved.name}`}>+</button>
+                  {/* One section per place things are kept: Equipment (on
+                      your person) first, then every container you carry.
+                      A container is an inventory row like any other, so
+                      the sections come and go with the items themselves —
+                      there is no second list to keep in step. Capacity is
+                      shown, never enforced. */}
+                  {[{ key: EQUIPMENT, name: "Equipment", item: null }, ...containers].map((c) => {
+                    const rows = placedRows.filter((r) => r.place === c.key && r.id !== c.key);
+                    return (
+                      <div className="byo-panel" key={c.key}>
+                        <h3>{c.name}
+                          {c.key === EQUIPMENT
+                            ? <span className="byo-count">{attunedCount}/3 attuned</span>
+                            : capacityLabel(c.item) && <span className="byo-count">{capacityLabel(c.item)}</span>}
+                        </h3>
+                        {c.key === EQUIPMENT && (
+                          <p className="byo-note">Carried on your person — anything you haven't put away.</p>
+                        )}
+                        {rows.length === 0
+                          ? <p className="byo-note">Empty{c.key === EQUIPMENT ? "" : " — move things in from Gear Summary below"}.</p>
+                          : rows.map((r) => {
+                            const idx = customItems.findIndex((ci) => ci.itemId === r.id && ci.kind === r.kind);
+                            const ci = idx >= 0 ? customResolved[idx] : null;
+                            return (
+                              <div className="byo-row" key={r.id} style={{ flexWrap: "wrap" }}>
+                                <span className="byo-row-label">{r.name}{acLabel(r.item)}{magicSuffix(r.item, r.attuned)}
+                                  {chargesLine(r.item) && <span className="byo-item-mech">{chargesLine(r.item)}</span>}
+                                </span>
+                                {ci ? (
+                                  <div className="byo-step">
+                                    <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity - 1)} aria-label={`Fewer ${r.name}`}>−</button>
+                                    <span className="byo-num">{ci.quantity}</span>
+                                    <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity + 1)} aria-label={`More ${r.name}`}>+</button>
+                                  </div>
+                                ) : r.qty > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{r.qty}</span>}
+                                {ci && !!r.item?.reqAttune && (
+                                  <button className={`byo-opt ${ci.attuned ? "is-sel" : ""}`}
+                                          disabled={!ci.attuned && attunedCount >= 3}
+                                          onClick={() => toggleAttune(idx)} aria-pressed={ci.attuned}>
+                                    {ci.attuned ? "Attuned" : "Attune"}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        {c.key !== EQUIPMENT && (
+                          <div className="byo-modal-row" style={{ marginTop: 10 }}>
+                            <button className="byo-chip-b" onClick={() => setConfirmContainer(c)}
+                                    aria-label={`Delete ${c.name} and everything in it`}>Delete</button>
                           </div>
-                          {attunable && (
-                            <button className={`byo-opt ${ci.attuned ? "is-sel" : ""}`}
-                                    disabled={!ci.attuned && attunedCount >= 3}
-                                    onClick={() => toggleAttune(idx)} aria-pressed={ci.attuned}>
-                              {ci.attuned ? "Attuned" : "Attune"}
-                            </button>
-                          )}
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Every carried thing in one flat list, with the one
+                      control that moves it. The sections above read the
+                      same map this writes — there is no second copy of
+                      where anything is. */}
+                  <div className="byo-panel">
+                    <div className="byo-panel-head">
+                      <h3>Gear Summary</h3>
+                      <button className="byo-chip-b" onClick={() => setShowClearInventory(true)}>Clear inventory</button>
+                    </div>
+                    {placedRows.length === 0
+                      ? <p className="byo-note">Nothing carried yet — take starting gear above, or add an item below.</p>
+                      : placedRows.map((r) => (
+                        <div className="byo-row" key={`sum-${r.id}`} style={{ flexWrap: "wrap" }}>
+                          <span className="byo-row-label">{r.name}{r.qty > 1 ? ` ×${r.qty}` : ""}</span>
+                          <select className="byo-place-select" value={r.place}
+                                  aria-label={`Where ${r.name} is kept`}
+                                  onChange={(e) => setPlace(r.id, e.target.value)}>
+                            <option value={EQUIPMENT}>Equipment</option>
+                            {containers.filter((c) => c.key !== r.id).map((c) => (
+                              <option key={c.key} value={c.key}>{c.name}</option>
+                            ))}
+                          </select>
                         </div>
-                      );
-                    })}
-                    {!klass && !background && !customItems.length && <p className="byo-note">Pick a class and background to see starting gear.</p>}
+                      ))}
                   </div>
 
                   <div className="byo-panel">
@@ -3571,7 +3725,7 @@ export default function CharacterCreator() {
                            onChange={(e) => setItemSearch(e.target.value)} placeholder="Search weapons, armor, gear…"
                            aria-label="Search items" />
                     <div className="byo-choice" style={{ marginTop: 0, marginBottom: 10 }}>
-                      {[["all", "All"], ["weapon", "Weapons"], ["armor", "Armor"], ["gear", "Gear"]].map(([k, kLabel]) => (
+                      {[["all", "All"], ["weapon", "Weapons"], ["armor", "Armor"], ["gear", "Gear"], ["container", "Containers"]].map(([k, kLabel]) => (
                         <button key={k} className={`byo-opt ${itemKindFilter === k ? "is-sel" : ""}`}
                                 onClick={() => setItemKindFilter(k)} aria-pressed={itemKindFilter === k}>{kLabel}</button>
                       ))}
@@ -3867,6 +4021,38 @@ export default function CharacterCreator() {
             </div>
             <div className="byo-modal-row" style={{ marginTop: 16 }}>
               <button className="byo-btn" onClick={() => setShowAddMcModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmContainer && (
+        <div className="byo-modal-bg" role="dialog" aria-modal="true" aria-label="Confirm delete container">
+          <div className="byo-modal">
+            <h3 className="byo-modal-t">Delete {confirmContainer.name}?</h3>
+            <p className="byo-modal-s">
+              Everything inside it goes too. Anything your class or background gave you comes back to
+              Equipment instead — that's still granted above, so it can't be thrown away here.
+            </p>
+            <div className="byo-modal-row">
+              <button className="byo-btn" onClick={() => setConfirmContainer(null)}>Cancel</button>
+              <button className="byo-btn byo-btn-danger" onClick={() => deleteContainer(confirmContainer.key)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showClearInventory && (
+        <div className="byo-modal-bg" role="dialog" aria-modal="true" aria-label="Confirm clear inventory">
+          <div className="byo-modal">
+            <h3 className="byo-modal-t">Clear inventory?</h3>
+            <p className="byo-modal-s">
+              This unpicks every starting-gear choice and removes everything you've added, containers
+              included. Nothing else about the character changes.
+            </p>
+            <div className="byo-modal-row">
+              <button className="byo-btn" onClick={() => setShowClearInventory(false)}>Cancel</button>
+              <button className="byo-btn byo-btn-danger" onClick={clearInventory}>Clear</button>
             </div>
           </div>
         </div>

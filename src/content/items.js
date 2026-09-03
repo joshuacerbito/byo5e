@@ -184,6 +184,14 @@ export function buildItems(reg) {
           ? { name: reg.resolveItem(p)?.name ?? String(p).split("|")[0], quantity: 1 }
           : { name: reg.resolveItem(p.item || p.special)?.name ?? stripTags(String(p.item || p.special).split("|")[0]), quantity: p.quantity ?? 1 })),
       focusType: it.scfType ?? null,
+      /* The only reliable "this is a container" signal the packs carry —
+         there is no type code for it. Three shapes, kept as found:
+         { weight: [30] } (Backpack), { item: [...] } (a quiver's 20
+         arrows), { volume: [4] } (a barrel's cubic feet), plus
+         `weightless: true` on the extradimensional ones. 2024 moved the
+         Chest from the weight shape to the volume shape, so anything
+         reading these has to handle all three rather than assume. */
+      containerCapacity: it.containerCapacity ?? null,
       /* A wand's charges are as mechanical as a weapon's damage die —
          the raw record already carries them, so this is a straight read,
          not the hand-authored overlay a feature's prose would need. */
