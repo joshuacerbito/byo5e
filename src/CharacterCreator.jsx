@@ -3404,7 +3404,8 @@ export default function CharacterCreator() {
                       groups, each still keyed to its own pick state. */}
                   {(klass.startingEquipment.groups.length > 0 || background) && (
                     <div className="byo-panel">
-                      <h3>Starting Equipment</h3>
+                      <h3>Starting Gear</h3>
+                      <p className="byo-note">These are the items provided by your base class and your background.</p>
                       {klass.startingEquipment.groups.length > 0 && (
                         <div style={{ marginBottom: background?.equipment.length ? 14 : 0 }}>
                           <div className="byo-actgroup-l">Class — {klass.name}</div>
@@ -3474,7 +3475,7 @@ export default function CharacterCreator() {
                     {carriedArmor.granted.length === 0 && carriedArmor.added.length === 0 ? (
                       <p className="byo-note">
                         {armorProfCats.length
-                          ? <>Nothing yet — take some in Starting Equipment above, or add it under <b>Add an item</b> below.</>
+                          ? <>Nothing yet — take some in Starting Gear above, or add it under <b>Add an item</b> below.</>
                           : <>{klass.name}s aren't proficient with any armor.</>}
                       </p>
                     ) : (
@@ -3610,38 +3611,6 @@ export default function CharacterCreator() {
                       </p>
                     )}
                   </div>
-
-                  <div className="byo-panel">
-                    <h3>Attacks</h3>
-                    <div className="byo-atk-table">
-                      <div className="byo-atk-row byo-atk-head"><span>Attack</span><span>Range</span><span>Hit / DC</span><span>Damage</span><span>Notes</span></div>
-                      {attackRows.map((r) => (
-                        <div className="byo-atk-row" key={r.key}>
-                          <span className="byo-atk-name">{r.name}{!r.proficient && <span className="byo-tag alt">not proficient</span>}</span>
-                          <span>{r.range}</span><span className="byo-atk-num">{r.hitOrDC}</span>
-                          <span className="byo-atk-num">{r.damage}{r.dmgType ? ` ${r.dmgType}` : ""}</span>
-                          <span className="byo-atk-notes">{r.notes || "—"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {actions.length > 0 && (
-                    <div className="byo-panel">
-                      <h3>Class + Ancestry Actions</h3>
-                      {ACTION_ORDER.filter((k) => actions.some((a) => a.action === k)).map((k) => (
-                        <div key={k}>
-                          <div className="byo-actgroup-l">{ACTION_LABELS[k]}</div>
-                          {actions.filter((a) => a.action === k).map((a, i) => (
-                            <div className="byo-trait" key={i}>
-                              <div className="byo-trait-n">{a.name} <span className="src">{a.source}</span></div>
-                              <div className="byo-trait-t"><FeatureBlocks blocks={a.blocks} /></div>
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
                   {ancestrySpellGrants.length > 0 && (
                     <div className="byo-panel">
