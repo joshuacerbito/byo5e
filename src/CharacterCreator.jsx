@@ -172,6 +172,18 @@ function magicSuffix(resolved, attuned) {
   return ` (${resolved.rarity}${attuned ? ", attuned" : ""})`;
 }
 
+/* The Gear Summary's type column. The mapper already sorts every item
+   into weapon / armor / gear, so this reads that rather than inventing a
+   taxonomy — with "container" as the one addition, since that cuts
+   across the three and is the whole point of the sections above. An
+   unresolved starting-kit line ("choose a specific item at the table")
+   has no record and so no type. */
+function itemTypeLabel(item) {
+  if (!item) return "—";
+  if (item.containerCapacity) return "container";
+  return item.kind;
+}
+
 /* "holds 30 lb" / "holds 20" / "holds 4 cu ft" — what the pack says a
    container takes, printed next to its name. Three shapes because the
    packs have three (and 2024 moved the Chest from one to another), and
@@ -3496,10 +3508,15 @@ export default function CharacterCreator() {
                 <div className="byo-vital"><div className="byo-vital-n">{fmt(mod(finalScore("dex")))}</div><div className="byo-vital-l">Initiative</div></div>
                 <div className="byo-vital"><div className="byo-vital-n">{speed}</div><div className="byo-vital-l">Speed</div></div>
               </div>
-              {/* Says what the number is before someone works out for
-                  themselves that it never moved. */}
-              <p className="byo-note">Armor Class here is your unarmoured number. Nothing on this
-                step is worn yet — equipping happens on your live sheet, and the number follows there.</p>
+              {/* Anchored to the number itself now that there is no Armor
+                  section to sit under: the point is about what the AC is
+                  doing, not about where armor is listed. */}
+              <p className="byo-note">Armor Class here is your unarmoured number. Owning armor doesn't
+                equip it — that happens on your live sheet, and the number follows there.</p>
+              {klass && armorProfDerived.noMetal && (
+                <p className="byo-note">{klass.name}s traditionally refuse metal armor and shields — a
+                  table-by-table call, not enforced here.</p>
+              )}
 
               {!klass ? (
                 <div className="byo-stub">
@@ -3564,68 +3581,6 @@ export default function CharacterCreator() {
                     </div>
                   )}
 
-                  <div className="byo-panel">
-                    <h3>Weapons</h3>
-                    {groupWeapons(carriedWeapons).length > 0 ? groupWeapons(carriedWeapons).map(({ weapon, qty }) => {
-                      const custom = customItems.find((ci) => ci.itemId === weapon.id && ci.kind === "weapon");
-                      return (
-                        <div className="byo-row" key={weapon.id}>
-                          <span className="byo-row-label">{weapon.name}{magicSuffix(weapon, custom?.attuned)}</span>
-                          {qty > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{qty}</span>}
-                        </div>
-                      );
-                    }) : <p className="byo-note">Nothing yet — pick starting equipment above, or add one below.</p>}
-                  </div>
-
-                  {/* A LIST, not a control. Equipping — and the AC that
-                      follows from it — is the live sheet's job once that
-                      exists; at wizard time this step only answers "what am
-                      I carrying". The options are still inventory-scoped,
-                      which was the point of making them so. */}
-                  <div className="byo-panel">
-                    <h3>Armor</h3>
-                    {carriedArmor.granted.length === 0 && carriedArmor.added.length === 0 ? (
-                      <p className="byo-note">
-                        {armorProfCats.length
-                          ? <>Nothing yet — take some in Starting Gear above, or add it under <b>Add an item</b> below.</>
-                          : <>{klass.name}s aren't proficient with any armor.</>}
-                      </p>
-                    ) : (
-                      <>
-                        {carriedArmor.granted.map((it, i) => (
-                          <div className="byo-row" key={`armor-fixed-${i}`} style={{ flexWrap: "wrap" }}>
-                            <span className="byo-row-label">{it.name}{acLabel(it.resolved)}</span>
-                            {it.quantity > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{it.quantity}</span>}
-                          </div>
-                        ))}
-                        {carriedArmor.added.map(({ ci, idx }) => (
-                          <div className="byo-row" key={`armor-custom-${idx}`} style={{ flexWrap: "wrap" }}>
-                            <span className="byo-row-label">{ci.resolved.name}{acLabel(ci.resolved)}{magicSuffix(ci.resolved, ci.attuned)}</span>
-                            <div className="byo-step">
-                              <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity - 1)} aria-label={`Fewer ${ci.resolved.name}`}>−</button>
-                              <span className="byo-num">{ci.quantity}</span>
-                              <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity + 1)} aria-label={`More ${ci.resolved.name}`}>+</button>
-                            </div>
-                            {!!ci.resolved.reqAttune && (
-                              <button className={`byo-opt ${ci.attuned ? "is-sel" : ""}`}
-                                      disabled={!ci.attuned && attunedCount >= 3}
-                                      onClick={() => toggleAttune(idx)} aria-pressed={ci.attuned}>
-                                {ci.attuned ? "Attuned" : "Attune"}
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </>
-                    )}
-                    <p className="byo-note" style={{ marginTop: 10 }}>
-                      Owning armor doesn't equip it. Your AC above stays Unarmoured until
-                      you equip it on your live sheet.
-                    </p>
-                    {armorProfDerived.noMetal && (
-                      <p className="byo-note">{klass.name}s traditionally refuse metal armor and shields — a table-by-table call, not enforced here.</p>
-                    )}
-                  </div>
-
                   {acRows.length > 1 && (
                     <div className="byo-panel">
                       <h3>Why that number</h3>
@@ -3658,31 +3613,18 @@ export default function CharacterCreator() {
                         )}
                         {rows.length === 0
                           ? <p className="byo-note">Empty{c.key === EQUIPMENT ? "" : " — move things in from Gear Summary below"}.</p>
-                          : rows.map((r) => {
-                            const idx = customItems.findIndex((ci) => ci.itemId === r.id && ci.kind === r.kind);
-                            const ci = idx >= 0 ? customResolved[idx] : null;
-                            return (
-                              <div className="byo-row" key={r.id} style={{ flexWrap: "wrap" }}>
-                                <span className="byo-row-label">{r.name}{acLabel(r.item)}{magicSuffix(r.item, r.attuned)}
-                                  {chargesLine(r.item) && <span className="byo-item-mech">{chargesLine(r.item)}</span>}
-                                </span>
-                                {ci ? (
-                                  <div className="byo-step">
-                                    <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity - 1)} aria-label={`Fewer ${r.name}`}>−</button>
-                                    <span className="byo-num">{ci.quantity}</span>
-                                    <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity + 1)} aria-label={`More ${r.name}`}>+</button>
-                                  </div>
-                                ) : r.qty > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{r.qty}</span>}
-                                {ci && !!r.item?.reqAttune && (
-                                  <button className={`byo-opt ${ci.attuned ? "is-sel" : ""}`}
-                                          disabled={!ci.attuned && attunedCount >= 3}
-                                          onClick={() => toggleAttune(idx)} aria-pressed={ci.attuned}>
-                                    {ci.attuned ? "Attuned" : "Attune"}
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
+                          /* Read-only here on purpose: every control that
+                             changes an item lives in Gear Summary, so a
+                             thing has one row that acts and however many
+                             that merely list it. */
+                          : rows.map((r) => (
+                            <div className="byo-row" key={r.id} style={{ flexWrap: "wrap" }}>
+                              <span className="byo-row-label">{r.name}{acLabel(r.item)}{magicSuffix(r.item, r.attuned)}
+                                {chargesLine(r.item) && <span className="byo-item-mech">{chargesLine(r.item)}</span>}
+                              </span>
+                              {r.qty > 1 && <span className="byo-mod" style={{ width: "auto" }}>×{r.qty}</span>}
+                            </div>
+                          ))}
                         {c.key !== EQUIPMENT && (
                           <div className="byo-modal-row" style={{ marginTop: 10 }}>
                             <button className="byo-chip-b" onClick={() => setConfirmContainer(c)}
@@ -3704,19 +3646,42 @@ export default function CharacterCreator() {
                     </div>
                     {placedRows.length === 0
                       ? <p className="byo-note">Nothing carried yet — take starting gear above, or add an item below.</p>
-                      : placedRows.map((r) => (
-                        <div className="byo-row" key={`sum-${r.id}`} style={{ flexWrap: "wrap" }}>
-                          <span className="byo-row-label">{r.name}{r.qty > 1 ? ` ×${r.qty}` : ""}</span>
-                          <select className="byo-place-select" value={r.place}
-                                  aria-label={`Where ${r.name} is kept`}
-                                  onChange={(e) => setPlace(r.id, e.target.value)}>
-                            <option value={EQUIPMENT}>Equipment</option>
-                            {containers.filter((c) => c.key !== r.id).map((c) => (
-                              <option key={c.key} value={c.key}>{c.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                      ))}
+                      : placedRows.map((r) => {
+                        /* The added half of the inventory is the only half
+                           with controls: a granted item's count comes from
+                           the starting-gear pick that produced it, so it
+                           shows its count and nothing to change it with. */
+                        const idx = customItems.findIndex((ci) => ci.itemId === r.id && ci.kind === r.kind);
+                        const ci = idx >= 0 ? customResolved[idx] : null;
+                        return (
+                          <div className="byo-row" key={`sum-${r.id}`} style={{ flexWrap: "wrap" }}>
+                            <span className="byo-row-label">{r.name}{magicSuffix(r.item, r.attuned)}</span>
+                            <span className="byo-tag">{itemTypeLabel(r.item)}</span>
+                            {ci ? (
+                              <div className="byo-step">
+                                <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity - 1)} aria-label={`Fewer ${r.name}`}>−</button>
+                                <span className="byo-num">{ci.quantity}</span>
+                                <button className="byo-btn-sq" onClick={() => setCustomQty(idx, ci.quantity + 1)} aria-label={`More ${r.name}`}>+</button>
+                              </div>
+                            ) : <span className="byo-mod" style={{ width: "auto" }}>×{r.qty}</span>}
+                            {ci && !!r.item?.reqAttune && (
+                              <button className={`byo-opt ${ci.attuned ? "is-sel" : ""}`}
+                                      disabled={!ci.attuned && attunedCount >= 3}
+                                      onClick={() => toggleAttune(idx)} aria-pressed={ci.attuned}>
+                                {ci.attuned ? "Attuned" : "Attune"}
+                              </button>
+                            )}
+                            <select className="byo-place-select" value={r.place}
+                                    aria-label={`Where ${r.name} is kept`}
+                                    onChange={(e) => setPlace(r.id, e.target.value)}>
+                              <option value={EQUIPMENT}>Equipment</option>
+                              {containers.filter((c) => c.key !== r.id).map((c) => (
+                                <option key={c.key} value={c.key}>{c.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })}
                   </div>
 
                   <div className="byo-panel">
