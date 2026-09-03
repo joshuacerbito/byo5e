@@ -346,6 +346,8 @@ export const STYLES = `
 .byo-currency{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
 .byo-currency-f{display:flex;align-items:center;gap:6px;}
 .byo-currency-f .byo-sel{width:100%;min-width:0;}
+.byo-currency-u{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--bone-dim);}
 @media(max-width:480px){.byo-currency{grid-template-columns:repeat(2,1fr);}}
 
 .byo-budget{display:flex;justify-content:space-between;align-items:baseline;

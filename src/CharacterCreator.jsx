@@ -3886,7 +3886,7 @@ export default function CharacterCreator() {
                         <span key={k} className="byo-currency-f">
                           <input className="byo-sel" type="number" min={0} value={currency[k]}
                                  onChange={(e) => setCurrencyField(k, e.target.value)} aria-label={label} />
-                          <span className="byo-note">{k}</span>
+                          <span className="byo-currency-u">{k}</span>
                         </span>
                       ))}
                     </div>
