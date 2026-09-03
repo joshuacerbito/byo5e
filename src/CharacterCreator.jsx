@@ -77,7 +77,7 @@ const DEFAULTS = {
   bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [],
   armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {}, equipTypePicks: {},
   pickedSpellIds: [],
-  customItems: [], containerOf: {}, currency: { cp: 0, sp: 0, gp: 0, pp: 0 },
+  customItems: [], containerOf: {}, bagGiven: false, currency: { cp: 0, sp: 0, gp: 0, pp: 0 },
 };
 
 /* Where an item sits when it hasn't been put in anything: on your person.
@@ -403,6 +403,11 @@ export default function CharacterCreator() {
      so the common case costs nothing to store and an item whose container
      is deleted falls back on its own. */
   const [containerOf, setContainerOf] = useState(saved?.containerOf ?? DEFAULTS.containerOf);
+  /* Whether this character has been handed its starting Backpack yet.
+     A flag rather than "is there a Backpack in the list", because the
+     two differ in the case that matters: delete the bag and you should
+     stay bagless, not have it handed straight back. */
+  const [bagGiven, setBagGiven] = useState(saved?.bagGiven ?? DEFAULTS.bagGiven);
   const [currency, setCurrency] = useState(saved?.currency ?? DEFAULTS.currency);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   /* The container awaiting a delete confirmation, and the Clear
@@ -438,7 +443,8 @@ export default function CharacterCreator() {
     setClassEquipPicks(DEFAULTS.classEquipPicks); setBgEquipPicks(DEFAULTS.bgEquipPicks);
     setEquipTypePicks(DEFAULTS.equipTypePicks);
     setPickedSpellIds(DEFAULTS.pickedSpellIds);
-    setCustomItems(DEFAULTS.customItems); setContainerOf(DEFAULTS.containerOf); setCurrency(DEFAULTS.currency);
+    setCustomItems(DEFAULTS.customItems); setContainerOf(DEFAULTS.containerOf);
+    setBagGiven(DEFAULTS.bagGiven); setCurrency(DEFAULTS.currency);
   };
 
   /* ------------------------------------------------------------------
@@ -1230,20 +1236,34 @@ export default function CharacterCreator() {
      no longer carried — the map is left alone rather than pruned, so
      re-adding a Backpack puts its contents back. */
   const containerKeys = useMemo(() => new Set(containers.map((c) => c.key)), [containers]);
-  const placeOf = (rowId) => {
-    const at = containerOf[rowId];
-    return at && containerKeys.has(at) && at !== rowId ? at : EQUIPMENT;
+  /* The Backpack every character starts with — the default home for
+     anything that isn't worn or wielded. Identified by being a carried
+     container called Backpack rather than by a stored id, so deleting it
+     and adding another one gives the new one the same job. */
+  const defaultBag = useMemo(() => containers.find((c) => c.item?.id === "backpack") || null, [containers]);
+
+  /* Where a thing goes when nobody has said. Weapons and armor stay on
+     your person: you don't dig a sword out of a bag. Everything else
+     goes in the bag, if there is one. A container never defaults into
+     another container. */
+  const defaultPlace = (row) => (row.item?.containerCapacity || row.kind === "weapon" || row.kind === "armor"
+    ? EQUIPMENT
+    : defaultBag?.key ?? EQUIPMENT);
+
+  const placeOf = (row) => {
+    const at = containerOf[row.id];
+    if (at === EQUIPMENT) return EQUIPMENT;
+    return at && containerKeys.has(at) && at !== row.id ? at : defaultPlace(row);
   };
-  const setPlace = (rowId, key) => setContainerOf((prev) => {
-    const next = { ...prev };
-    if (!key || key === EQUIPMENT) delete next[rowId]; else next[rowId] = key;
-    return next;
-  });
+  /* Equipment is stored explicitly rather than left implied: with a
+     default bag in play, "no entry" now means "wherever this kind of
+     thing goes", which is not the same as "on my person". */
+  const setPlace = (rowId, key) => setContainerOf((prev) => ({ ...prev, [rowId]: key || EQUIPMENT }));
 
   /* Everything in one place: the row, and where it lives. Container rows
      are in here too — a Backpack can be inside a Chest. */
   const placedRows = useMemo(
-    () => inventory.map((r) => ({ ...r, place: placeOf(r.id) })),
+    () => inventory.map((r) => ({ ...r, place: placeOf(r) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [inventory, containerOf, containerKeys]);
 
@@ -1275,8 +1295,27 @@ export default function CharacterCreator() {
     setBgEquipPicks(noneFor(background?.equipment));
     setCustomItems([]);
     setContainerOf({});
+    /* Cleared, not stripped: a character with nowhere to put anything is
+       a worse starting point than an empty bag. The seeding effect hands
+       the Backpack back on the next render. */
+    setBagGiven(false);
     setShowClearInventory(false);
   };
+
+  /* Hand out the starting Backpack once the content is loaded — the item
+     record has to exist before it can be added, and the ruleset is picked
+     a step earlier. Runs once per character: the flag is what stops it
+     from undoing a deliberate delete, and Clear Inventory lowers the flag
+     to ask for a fresh one. */
+  useEffect(() => {
+    if (!content || bagGiven) return;
+    const bag = content.gear.find((g) => g.id === "backpack");
+    if (!bag) return;
+    setCustomItems((prev) => (prev.some((ci) => ci.itemId === bag.id && ci.kind === bag.kind)
+      ? prev
+      : [...prev, { itemId: bag.id, kind: bag.kind, quantity: 1, attuned: false }]));
+    setBagGiven(true);
+  }, [content, bagGiven]);
 
   const startingGold = useMemo(() => {
     const cp = [...classEquipItems, ...bgEquipItems]
@@ -2012,12 +2051,12 @@ export default function CharacterCreator() {
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, equipTypePicks, pickedSpellIds, customItems, containerOf, currency,
+    classEquipPicks, bgEquipPicks, equipTypePicks, pickedSpellIds, customItems, containerOf, bagGiven, currency,
   }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
     bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
-    classEquipPicks, bgEquipPicks, equipTypePicks, pickedSpellIds, customItems, containerOf, currency]);
+    classEquipPicks, bgEquipPicks, equipTypePicks, pickedSpellIds, customItems, containerOf, bagGiven, currency]);
 
   useEffect(() => { saveSnapshot(snapshot); }, [snapshot]);
 
@@ -3700,7 +3739,12 @@ export default function CharacterCreator() {
                       there is no second list to keep in step. Capacity is
                       shown, never enforced. */}
                   {[{ key: EQUIPMENT, name: "Equipment", item: null }, ...containers].map((c) => {
-                    const rows = placedRows.filter((r) => r.place === c.key && r.id !== c.key);
+                    /* A container's own row is its section heading; listing
+                       it again as a carried item under Equipment said the
+                       same thing twice. It still appears in Gear Summary,
+                       tagged CONTAINER, which is where you move it. */
+                    const rows = placedRows.filter((r) => r.place === c.key && r.id !== c.key
+                      && !r.item?.containerCapacity);
                     return (
                       <div className="byo-panel" key={c.key}>
                         <h3>{c.name}
