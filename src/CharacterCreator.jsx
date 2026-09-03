@@ -3505,8 +3505,8 @@ export default function CharacterCreator() {
                       </>
                     )}
                     <p className="byo-note" style={{ marginTop: 10 }}>
-                      Carrying armor isn't wearing it. Your Armor Class above stays unarmoured
-                      here — you'll equip on your live sheet, and it'll count then.
+                      Owning armor doesn't equip it. Your AC above stays Unarmoured until
+                      you equip it on your live sheet.
                     </p>
                     {armorProfDerived.noMetal && (
                       <p className="byo-note">{klass.name}s traditionally refuse metal armor and shields — a table-by-table call, not enforced here.</p>
