@@ -3787,7 +3787,7 @@ export default function CharacterCreator() {
                         {c.key !== EQUIPMENT && (
                           <div className="byo-modal-row" style={{ marginTop: 10 }}>
                             <button className="byo-chip-b" onClick={() => setConfirmContainer(c)}
-                                    aria-label={`Delete ${c.name} and everything in it`}>Delete</button>
+                                    aria-label={`Delete ${c.name} and everything in it`}>Delete Container</button>
                           </div>
                         )}
                       </div>
