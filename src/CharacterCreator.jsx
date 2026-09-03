@@ -739,7 +739,14 @@ export default function CharacterCreator() {
   // Drop a class's skill picks once it's no longer multiclassed in, or
   // once a pick falls outside that class's own gained-skills pool (e.g.
   // an edition switch changed what it offers).
+  //
+  // Same pre-load guard as the mastery prunes below, and it bites harder
+  // here than the pool does: mcEntries resolves each saved multiclass
+  // against content.classes, so before the pack loads it is EMPTY, the
+  // loop never runs, and the "had picks but isn't in next" check reads
+  // every restored class as un-multiclassed and drops the lot.
   useEffect(() => {
+    if (!content) return;
     setMcSkillPicks((prev) => {
       let changed = false;
       const next = {};
@@ -840,8 +847,14 @@ export default function CharacterCreator() {
   };
 
   /* Drop picks that stopped being legal — a class or subclass swap can
-     take a choice group away entirely. */
+     take a choice group away entirely.
+
+     Guarded on the pack for the same reason as every other prune here:
+     optionChoiceGroups is empty while klass is null, so the first render
+     after a reload would call every restored Fighting Style or Metamagic
+     pick illegal and the save effect would write the loss down. */
   useEffect(() => {
+    if (!content) return;
     const validKeys = new Set(optionChoiceGroups.map((g) => g.key));
     setOptionPicks((prev) => {
       let changed = false;
@@ -856,7 +869,7 @@ export default function CharacterCreator() {
       }
       return changed ? next : prev;
     });
-  }, [optionChoiceGroups]);
+  }, [optionChoiceGroups, content]);
 
   // A multiclass entry's "proficiencies gained" armor/weapons are the
   // reduced multiclassing-in subset (normMulticlassing() in
