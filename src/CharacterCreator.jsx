@@ -3631,13 +3631,21 @@ export default function CharacterCreator() {
                           <div className="byo-actgroup-l">Class — {klass.name}</div>
                           {klass.startingEquipment.groups.map((g, gi) => (
                             <div key={gi} style={{ marginBottom: 8 }}>
+                              {/* Clicking the option you already have takes it
+                                  back off — NONE_PICK, the same "nothing from
+                                  this group" the Clear button writes. Before
+                                  option A defaulted to selected, no group ever
+                                  started with something to click off, so this
+                                  read as a dead button rather than a missing
+                                  behaviour. Clicking any other option still
+                                  just switches to it. */}
                               <div className="byo-skills">
                                 {g.options.map((o) => {
                                   const sel = chosenEquipKey(classEquipPicks, gi, g) === o.key;
                                   const label = o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");
                                   return (
                                     <button key={o.key} className={`byo-skill ${sel ? "is-sel" : ""}`}
-                                            onClick={() => setClassEquipPicks((p) => ({ ...p, [gi]: o.key }))}
+                                            onClick={() => setClassEquipPicks((p) => ({ ...p, [gi]: sel ? NONE_PICK : o.key }))}
                                             disabled={o.fixed} aria-pressed={sel}>{label}</button>
                                   );
                                 })}
@@ -3691,7 +3699,7 @@ export default function CharacterCreator() {
                                   const label = o.items.map((it) => `${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join(" + ");
                                   return (
                                     <button key={o.key} className={`byo-skill ${sel ? "is-sel" : ""}`}
-                                            onClick={() => setBgEquipPicks((p) => ({ ...p, [gi]: o.key }))}
+                                            onClick={() => setBgEquipPicks((p) => ({ ...p, [gi]: sel ? NONE_PICK : o.key }))}
                                             disabled={o.fixed} aria-pressed={sel}>{label}</button>
                                   );
                                 })}
