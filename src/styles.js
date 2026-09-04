@@ -786,18 +786,25 @@ export const STYLES = `
 .byo-abilcard-s{font-family:'Space Mono',monospace;font-size:11px;color:var(--bone-dim);}
 
 /* Save DC / Spell Attack / Ability — the three numbers you say out loud
-   when you cast, above the Actions panel's own tabs. */
+   when you cast, above the Actions panel's own tabs.
+
+   Named apart from the wizard's Spells-step block above (.byo-cast /
+   .byo-slots), which is a different layout for the same three numbers:
+   these are one card each inside .byo-castgrid, that one is the grid
+   itself. Sharing the names meant this block, being later in the file,
+   silently won the cascade and turned the wizard's three-column grid
+   into a single centred column. */
 .byo-castgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 12px;}
-.byo-cast{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;
+.byo-castcard{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;
   border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:2px;background:var(--rock);}
-.byo-cast-n{font-family:'Space Mono',monospace;font-weight:700;font-size:24px;color:var(--gold);line-height:1.1;}
-.byo-cast-l{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;
+.byo-castcard-n{font-family:'Space Mono',monospace;font-weight:700;font-size:24px;color:var(--gold);line-height:1.1;}
+.byo-castcard-l{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.12em;
   text-transform:uppercase;color:var(--bone-dim);text-align:center;}
 
-.byo-slots{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;}
-.byo-slot{border:1px solid var(--line);border-radius:999px;padding:4px 10px;
+.byo-slotpills{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;}
+.byo-slotpill{border:1px solid var(--line);border-radius:999px;padding:4px 10px;
   background:var(--rock);font-family:'Space Mono',monospace;font-size:11px;color:var(--bone-dim);}
-.byo-slot b{color:var(--bone);font-weight:700;}
+.byo-slotpill b{color:var(--bone);font-weight:700;}
 
 /* A row/trait/table-row that opens the drawer. Same box as its inert
    twin on the Summary step — only the affordances are added, so the two

@@ -286,17 +286,17 @@ export default function Sheet({ ctx, onEdit, exportSection, rulesetSection, acco
               than three more tiles — they're reference, not the thing
               you're asked for across the table. */}
           <div className="byo-castgrid">
-            <div className="byo-cast"><span className="byo-cast-n">{casting.saveDC}</span><span className="byo-cast-l">Save DC</span></div>
-            <div className="byo-cast"><span className="byo-cast-n">{fmt(casting.attack)}</span><span className="byo-cast-l">Spell Attack</span></div>
-            <div className="byo-cast"><span className="byo-cast-n">{casting.ability.toUpperCase()}</span><span className="byo-cast-l">Ability</span></div>
+            <div className="byo-castcard"><span className="byo-castcard-n">{casting.saveDC}</span><span className="byo-castcard-l">Save DC</span></div>
+            <div className="byo-castcard"><span className="byo-castcard-n">{fmt(casting.attack)}</span><span className="byo-castcard-l">Spell Attack</span></div>
+            <div className="byo-castcard"><span className="byo-castcard-n">{casting.ability.toUpperCase()}</span><span className="byo-castcard-l">Ability</span></div>
           </div>
           {(casting.slots?.length > 0 || casting.pact || casting.prepared != null || casting.known != null) && (
-            <div className="byo-slots">
-              {(casting.slots || []).map((n, i) => <span className="byo-slot" key={i}><b>{ORDINAL(i + 1)}</b> ×{n}</span>)}
-              {casting.pact && <span className="byo-slot"><b>Pact</b> {casting.pact.count} @ {ORDINAL(casting.pact.level)}</span>}
-              {casting.prepared != null && <span className="byo-slot"><b>Prepared</b> {casting.prepared}</span>}
-              {casting.known != null && <span className="byo-slot"><b>Known</b> {casting.known}</span>}
-              {casting.spellbook != null && <span className="byo-slot"><b>Spellbook</b> {casting.spellbook}</span>}
+            <div className="byo-slotpills">
+              {(casting.slots || []).map((n, i) => <span className="byo-slotpill" key={i}><b>{ORDINAL(i + 1)}</b> ×{n}</span>)}
+              {casting.pact && <span className="byo-slotpill"><b>Pact</b> {casting.pact.count} @ {ORDINAL(casting.pact.level)}</span>}
+              {casting.prepared != null && <span className="byo-slotpill"><b>Prepared</b> {casting.prepared}</span>}
+              {casting.known != null && <span className="byo-slotpill"><b>Known</b> {casting.known}</span>}
+              {casting.spellbook != null && <span className="byo-slotpill"><b>Spellbook</b> {casting.spellbook}</span>}
             </div>
           )}
         </>
