@@ -831,7 +831,21 @@ const choiceNote = (feature) => {
     const groups = [];
     for (const f of [...activeClassFeatures, ...activeSubclassFeatures]) {
       f.choices.forEach((c, ci) => {
-        const pool = c.options.filter((o) => o.resolved);
+        /* A 2024 feat-category grant (Fighting Style, Epic Boon) names a
+           category instead of listing options — see featCategoryGrant in
+           content/features.js. The pool is the feat list filtered the way
+           the ASI picker already filters it, so these read as option
+           cards like every other pick. */
+        const namedFeats = new Set((f.references || [])
+          .filter((r) => r.kind === "feat" && r.resolved).map((r) => r.name));
+        const pool = c.featCategory
+          /* Paladin and Ranger get the category PLUS one feat of their
+             own ("Instead of choosing one of those feats, you can choose
+             the option below" — Blessed Warrior, Druidic Warrior), filed
+             under a class-specific category the Fighter must not see.
+             The feature names it as a feat ref, so take it from there. */
+          ? (content?.feats || []).filter((x) => x.category === c.featCategory || namedFeats.has(x.name))
+          : c.options.filter((o) => o.resolved);
         if (!pool.length) return;
         /* countByLevel is set for a list the subclass's own prose says
            grows — Battle Master's maneuvers, Arcane Archer's shots (see

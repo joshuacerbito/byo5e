@@ -160,6 +160,20 @@ function collectReferences(blocks, refs, reg, from, choices) {
   return out;
 }
 
+/* 2024 hands out some picks as a FEAT CATEGORY rather than as an
+   options block: a Fighter's Fighting Style is "gain a {@filter Fighting
+   Style feat|feats|category=FS} of your choice", and every class's level
+   19 Epic Boon the same with category EB. flatten() reduces that tag to
+   its display words ("Fighting Style feat"), so the category is read off
+   the raw entries instead, and emitted as a choice whose pool the view
+   layer fills from the feat list — there is no per-option ref to resolve
+   here, only a category to filter on. */
+const FEAT_FILTER_RE = /\{@filter[^}]*\|feats\|[^}]*category=([A-Za-z]+)/;
+function featCategoryGrant(entries) {
+  const m = FEAT_FILTER_RE.exec(JSON.stringify(entries || []));
+  return m ? m[1].toUpperCase() : null;
+}
+
 /* `rec` is a raw classFeature / subclassFeature / trait record.
    `opts.idPrefix` namespaces the id; `opts.level` overrides the record's
    own (ancestry traits have no level of their own). */
@@ -168,6 +182,8 @@ export function toFeature(rec, reg, opts = {}) {
   const from = opts.from || `feature ${rec.name}`;
   const optionIdOf = opts.optionIdOf || ((kind, r) => slugify(r.name));
   const { choices, refText } = collectChoices(blocks, reg, from, optionIdOf);
+  const featCategory = featCategoryGrant(rec.entries);
+  if (featCategory) choices.push({ kind: "feat", featCategory, count: 1, options: [] });
   resolveRefBlocks(blocks, reg, from);
   return {
     id: `${opts.idPrefix ? `${opts.idPrefix}-` : ""}${opts.level ?? rec.level ?? 0}-${slugify(rec.name)}`,
