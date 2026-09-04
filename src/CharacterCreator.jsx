@@ -2458,8 +2458,11 @@ const choiceNote = (feature) => {
      Wizards at 2. klass.subclassLevel already carries that number (it's
      read off the pack's own subclass feature levels in content/classes.js),
      so nothing here hardcodes a level. */
-  const renderSubclassPanel = () => (
+  const groupsAt = (atLevel) => optionChoiceGroups.filter((g) => g.level === atLevel);
+
+  const renderSubclassPanel = (bare) => (
     <SubclassPicker
+      bare={bare}
       title={klass.subclassTitle || "Subclass"}
       subclasses={klass.subclasses}
       selectedId={subclassId}
@@ -2481,14 +2484,21 @@ const choiceNote = (feature) => {
      Ability Score Improvement, the same way a feature entry sits inside
      the level box rather than getting a box of its own. */
   /* One option-choice picker — Fighting Style, Metamagic, a subclass's
-     maneuver list. Rendered from inside the level loop below rather than
-     in a block of its own above it: the choice belongs to the level whose
-     feature grants it, and a level 3 subclass's list sitting above the
-     Level 1 panel read as though it were a level 1 decision. */
-  const renderOptionGroup = (g) => (
-    <Section key={g.key} title={g.label}
-             count={`${(optionPicks[g.key] || []).length}/${g.budget}`}
-             flag={(optionPicks[g.key] || []).length < g.budget}>
+     maneuver list. The choice belongs to the level whose feature grants
+     it, so this is the INSIDE of that level's panel, next to the feature
+     prose that hands the choice out and to Ability Score Improvement —
+     same treatment as a Weapon Mastery bump above. A picker in a box of
+     its own read as a second, separate level: "Fighting Style" sitting
+     under the Level 1 panel looked like something Level 1 had not
+     granted. `heading` is what the panel's own title bar would have
+     said, so the group still names itself and shows its count now that
+     it has no title bar. */
+  const renderOptionGroupContent = (g) => (
+    <div className="byo-ct-picker" key={g.key}>
+      <p className="byo-note byo-feat-n" style={{ marginBottom: 4 }}>
+        <b>{g.label}.</b>
+        <span className="byo-count">{(optionPicks[g.key] || []).length}/{g.budget}</span>
+      </p>
       {g.note && <p className="byo-note" style={{ marginBottom: 10 }}>{g.note}</p>}
       <div className={`byo-skills${(optionPicks[g.key] || []).length < g.budget ? " byo-live" : ""}`}>
         {g.pool.map((o) => {
@@ -2515,6 +2525,16 @@ const choiceNote = (feature) => {
           </div>
         );
       })}
+    </div>
+  );
+
+  /* A group whose granting level isn't on screen has no panel to merge
+     into, so it keeps a box of its own. */
+  const renderOptionGroup = (g) => (
+    <Section key={g.key} title={g.label}
+             count={`${(optionPicks[g.key] || []).length}/${g.budget}`}
+             flag={(optionPicks[g.key] || []).length < g.budget}>
+      {renderOptionGroupContent(g)}
     </Section>
   );
 
@@ -3466,12 +3486,6 @@ const choiceNote = (feature) => {
                     const asiFeat = isAsi ? pool.find((f) => f.id === entry?.featId) : null;
                     return (
                       <React.Fragment key={atLevel}>
-                      {/* The subclass choice belongs to one specific level,
-                          so it renders directly above that level's panel
-                          rather than at the top of the step. When the
-                          character hasn't reached it yet there is no such
-                          panel, so it goes last instead (see below). */}
-                      {atLevel === subclassAnchor && renderSubclassPanel()}
                       {/* A level can owe a Weapon Mastery pick as well as
                           (or instead of) an ASI — the flag was only ever
                           asking about the ASI, so a Barbarian's level 4 and
@@ -3479,7 +3493,13 @@ const choiceNote = (feature) => {
                           saying so. */}
                       <Section title={`Level ${atLevel}`}
                                count={isAsi ? (asiComplete(atLevel) ? "done" : "to pick") : null}
-                               flag={(isAsi && !asiComplete(atLevel)) || masteryBumpLeftAt(atLevel) > 0}>
+                               /* The panel now owns this level's pickers, so
+                                  it has to raise their flag too — otherwise a
+                                  shut Level 1 hides the only prompt saying a
+                                  Fighting Style is still unpicked. */
+                               flag={(isAsi && !asiComplete(atLevel)) || masteryBumpLeftAt(atLevel) > 0
+                                     || (atLevel === subclassAnchor && subclassOn && !subclassId)
+                                     || groupsAt(atLevel).some((g) => (optionPicks[g.key] || []).length < g.budget)}>
                         {/* The features are the long part of a level — a
                             single one can print a whole table. Clamped so a
                             level you've read doesn't push the next one off
@@ -3493,6 +3513,13 @@ const choiceNote = (feature) => {
                             </div>
                           ))}
                         </ShowMore>
+                        {/* The subclass choice belongs to one specific level,
+                            so it renders inside that level's own panel rather
+                            than in a box beside it or at the top of the step.
+                            When the character hasn't reached it yet there is
+                            no such panel, so it goes last instead, in a box of
+                            its own (see below). */}
+                        {atLevel === subclassAnchor && renderSubclassPanel(true)}
                         {isAsi && (
                           <>
                             <div className={`byo-skills${asiComplete(atLevel) ? "" : " byo-live"}`}>
@@ -3545,10 +3572,10 @@ const choiceNote = (feature) => {
                         {masteryExtraBumps.filter((b) => b.level === atLevel).map((b) => (
                           <React.Fragment key={`mastery-${b.level}`}>{renderMasteryBumpContent(b)}</React.Fragment>
                         ))}
+                        {/* The pickers this level's own features hand you,
+                            inside the panel that granted them. */}
+                        {groupsAt(atLevel).map(renderOptionGroupContent)}
                       </Section>
-                      {/* The pickers this level's own features hand you,
-                          directly under the panel that granted them. */}
-                      {optionChoiceGroups.filter((g) => g.level === atLevel).map(renderOptionGroup)}
                       </React.Fragment>
                     );
                   }))}

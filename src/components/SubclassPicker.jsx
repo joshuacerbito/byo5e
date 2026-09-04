@@ -30,7 +30,11 @@ import { featuresAtLevel } from "../rules/progression.js";
 
 const FILTER_FROM = 8;
 
-export default function SubclassPicker({ title, subclasses, selectedId, level, subclassOn, note, onPick, style }) {
+/* `bare` drops the outer panel and renders the picker as a subsection —
+   the Class step nests it inside the level box that grants the subclass,
+   where a box of its own read as a level of its own. Everything else
+   (the multiclass entry cards) keeps the panel. */
+export default function SubclassPicker({ title, subclasses, selectedId, level, subclassOn, note, onPick, style, bare }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
 
@@ -43,8 +47,19 @@ export default function SubclassPicker({ title, subclasses, selectedId, level, s
     return t ? subclasses.filter((s) => s.name.toLowerCase().includes(t)) : subclasses;
   }, [showsAll, selected, subclasses, q]);
 
+  const Wrap = bare
+    ? ({ children }) => (
+      <div className="byo-ct-picker">
+        <p className="byo-note byo-feat-n" style={{ marginBottom: 4 }}><b>{title}.</b></p>
+        {children}
+      </div>
+    )
+    : ({ children }) => (
+      <Section style={style} title={title} flag={subclassOn && !selected}>{children}</Section>
+    );
+
   return (
-    <Section style={style} title={title} flag={subclassOn && !selected}>
+    <Wrap>
       {!subclassOn ? (
         <p className="byo-note">{note}</p>
       ) : (
@@ -98,6 +113,6 @@ export default function SubclassPicker({ title, subclasses, selectedId, level, s
           </div>
         </div>
       )}
-    </Section>
+    </Wrap>
   );
 }
