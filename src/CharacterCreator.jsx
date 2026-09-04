@@ -809,7 +809,13 @@ export default function CharacterCreator() {
       f.choices.forEach((c, ci) => {
         const pool = c.options.filter((o) => o.resolved);
         if (!pool.length) return;
-        groups.push({ key: `${f.id}-${ci}`, label: f.name, budget: c.count,
+        /* countByLevel is set for a list the subclass's own prose says
+           grows — Battle Master's maneuvers, Arcane Archer's shots (see
+           applyGrowth in content/classes.js). Everything else keeps the
+           single count the options block states. */
+        const budget = c.countByLevel ? c.countByLevel[level - 1] : c.count;
+        if (!budget) return;
+        groups.push({ key: `${f.id}-${ci}`, label: f.name, budget,
           pool: pool.map((o) => ({ id: o.id, name: o.name, text: o.text, blocks: o.blocks })) });
       });
     }

@@ -199,6 +199,73 @@ function progressionBlock(arr, key) {
   });
 }
 
+/* ---- a pick list that grows with level ---------------------------
+
+   Battle Master learns three maneuvers at 3rd and two more at 7th, 10th
+   and 15th; Arcane Archer gains an extra Arcane Shot option at 7th,
+   10th, 15th and 18th. NONE of that growth is structured data: the
+   options block carries only the starting `count`, the subclass has no
+   table group and no optionalfeatureProgression, and the increase is
+   stated in prose. So it is parsed, for exactly the reason
+   weaponMasteryFromFeature above parses prose — there is no field to
+   read instead.
+
+   Two shapes in the data, both handled: one sentence naming every level
+   ("two additional maneuvers ... when you reach Fighter levels 7, 10,
+   and 15") and one feature per level each naming its own ("At 7th
+   level, you learn two additional maneuvers"). They coexist — Arcane
+   Archer states both — so increments are taken as the MAX per level
+   rather than summed, or the doubly-described levels would count twice.
+
+   A sentence must name an explicit level to count at all. That is what
+   keeps ordinary prose out: Distant Strike's "you can make one
+   additional attack" has no level in it and so contributes nothing. */
+const ADDITIONAL_RE = /\b(an|one|two|three|four)\s+additional\b[^.]*\./gi;
+
+function growthIncrements(features) {
+  const inc = new Map();
+  for (const f of features || []) {
+    for (const m of `${f.text || ""} ${f.refText || ""}`.matchAll(ADDITIONAL_RE)) {
+      const step = m[1].toLowerCase() === "an" ? 1 : COUNT_WORD[m[1].toLowerCase()];
+      if (!step) continue;
+      /* Both spellings appear: "levels 7, 10, and 15" and "at 7th, 10th,
+         and 15th level". The optional ordinal suffix is what makes the
+         second one match — \b sees no boundary inside "7th". */
+      const levels = [...m[0].matchAll(/\b(\d{1,2})(?:st|nd|rd|th)?\b/g)]
+        .map((x) => Number(x[1])).filter((n) => n >= 1 && n <= 20);
+      if (!levels.length) continue;
+      for (const lv of levels) inc.set(lv, Math.max(inc.get(lv) || 0, step));
+    }
+  }
+  return inc;
+}
+
+/* The growth applies to the subclass's pick list of optional features —
+   the maneuvers, the Arcane Shot options. A subclass can carry more than
+   one such list (2014's Battle Master has the Handbook's sixteen
+   maneuvers alongside Tasha's seven), and the prose names its list only
+   by a noun, so there is nothing exact to match against.
+
+   ponytail: largest pool count wins, which is right for every case in
+   the data today because the growing list is always the main one and the
+   extra blocks grant a single pick. If a subclass ever gets two lists
+   that both grow, this needs the real thing — matching the prose's own
+   "you learn three maneuvers" against each block's count. */
+function applyGrowth(features) {
+  const owners = features.flatMap((f) => f.choices
+    .filter((c) => c.kind === "optionalFeature")
+    .map((c) => ({ feature: f, choice: c })));
+  if (!owners.length) return;
+  const inc = growthIncrements(features);
+  if (!inc.size) return;
+  const { feature, choice } = owners.reduce((a, b) => (b.choice.count > a.choice.count ? b : a));
+  let n = choice.count;
+  choice.countByLevel = Array.from({ length: 20 }, (_, i) => {
+    n += inc.get(i + 1) || 0;
+    return i + 1 >= feature.level ? n : 0;
+  });
+}
+
 function buildSubclass(sc, reg, classId, optionIdOf) {
   const scId = `${classId}-${slugify(sc.shortName || sc.name)}`;
   const from = `subclass ${sc.name} (${sc.className})`;
@@ -210,6 +277,7 @@ function buildSubclass(sc, reg, classId, optionIdOf) {
     features.push(toFeature(rec, reg, { idPrefix: scId, from, optionIdOf }));
   }
   features.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+  applyGrowth(features);
   return {
     kind: "subclass",
     id: scId,

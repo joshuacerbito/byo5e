@@ -25,6 +25,11 @@ const REF_KINDS = Object.keys(REF_PARSERS);
 
 function collectChoices(blocks, reg, from, optionIdOf) {
   const choices = [];
+  /* Prose from the sub-features walked below, kept because it can carry
+     rules the wrapper's own text never states — the sentence saying a
+     pick list GROWS with level lives in a sibling of the one holding the
+     list (see growthIncrements in classes.js). */
+  const refText = [];
   /* A feature can hold its pick list at one remove: 5etools files a
      subclass as a short wrapper whose entries are refClassFeature /
      refSubclassFeature nodes pointing at the real sub-features, and the
@@ -44,7 +49,11 @@ function collectChoices(blocks, reg, from, optionIdOf) {
         if (!seen.has(b.ref)) {
           seen.add(b.ref);
           const rec = reg.resolveRef(b.refKind, b.ref, from);
-          if (rec) walk(flatten(rec.entries || []).blocks);
+          if (rec) {
+            const f = flatten(rec.entries || []);
+            refText.push(f.text);
+            walk(f.blocks);
+          }
         }
         continue;
       }
@@ -90,7 +99,7 @@ function collectChoices(blocks, reg, from, optionIdOf) {
     }
   };
   walk(blocks);
-  return choices;
+  return { choices, refText: refText.join(" ") };
 }
 
 /* Rewrite every `{ type:"ref", refKind, ref }` node found anywhere in
@@ -144,13 +153,14 @@ export function toFeature(rec, reg, opts = {}) {
   const { text, blocks, refs } = flatten(rec.entries || []);
   const from = opts.from || `feature ${rec.name}`;
   const optionIdOf = opts.optionIdOf || ((kind, r) => slugify(r.name));
-  const choices = collectChoices(blocks, reg, from, optionIdOf);
+  const { choices, refText } = collectChoices(blocks, reg, from, optionIdOf);
   resolveRefBlocks(blocks, reg, from);
   return {
     id: `${opts.idPrefix ? `${opts.idPrefix}-` : ""}${opts.level ?? rec.level ?? 0}-${slugify(rec.name)}`,
     level: opts.level ?? rec.level ?? 1,
     name: rec.name,
     text,
+    refText,
     blocks,
     source: rec.source ?? null,
     page: rec.page ?? null,
