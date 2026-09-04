@@ -52,6 +52,7 @@ import Terms from "./components/Terms.jsx";
 import Privacy from "./components/Privacy.jsx";
 import CoreTraits from "./components/CoreTraits.jsx";
 import Section, { ShowMore } from "./components/Section.jsx";
+import SubclassPicker from "./components/SubclassPicker.jsx";
 import MasteryPicker from "./components/MasteryPicker.jsx";
 
 const APP_TITLE = document.title;
@@ -2395,33 +2396,14 @@ export default function CharacterCreator() {
      read off the pack's own subclass feature levels in content/classes.js),
      so nothing here hardcodes a level. */
   const renderSubclassPanel = () => (
-    <Section title={klass.subclassTitle || "Subclass"}
-             flag={subclassOn && !subclass}>
-      {!subclassOn ? (
-        <p className="byo-note">{klass.name}s choose at level {klass.subclassLevel}. You're level {level}, so nothing to decide yet.</p>
-      ) : (
-        <div className="byo-card-grid" style={{ marginTop: 8 }}>
-          {klass.subclasses.map((s) => {
-            const sel = s.id === subclassId;
-            const now = featuresAtLevel(s.features, level);
-            return (
-              <button key={s.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                      onClick={() => { setSubclassId(s.id); setOptionPicks({}); }} aria-pressed={sel}>
-                <div className="byo-card-top">
-                  <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
-                  <span className="byo-card-name">{s.name}</span>
-                  {s.page && <span className="byo-card-kind">p.{s.page}</span>}
-                </div>
-                <div className="byo-pills" style={{ marginTop: 8 }}>
-                  {now.length ? now.map((f) => <span className="byo-pill" key={f.id}>{f.name}</span>)
-                    : <span className="byo-pill alt">no features yet</span>}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </Section>
+    <SubclassPicker
+      title={klass.subclassTitle || "Subclass"}
+      subclasses={klass.subclasses}
+      selectedId={subclassId}
+      level={level}
+      subclassOn={subclassOn}
+      note={`${klass.name}s choose at level ${klass.subclassLevel}. You're level ${level}, so nothing to decide yet.`}
+      onPick={(id) => { setSubclassId(id); setOptionPicks({}); }} />
   );
 
   /* One of masteryExtraBumps — a level where the class's Weapon Mastery
@@ -2532,35 +2514,15 @@ export default function CharacterCreator() {
           (Subclass panel, Skills panel, Proficiencies panel, one panel per
           level with a feature/ASI to show), not one merged box. */}
       {e.klass.subclassLevel != null && (
-        <Section style={{ marginBottom: 12 }} title={e.klass.subclassTitle || "Subclass"}
-                 flag={e.subclassOn && !e.subclassId}>
-          {e.subclassOn ? (
-            <div className="byo-card-grid" style={{ marginTop: 8 }}>
-              {e.klass.subclasses.map((s) => {
-                const sel = s.id === e.subclassId;
-                const now = featuresAtLevel(s.features, e.level);
-                return (
-                  <button key={s.id} className={`byo-card ${sel ? "is-sel" : ""}`}
-                          onClick={() => setMcSubclass(e.classId, s.id)} aria-pressed={sel}>
-                    <div className="byo-card-top">
-                      <span className={`byo-dot${sel ? " is-on" : ""}`} aria-hidden="true" />
-                      <span className="byo-card-name">{s.name}</span>
-                      {s.page && <span className="byo-card-kind">p.{s.page}</span>}
-                    </div>
-                    <div className="byo-pills" style={{ marginTop: 8 }}>
-                      {now.length ? now.map((f) => <span className="byo-pill" key={f.id}>{f.name}</span>)
-                        : <span className="byo-pill alt">no features yet</span>}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="byo-note">
-              {e.klass.name}s choose at level {e.klass.subclassLevel}. This entry is level {e.level}.
-            </p>
-          )}
-        </Section>
+        <SubclassPicker
+          style={{ marginBottom: 12 }}
+          title={e.klass.subclassTitle || "Subclass"}
+          subclasses={e.klass.subclasses}
+          selectedId={e.subclassId}
+          level={e.level}
+          subclassOn={e.subclassOn}
+          note={`${e.klass.name}s choose at level ${e.klass.subclassLevel}. This entry is level ${e.level}.`}
+          onPick={(id) => setMcSubclass(e.classId, id)} />
       )}
 
       {/* Skills is its own top-level panel here, same as the primary
