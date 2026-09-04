@@ -132,7 +132,27 @@ const PRIMARY_ABILITY_2014 = {
    hit die, no saving throws, no subclass level. They are class-shaped
    records in the same file, so they have to be dropped by name of the
    flag 5etools marks them with rather than by any shape test. */
-const classesFor = (arr, ed) => plain(arr, ed).filter((c) => !c.isSidekick).map((c) => {
+/* A later book that REPRINTS a class or subclass ships a second record
+   under the same name — EFA reprints Tasha's Artificer and its four
+   subclasses, so a naive union puts two Artificers in the class list and
+   two Alchemists under each of them. The app mints ids from class and
+   subclass names, so those duplicates also collide on id and make
+   selection ambiguous. Keep one record per name, preferring the LAST
+   book in the pack's own source order — later printing wins, which is
+   what a player with all the books would use. A single-book pack has
+   nothing to collapse, so the SRD packs are untouched. */
+const dedupeByName = (rows, ed, keyOf) => {
+  const rank = (r) => ed.books.indexOf(r.source);
+  const best = new Map();
+  for (const r of rows) {
+    const k = keyOf(r).toLowerCase();
+    const cur = best.get(k);
+    if (!cur || rank(r) >= rank(cur)) best.set(k, r);
+  }
+  return rows.filter((r) => best.get(keyOf(r).toLowerCase()) === r);
+};
+
+const classesFor = (arr, ed) => dedupeByName(plain(arr, ed).filter((c) => !c.isSidekick), ed, (c) => c.name).map((c) => {
   if (c.primaryAbility || ed.rulesEdition !== "2014") return c;
   const fill = PRIMARY_ABILITY_2014[c.name];
   return fill ? { ...c, primaryAbility: fill } : c;
@@ -337,7 +357,9 @@ function buildPack(ed, shared) {
   const content = {
     classes: classesFor(classes.class, ed),
     classFeatures: classTied(classes.classFeature, ed),
-    subclasses: classTied(classes.subclass, ed).filter((r) => r.subclassFeatures?.length),
+    subclasses: dedupeByName(
+      classTied(classes.subclass, ed).filter((r) => r.subclassFeatures?.length),
+      ed, (r) => `${r.className}|${r.shortName ?? r.name}`),
     subclassFeatures: featureTied(classes.subclassFeature, ed),
 
     races: plain(races.race, ed),
