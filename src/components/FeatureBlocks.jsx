@@ -19,8 +19,21 @@ import React from "react";
    worth surfacing, and the SRD packs this app ships don't carry any. */
 const DEFAULT_HANDBOOKS = new Set(["phb", "xphb"]);
 
+/* A resolved ref carries the referenced feature's own blocks (see
+   resolveRefBlocks in src/content/features.js), so render it as that
+   feature — heading plus its text — rather than a "See X." pointer the
+   reader has nowhere to follow. The pointer stays for refs that did not
+   resolve, where naming the missing feature is all we have. */
 function RefBlock({ block }) {
   const showSource = block.source && !DEFAULT_HANDBOOKS.has(block.source.toLowerCase());
+  if (block.blocks?.length) {
+    return (
+      <div className="byo-fb-section">
+        <h4 className="byo-fb-h">{block.name}{showSource ? ` (${block.source})` : ""}</h4>
+        <FeatureBlocks blocks={block.blocks} />
+      </div>
+    );
+  }
   return (
     <p className="byo-fb-ref">
       See <b>{block.name}</b>{showSource ? ` (${block.source})` : ""}.

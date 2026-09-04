@@ -109,7 +109,7 @@ function collectChoices(blocks, reg, from, optionIdOf) {
    itself is left untouched (raw pipe string, kept for traceability);
    name/source/resolved are added alongside it, mirroring how
    collectChoices resolves the same refs for `choices[].options[]`. */
-function resolveRefBlocks(blocks, reg, from) {
+function resolveRefBlocks(blocks, reg, from, seen = new Set()) {
   const walk = (bs) => {
     for (const b of bs || []) {
       if (b.type === "ref") {
@@ -118,6 +118,20 @@ function resolveRefBlocks(blocks, reg, from) {
         b.name = rec ? rec.name : parsed.name;
         b.source = rec ? rec.source : parsed.source;
         b.resolved = !!rec;
+        /* A ref outside an options block is the feature's own prose
+           continuing somewhere else — 5etools files Battle Master as a
+           wrapper that refs Combat Superiority, Student of War and
+           Maneuver Options. Rendering the pointer ("See Combat
+           Superiority.") shows the reader nothing, so carry the target's
+           own blocks along and let FeatureBlocks print them in place.
+           `seen` is keyed on the raw ref string so a feature that points
+           back at an ancestor terminates instead of recursing forever. */
+        if (rec && !seen.has(b.ref)) {
+          seen.add(b.ref);
+          const inner = flatten(rec.entries || []).blocks;
+          resolveRefBlocks(inner, reg, from, seen);
+          b.blocks = inner;
+        }
         continue;
       }
       if (b.blocks) walk(b.blocks);
