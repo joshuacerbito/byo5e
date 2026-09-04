@@ -36,7 +36,13 @@ export function parseSubclassFeatureRef(s) {
   const cs = DEF(classSource);
   return {
     name, className, classSource: cs, subclassShortName,
-    subclassSource: subclassSource || cs, level: String(level ?? ""), source: source || cs,
+    /* The trailing `source` is the book that printed the FEATURE, which
+       for a subclass feature is the subclass's own book rather than the
+       class's — a Tasha's subclass hanging off a Handbook class is the
+       normal case, not an odd one. Defaulting it to the class source
+       only ever agreed with reality in a pack one book wide. */
+    subclassSource: subclassSource || cs, level: String(level ?? ""),
+    source: source || subclassSource || cs,
   };
 }
 
