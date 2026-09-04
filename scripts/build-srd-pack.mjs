@@ -218,7 +218,12 @@ const matchesRequire = (base, req) => {
   /* Enspelled Weapon asks by category ("simple"/"martial") rather than
      the `weapon: true` flag the +1/+2/+3 families use. Unmatched keys
      fall through to false below, so leaving this out silently expanded
-     the family against nothing at all. */
+     the family against nothing at all.
+
+     The weapon flag is still required: Staff and Wooden Staff are
+     mundane records carrying weaponCategory without it, and letting
+     them through would mint a second, different "Enspelled Staff"
+     beside the static XDMG records of that name. */
   if (req.weaponCategory) return !!base.weapon && base.weaponCategory === req.weaponCategory;
   if (req.type) return typeCode(base.type) === typeCode(req.type);
   if (req.name) return base.name === req.name && (!req.source || base.source === req.source);
@@ -297,18 +302,19 @@ function expandVariants(variants, ed, srcItems) {
     if (!isAllowedVariant(v.name) || !keeps(ed, v.inherits)
         || !ed.itemBooks.includes(v.inherits.source)) continue;
     const inh = v.inherits;
-    /* Generic variants are meant to dress a MUNDANE item, but srcItems
-       carries the magic records too, and the `type` requirement the
-       armour families use matches a magic armour's type just as happily
-       as a plain one — which is how "Adamantine Armor of Invulnerability"
-       got into the packs. Enspelled is held to mundane bases so it does
-       not repeat that; the pre-existing armour families are left as they
-       are rather than silently rewriting content this change was not
-       asked to touch. */
-    const mundaneOnly = ENSPELLED_VARIANT_RE.test(v.name);
+    /* A generic variant dresses a MUNDANE item — the template supplies
+       the magic, so applying one to a record that is already magic
+       stacks two enchantments that were never meant to meet. srcItems
+       carries both kinds, and a `requires` clause happily matches
+       either: `type` matches a magic armour's type as readily as a
+       plain one, which is how "Adamantine Armor of Invulnerability" and
+       "Mithral Armor of Invulnerability" reached the packs, and
+       weaponCategory would have produced "Enspelled +1 Moon Sickle".
+       The rule belongs to the base pool rather than to any one
+       requirement shape, so it sits here and covers every family. */
     const matched = srcItems.filter((b) =>
-      (v.requires || []).some((r) => matchesRequire(b, r)) && !matchesExclude(b, v.excludes)
-      && (!mundaneOnly || !b.rarity || b.rarity === "none"));
+      (!b.rarity || b.rarity === "none")
+      && (v.requires || []).some((r) => matchesRequire(b, r)) && !matchesExclude(b, v.excludes));
     for (const base of matched) {
       let baseName = base.name;
       if (inh.nameRemove) baseName = baseName.split(inh.nameRemove).join("");
