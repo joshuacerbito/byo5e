@@ -25,7 +25,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  DATA, ROOT, readJson, EDITIONS, isSrd, applySrdName, stripBookkeeping,
+  DATA, ROOT, readJson, EDITIONS, keeps, applySrdName, stripBookkeeping,
   resolveCopies, parseClassFeatureRef, parseSubclassFeatureRef, parseOptionalFeatureRef,
   classFeatureKey, subclassFeatureKey, optionalFeatureKey, collectRefNodes,
   sortBy, recordKey, slug,
@@ -41,6 +41,13 @@ const OUT_DIR = path.join(ROOT, "src", "packs");
    Both pages also say: "Please do not include any other attribution
    [to Wizards or its parent or affiliates] other than that provided
    above" — so this string is used as-is, nothing appended. */
+/* A test pack carries the full text of books that are not open content,
+   so it gets a notice that says exactly that rather than an SRD one. */
+const TEST_NOTICE = "TEST BUILD — NOT FOR DISTRIBUTION. Contains the full text of "
+  + "commercial products, which is not open content. Generated locally from a private "
+  + "5etools-src checkout for QA against books the tester owns; never publish, deploy or "
+  + "commit the resulting pack.";
+
 const LICENSE_NOTICE = {
   "srd-5.1": "This work includes material taken from the System Reference Document 5.1 "
     + "(“SRD 5.1”) by Wizards of the Coast LLC and available at "
@@ -89,10 +96,14 @@ function loadClassFiles() {
    XPHB-classSource duplicates of the very same 2014 subclasses (their
    _copy blocks _preserve the srd flag). Requiring both gives one
    record per subclass, filed against its own edition's class. */
-const classTied = (arr, ed) =>
-  arr.filter((r) => isSrd(r, ed.flag) && r.source === ed.book && r.classSource === ed.book);
+const classTied = (arr, ed, classBooks = ed.classBooks) =>
+  arr.filter((r) => keeps(ed, r) && ed.books.includes(r.source) && classBooks.includes(r.classSource));
 
-const plain = (arr, ed) => arr.filter((r) => isSrd(r, ed.flag) && r.source === ed.book);
+/* Subclass FEATURES may be filed against a different edition of the class
+   than the subclass record that points at them — see `featureBooks`. */
+const featureTied = (arr, ed) => classTied(arr, ed, ed.featureBooks || ed.classBooks);
+
+const plain = (arr, ed) => arr.filter((r) => keeps(ed, r) && ed.books.includes(r.source));
 
 /* primaryAbility is an XPHB-only field in 5etools' own data — the 2014
    PHB class records never carry it, in the source files or upstream.
@@ -117,7 +128,11 @@ const PRIMARY_ABILITY_2014 = {
   Warlock: [{ cha: true }],
   Wizard: [{ int: true }],
 };
-const classesFor = (arr, ed) => plain(arr, ed).map((c) => {
+/* Sidekick "classes" (TCE) are NPC companions, not player classes: no
+   hit die, no saving throws, no subclass level. They are class-shaped
+   records in the same file, so they have to be dropped by name of the
+   flag 5etools marks them with rather than by any shape test. */
+const classesFor = (arr, ed) => plain(arr, ed).filter((c) => !c.isSidekick).map((c) => {
   if (c.primaryAbility || ed.rulesEdition !== "2014") return c;
   const fill = PRIMARY_ABILITY_2014[c.name];
   return fill ? { ...c, primaryAbility: fill } : c;
@@ -126,10 +141,10 @@ const classesFor = (arr, ed) => plain(arr, ed).map((c) => {
 /* Items specifically: the equipment chapter is split across the Handbook
    and the DMG in 5etools' own data (see `itemBooks` on EDITIONS, used
    below for itemProperty/itemType/itemMastery already). `plain()` above
-   filters on the single `ed.book`, which is fine for mundane PHB/XPHB
+   filters on `ed.books`, which is fine for mundane PHB/XPHB
    gear but would silently drop almost every magic item — those are
    overwhelmingly DMG/XDMG-sourced. */
-const itemsFor = (arr, ed) => arr.filter((r) => isSrd(r, ed.flag) && ed.itemBooks.includes(r.source));
+const itemsFor = (arr, ed) => arr.filter((r) => keeps(ed, r) && ed.itemBooks.includes(r.source));
 
 /* ------------------------------------------------------------------
    Magic items
@@ -212,10 +227,14 @@ function resolveItemEntries(item, itemEntryIndex) {
       const [, entryName, entrySource] = m;
       const rec = itemEntryIndex.get(`${entryName.toLowerCase()}|${(entrySource || item.source).toLowerCase()}`);
       if (!rec) return [withVars];
-      return (rec.entriesTemplate || []).map((t) => substituteBonusVars(t, item)
+      /* Templates are usually plain strings, but a few outside the SRD
+         slice (BMT/XDMG items reached by the test packs) nest a table
+         or list node in there — pass those through untouched rather
+         than trying to substitute into an object. */
+      return (rec.entriesTemplate || []).map((t) => (typeof t !== "string" ? t : substituteBonusVars(t, item)
         .replace(/\{\{getFullImmRes item\.resist\}\}/g, resistJoin(item.resist))
         .replace(/\{\{item\.resist\}\}/g, resistJoin(item.resist))
-        .replace(/\{\{item\.detail1\}\}/g, item.detail1 ?? ""));
+        .replace(/\{\{item\.detail1\}\}/g, item.detail1 ?? "")));
     }
     if (Array.isArray(node)) return node.flatMap(walk);
     /* A nested { type:"entries", entries:[...] } node — resolve inside it
@@ -238,7 +257,8 @@ function resolveItemEntries(item, itemEntryIndex) {
 function expandVariants(variants, ed, srcItems) {
   const out = [];
   for (const v of variants) {
-    if (!isAllowedVariant(v.name) || !v.inherits[ed.flag]) continue;
+    if (!isAllowedVariant(v.name) || !keeps(ed, v.inherits)
+        || !ed.itemBooks.includes(v.inherits.source)) continue;
     const inh = v.inherits;
     const matched = srcItems.filter((b) =>
       (v.requires || []).some((r) => matchesRequire(b, r)) && !matchesExclude(b, v.excludes));
@@ -267,7 +287,7 @@ function expandVariants(variants, ed, srcItems) {
         page: inh.page ?? null,
       };
       delete rec.srd; delete rec.srd52;
-      rec[ed.flag] = true;
+      if (ed.flag) rec[ed.flag] = true;
       out.push(rec);
     }
   }
@@ -275,8 +295,12 @@ function expandVariants(variants, ed, srcItems) {
 }
 
 function spellsFor(ed, spellSources) {
-  const raw = readJson(ed.spellFile).spell;
-  const block = spellSources[ed.book] || {};
+  const raw = ed.spellFiles.flatMap((f) => readJson(f).spell);
+  /* One lookup block per book the pack draws spells from, merged in the
+     order the files were listed — the blocks are keyed by spell name and
+     no two books print the same spell, so the merge is a union. */
+  const block = Object.assign({}, ...ed.books.map((b) => spellSources[b] || {}));
+  const classBooks = ed.spellClassBooks || ed.classBooks;
   return plain(raw, ed).map((sp) => {
     /* Class eligibility is not on the spell record — it lives in
        spells/sources.json, keyed by the spell's ORIGINAL name (so this
@@ -287,7 +311,7 @@ function spellsFor(ed, spellSources) {
        source so e.g. artificer (TCE) never leaks in. */
     const e = block[sp.name] || {};
     const names = [...(e.class || []), ...(e.classVariant || [])]
-      .filter((c) => c.source === ed.book)
+      .filter((c) => classBooks.includes(c.source))
       .map((c) => slug(c.name));
     return { ...sp, classLists: [...new Set(names)].sort() };
   });
@@ -313,8 +337,8 @@ function buildPack(ed, shared) {
   const content = {
     classes: classesFor(classes.class, ed),
     classFeatures: classTied(classes.classFeature, ed),
-    subclasses: classTied(classes.subclass, ed),
-    subclassFeatures: classTied(classes.subclassFeature, ed),
+    subclasses: classTied(classes.subclass, ed).filter((r) => r.subclassFeatures?.length),
+    subclassFeatures: featureTied(classes.subclassFeature, ed),
 
     races: plain(races.race, ed),
     /* 2024 folded subraces into species traits, so this is empty for
@@ -359,10 +383,12 @@ function buildPack(ed, shared) {
     packFormat: 1,
     id: ed.id,
     name: ed.name,
-    abbrev: "SRD",
+    abbrev: ed.test ? "TEST" : "SRD",
     rulesEdition: ed.rulesEdition,
     sourceBooks,
-    license: { spdx: "CC-BY-4.0", holder: "Wizards of the Coast LLC", notice: LICENSE_NOTICE[ed.id] },
+    license: ed.test
+      ? { spdx: "LicenseRef-proprietary", holder: "Wizards of the Coast LLC", notice: TEST_NOTICE }
+      : { spdx: "CC-BY-4.0", holder: "Wizards of the Coast LLC", notice: LICENSE_NOTICE[ed.id] },
     counts,
     content,
   };
@@ -427,14 +453,16 @@ const shared = (() => {
   /* items.json is items-base's mundane gear (adventuring packs, tools,
      spellcasting foci, quivers, ...) mixed in with every magic item in
      the game. rarity:"none" records are the mundane ones; everything
-     from "common" up is a magic item by 5etools convention, and those
-     are pulled in too when SRD-flagged (srd/srd52 truthy on the record
-     itself — buildPack's per-edition itemsFor() does the actual
-     edition filtering). No name+source collides with items-base.json. */
+     from "common" up is a magic item by 5etools convention. Everything
+     is merged in unfiltered and buildPack's per-edition itemsFor() does
+     the whole selection — an SRD pack still keeps only flagged records,
+     while a test pack keeps every magic item its source list allows
+     (BMT's decks, XDMG's magic items), which pre-filtering on the SRD
+     flags here would have thrown away before the pack ever saw them.
+     No name+source collides with items-base.json. */
   const items = readJson("items.json");
   resolveCopies(items, items._meta?.internalCopies || [], (m) => warn(`items.json: ${m}`));
-  itemsBase.baseitem = [...itemsBase.baseitem,
-    ...items.item.filter((r) => r.rarity === "none" || r.srd != null || r.srd52 != null)];
+  itemsBase.baseitem = [...itemsBase.baseitem, ...items.item];
   /* itemEntry: shared rules text a few generic variants point at via
      `{#itemEntry Name|Source}` rather than spelling out inline — see
      resolveItemEntry() above. */
@@ -469,11 +497,14 @@ for (const ed of EDITIONS) {
 const COLS = Object.keys(results[0].pack.counts);
 const pad = (s, n) => String(s).padEnd(n);
 const w = Math.max(...COLS.map((c) => c.length)) + 2;
+const cw = Math.max(12, ...results.map((r) => r.ed.id.length + 2));
 
-console.log("\nSRD content packs\n");
-console.log(pad("collection", w) + pad("5.1", 8) + "5.2");
-console.log("-".repeat(w + 14));
-for (const c of COLS) console.log(pad(c, w) + pad(results[0].pack.counts[c], 8) + results[1].pack.counts[c]);
+console.log("\nContent packs\n");
+console.log(pad("collection", w) + results.map((r) => pad(r.ed.id, cw)).join(""));
+console.log("-".repeat(w + cw * results.length));
+for (const c of COLS) {
+  console.log(pad(c, w) + results.map((r) => pad(r.pack.counts[c], cw)).join(""));
+}
 
 for (const r of results) {
   const bytes = fs.statSync(r.file).size;

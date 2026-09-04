@@ -22,14 +22,38 @@ export const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(DATA, rel)
 export const clone = (v) => JSON.parse(JSON.stringify(v));
 
 /* ---- editions ---------------------------------------------------
-   The whole generator is parameterised by these two records. `flag`
-   is the SRD marker on a record; `book` is the source abbreviation
-   that record must carry to belong to this edition.
+   The whole generator is parameterised by these records.
+
+     flag        the SRD marker a record must carry, when the pack is an
+                 SRD subset of one book. A pack with no `flag` takes
+                 every record its source list allows — see keeps().
+     books       the source abbreviations a record may carry.
+     classBooks  the `classSource` abbreviations a class-tied record may
+                 carry, i.e. WHICH EDITION of the class it hangs off,
+                 independent of which book printed the subclass.
+     spellFiles  the spells/*.json files to read, in order.
+     itemBooks   source list for items specifically (see below).
+
+   The SRD packs are one book each, gated by their flag. The test packs
+   are multi-source: a full base book (PHB / XPHB) that SUPERSEDES the
+   SRD subset rather than sitting beside it — no flag, no subtraction
+   step, the base source simply IS the whole book — plus the additive
+   sources layered on top, which only ever bring new records.
 ------------------------------------------------------------------- */
+
+/* Books layered on top of either base, none of which replace anything:
+   TCE and XGE are the two big subclass/spell sources, SCC/EFA/BMT are
+   backgrounds/feats/items/spells, XDMG is DM-facing and matters here
+   almost entirely for the magic items it adds to the Inventory pool. */
+export const ADDITIVE_BOOKS = ["TCE", "XGE", "SCC", "EFA", "BMT", "XDMG"];
+
+const ADDITIVE_SPELLS = ["tce", "xge", "scc", "efa", "bmt"].map((b) => `spells/spells-${b}.json`);
+
 export const EDITIONS = [
   {
     id: "srd-5.1", name: "SRD 5.1", rulesEdition: "2014",
-    flag: "srd", book: "PHB", spellFile: "spells/spells-phb.json",
+    flag: "srd", books: ["PHB"], classBooks: ["PHB"],
+    spellFiles: ["spells/spells-phb.json"],
     /* items-base.json's itemProperty/itemType/itemMastery records carry
        no SRD flag at all, so `source` is the only filter available. The
        equipment chapter is split across the Handbook and the DMG in
@@ -38,8 +62,53 @@ export const EDITIONS = [
   },
   {
     id: "srd-5.2", name: "SRD 5.2", rulesEdition: "2024",
-    flag: "srd52", book: "XPHB", spellFile: "spells/spells-xphb.json",
+    flag: "srd52", books: ["XPHB"], classBooks: ["XPHB"],
+    spellFiles: ["spells/spells-xphb.json"],
     itemBooks: ["XPHB", "XDMG"],
+  },
+  /* ---- test packs — NOT SHIPPABLE ------------------------------
+     Built on the `test` branch only, for QA against books the tester
+     owns. They carry the full text of those books, so they are not
+     open content and must never be committed to develop or main or
+     served to anyone else. The build writes them next to the SRD packs
+     because that is where the app's loader looks; that convenience is
+     the only reason they live in src/packs/.
+
+     classBooks deliberately omits the OTHER edition's base book rather
+     than naming only this one: 5etools re-files every legacy subclass
+     under the 2024 class as well, so a TCE subclass exists twice — once
+     classSource PHB, once classSource XPHB — and each pack wants
+     exactly the one filed against its own edition of the class. The
+     additive books stay in the list because a book that ships its own
+     class (TCE's and EFA's Artificer) files that class's features
+     against itself, not against either Handbook. */
+  {
+    id: "test-2014", name: "Test 2014 (owned books)", rulesEdition: "2014", test: true,
+    books: ["PHB", ...ADDITIVE_BOOKS], classBooks: ["PHB", ...ADDITIVE_BOOKS],
+    spellFiles: ["spells/spells-phb.json", ...ADDITIVE_SPELLS],
+    /* Spell class-lists are keyed by the class's own source, and every
+       later book grants its spells to PHB-sourced classes. */
+    spellClassBooks: ["PHB"],
+    itemBooks: ["PHB", ...ADDITIVE_BOOKS],
+  },
+  {
+    id: "test-2024", name: "Test 2024 (owned books)", rulesEdition: "2024", test: true,
+    books: ["XPHB", ...ADDITIVE_BOOKS], classBooks: ["XPHB", ...ADDITIVE_BOOKS],
+    spellFiles: ["spells/spells-xphb.json", ...ADDITIVE_SPELLS],
+    /* Both, here: the additive books predate the 2024 classes and grant
+       their spells to the PHB-sourced ones, so filtering to XPHB alone
+       would leave every TCE/XGE spell with an empty class list. */
+    spellClassBooks: ["XPHB", "PHB"],
+    /* Same shape one collection over. 5etools re-files every legacy
+       subclass under the 2024 class as a `_copy` of the 2014 record —
+       resolved, those copies are complete, so classBooks: ["XPHB"]
+       already picks up TCE/XGE subclasses correctly. Their FEATURES,
+       though, are filed once, against the 2014 class, and the copies
+       point back at them — so the feature filter has to accept both
+       filings or every legacy subclass in this pack would come out
+       with no features at all. */
+    featureBooks: ["XPHB", "PHB", ...ADDITIVE_BOOKS],
+    itemBooks: ["XPHB", ...ADDITIVE_BOOKS],
   },
 ];
 
@@ -55,6 +124,13 @@ export const EDITIONS = [
    `nameOriginal` so cross-references (which all use it) still resolve.
 ------------------------------------------------------------------- */
 export const isSrd = (rec, flag) => rec[flag] != null;
+
+/* The one selection rule every collection filter goes through. An SRD
+   pack keeps a record if it carries the edition's flag; a test pack has
+   no flag and keeps everything its caller's source list allowed, which
+   the caller checks itself since which FIELD holds the source differs
+   by collection (source, classSource, inherits.source). */
+export const keeps = (ed, rec) => (ed.flag ? isSrd(rec, ed.flag) : true);
 
 export function applySrdName(rec, flag) {
   const v = rec[flag];
@@ -246,7 +322,14 @@ export function parseSubclassFeatureRef(s) {
   const cs = DEF(classSource);
   return {
     name, className, classSource: cs, subclassShortName,
-    subclassSource: subclassSource || cs, level: String(level ?? ""), source: source || cs,
+    /* The trailing `source` field is the book that printed the FEATURE,
+       which for a subclass feature is the subclass's own book, not the
+       class's. Defaulting it to the class source only ever agreed with
+       reality while every pack was one book wide; a TCE subclass hanging
+       off a Handbook class needs the subclass source here or every one
+       of its feature refs reads as dangling. */
+    subclassSource: subclassSource || cs, level: String(level ?? ""),
+    source: source || subclassSource || cs,
   };
 }
 

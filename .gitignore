@@ -27,3 +27,6 @@ CLAUDE.md
 .env.local
 .env.*.local
 client_secret_25389728633-nj4jumrm60b6a8qif2kk4o7edc244nc2.apps.googleusercontent.com.json
+
+# Test-branch content packs: full text of non-open books, never committed.
+src/packs/test-*.json

@@ -195,7 +195,7 @@ export function buildItems(reg) {
       /* A wand's charges are as mechanical as a weapon's damage die —
          the raw record already carries them, so this is a straight read,
          not the hand-authored overlay a feature's prose would need. */
-      charges: it.charges ?? null,
+      charges: typeof it.charges === "string" ? stripTags(it.charges) : (it.charges ?? null),
       recharge: it.recharge ?? null,
       rechargeAmount: it.rechargeAmount ? stripTags(it.rechargeAmount) : null,
       attachedSpells: attachedSpells(it.attachedSpells, reg, it.name),

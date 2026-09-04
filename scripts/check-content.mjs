@@ -21,7 +21,14 @@ const ROOT = path.resolve(process.cwd());
 const PACKS = [
   { file: "src/packs/srd-5.1.json", edition: "2014", expectWarnings: 39 },
   { file: "src/packs/srd-5.2.json", edition: "2024", expectWarnings: 13 },
-];
+  /* The `test` branch's multi-source packs, checked the same way when
+     they have been built. They are gitignored and optional, so an
+     absent file is not a failure — and their dangling-ref count moves
+     with the source books rather than being a fixed property of an SRD
+     subset, so it is reported rather than asserted. */
+  { file: "src/packs/test-2014.json", edition: "2014", expectWarnings: null, optional: true },
+  { file: "src/packs/test-2024.json", edition: "2024", expectWarnings: null, optional: true },
+].filter((p) => !p.optional || fs.existsSync(path.join(path.resolve(process.cwd()), p.file)));
 
 let failures = 0;
 const findings = [];
@@ -150,7 +157,9 @@ for (const p of PACKS) {
   const uniqRefs = new Set(content.warnings.map((w) => `${w.kind}|${w.ref}`));
   console.log(`  ${uniqRefs.size} distinct reference(s):`);
   for (const r of [...uniqRefs].sort()) console.log(`    ${r}`);
-  if (uniqRefs.size !== p.expectWarnings) {
+  if (p.expectWarnings == null) {
+    note(`${uniqRefs.size} distinct dangling refs (not asserted for a test pack)`);
+  } else if (uniqRefs.size !== p.expectWarnings) {
     note(`expected ${p.expectWarnings} distinct dangling refs, got ${uniqRefs.size}`);
   } else ok(`${p.expectWarnings} distinct dangling refs, as the pack build reported`);
 
