@@ -798,6 +798,30 @@ export default function CharacterCreator() {
     setSkillPicks((p) => swapPick(p, s, classSkillCount));
   };
 
+/* The one line of the feature's prose that actually poses the choice, to
+   caption a picker with. Preferred over the whole feature text because
+   that text is already printed in full in the level panel further down
+   the step, and over the feature's first sentence because for a subclass
+   the first sentence is flavour ("Battle Masters are students of the art
+   of battle") while the line that answers "what am I picking?" is a
+   sentence or two later — often in a sub-feature, which is why refText
+   is searched as well. Falls back to the opening sentence when nothing
+   names a choice, and to nothing at all when the feature has no prose. */
+const choiceNote = (feature) => {
+  if (!feature) return null;
+  const sentences = (t) => String(t || "").split(/(?<=\.)\s+/).map((x) => x.trim()).filter(Boolean);
+  const own = sentences(feature.text);
+  const all = [...own, ...sentences(feature.refText)];
+  /* "of your choice" before a bare "choose": a feature can pose two
+     different choices in its prose, and the picker this captions is the
+     one over a named list. Arcane Archer opens by telling you to choose a
+     skill and a cantrip, and only names the Arcane Shot options — the
+     list it actually renders — a sentence later. */
+  return all.find((x) => /of your choice/i.test(x))
+    || all.find((x) => /\bchoose\b/i.test(x))
+    || own[0] || null;
+};
+
   /* Fighting Style, Pact Boon, Metamagic, Eldritch Invocations and the
      rest — every currently-active feature that offers a pick, plus the
      one growing count the mapper can't yet resolve on its own (see the
@@ -815,7 +839,7 @@ export default function CharacterCreator() {
            single count the options block states. */
         const budget = c.countByLevel ? c.countByLevel[level - 1] : c.count;
         if (!budget) return;
-        groups.push({ key: `${f.id}-${ci}`, label: f.name, budget,
+        groups.push({ key: `${f.id}-${ci}`, label: f.name, budget, note: choiceNote(f),
           pool: pool.map((o) => ({ id: o.id, name: o.name, text: o.text, blocks: o.blocks })) });
       });
     }
@@ -857,7 +881,11 @@ export default function CharacterCreator() {
         const overlap = groups[i].pool.filter((o) => ids.has(o.id)).length;
         if (overlap && overlap >= Math.min(groups[i].pool.length, pool.length) / 2) groups.splice(i, 1);
       }
-      groups.push({ key: `growing-${keyword}`, label: entry.name, budget, pool });
+      /* The bridged group is built from a progression table rather than
+         from a feature, so its caption comes from the class feature of
+         the same name where the class has one. */
+      groups.push({ key: `growing-${keyword}`, label: entry.name, budget, pool,
+        note: choiceNote(activeClassFeatures.find((f) => f.name.toLowerCase() === label)) });
     }
     return groups;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3361,6 +3389,7 @@ export default function CharacterCreator() {
                     <Section key={g.key} title={g.label}
                              count={`${(optionPicks[g.key] || []).length}/${g.budget}`}
                              flag={(optionPicks[g.key] || []).length < g.budget}>
+                      {g.note && <p className="byo-note" style={{ marginBottom: 10 }}>{g.note}</p>}
                       <div className={`byo-skills${(optionPicks[g.key] || []).length < g.budget ? " byo-live" : ""}`}>
                         {g.pool.map((o) => {
                           const on = (optionPicks[g.key] || []).includes(o.id);
