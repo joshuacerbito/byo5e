@@ -175,16 +175,27 @@ const itemsFor = (arr, ed) => arr.filter((r) => keeps(ed, r) && ed.itemBooks.inc
        pulled in below alongside the mundane rarity:"none" records,
        filtered the same way by their own srd/srd52 flag.
      - "generic variants" (magicvariants.json): templates applied to
-       every matching base item rather than written out once each. Only
-       the numeric-bonus families (+1/+2/+3 Weapon/Armor/Shield/
-       Ammunition) plus a handful of flavour-only armours (Adamantine,
-       Mithral, Elven Chain, Dwarven Plate, Barding, the elemental-
-       resistance armours) are expanded here. 5etools encodes narrative
-       named weapons (Vorpal Sword, Holy Avenger, Flame Tongue, ...) the
-       same mechanism, but their "bonus" is a special ability rather
-       than a flat number — modelling that is a follow-up, not this.
+       every matching base item rather than written out once each. The
+       numeric-bonus families (+1/+2/+3 Weapon/Armor/Shield/Ammunition),
+       XDMG's Enspelled Weapon/Armor families, and a handful of
+       flavour-only armours (Adamantine, Mithral, Elven Chain, Dwarven
+       Plate, Barding, the elemental-resistance armours) are expanded
+       here. 5etools encodes narrative named weapons (Vorpal Sword, Holy
+       Avenger, Flame Tongue, ...) the same mechanism, but their "bonus"
+       is a special ability rather than a flat number — modelling that is
+       a follow-up, not this.
 ------------------------------------------------------------------- */
 const NUMBERED_VARIANT_RE = /^\+[123] (Weapon|Armor|Shield \(\*\)|Ammunition)$/;
+/* XDMG's Enspelled families — one variant per spell level (Cantrip,
+   Level 1..8) applied to every weapon, or to every armour. Unlike the
+   narrative named weapons still left out below, these carry no special
+   ability of their own: the item is a shell that casts a spell, so
+   ...base plus the inherited rarity is the whole of it.
+
+   The static "Enspelled Staff (Level N)" records in items.json are NOT
+   these — a staff is its own item, not a generic variant — which is why
+   the staff used to be the only enspelled thing in the packs. */
+const ENSPELLED_VARIANT_RE = /^Enspelled (Weapon|Armor) \((Cantrip|Level [1-8])\)$/;
 const FLAVOR_ARMOR_VARIANTS = new Set([
   "Adamantine Armor", "Mithral Armor", "Elven Chain", "Dwarven Plate", "Barding",
   "Armor of Acid Resistance", "Armor of Cold Resistance", "Armor of Fire Resistance",
@@ -192,7 +203,8 @@ const FLAVOR_ARMOR_VARIANTS = new Set([
   "Armor of Poison Resistance", "Armor of Psychic Resistance", "Armor of Radiant Resistance",
   "Armor of Thunder Resistance",
 ]);
-const isAllowedVariant = (name) => NUMBERED_VARIANT_RE.test(name) || FLAVOR_ARMOR_VARIANTS.has(name);
+const isAllowedVariant = (name) => NUMBERED_VARIANT_RE.test(name)
+  || ENSPELLED_VARIANT_RE.test(name) || FLAVOR_ARMOR_VARIANTS.has(name);
 
 const typeCode = (t) => String(t ?? "").split("|")[0];
 
@@ -203,6 +215,11 @@ const typeCode = (t) => String(t ?? "").split("|")[0];
 const matchesRequire = (base, req) => {
   if (req.armor) return !!base.armor;
   if (req.weapon) return !!base.weapon;
+  /* Enspelled Weapon asks by category ("simple"/"martial") rather than
+     the `weapon: true` flag the +1/+2/+3 families use. Unmatched keys
+     fall through to false below, so leaving this out silently expanded
+     the family against nothing at all. */
+  if (req.weaponCategory) return !!base.weapon && base.weaponCategory === req.weaponCategory;
   if (req.type) return typeCode(base.type) === typeCode(req.type);
   if (req.name) return base.name === req.name && (!req.source || base.source === req.source);
   return false;
@@ -280,8 +297,18 @@ function expandVariants(variants, ed, srcItems) {
     if (!isAllowedVariant(v.name) || !keeps(ed, v.inherits)
         || !ed.itemBooks.includes(v.inherits.source)) continue;
     const inh = v.inherits;
+    /* Generic variants are meant to dress a MUNDANE item, but srcItems
+       carries the magic records too, and the `type` requirement the
+       armour families use matches a magic armour's type just as happily
+       as a plain one — which is how "Adamantine Armor of Invulnerability"
+       got into the packs. Enspelled is held to mundane bases so it does
+       not repeat that; the pre-existing armour families are left as they
+       are rather than silently rewriting content this change was not
+       asked to touch. */
+    const mundaneOnly = ENSPELLED_VARIANT_RE.test(v.name);
     const matched = srcItems.filter((b) =>
-      (v.requires || []).some((r) => matchesRequire(b, r)) && !matchesExclude(b, v.excludes));
+      (v.requires || []).some((r) => matchesRequire(b, r)) && !matchesExclude(b, v.excludes)
+      && (!mundaneOnly || !b.rarity || b.rarity === "none"));
     for (const base of matched) {
       let baseName = base.name;
       if (inh.nameRemove) baseName = baseName.split(inh.nameRemove).join("");

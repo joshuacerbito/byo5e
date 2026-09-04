@@ -287,16 +287,30 @@ function chargesLine(resolved) {
   return parts.join(" — ");
 }
 
+/* 5etools spell filters are "key=value|key=value", and a value can be a
+   ";"-separated LIST meaning "any of these" — Khoravar's cantrip is
+   "level=0|class=Cleric;Druid;Wizard". Reading either key as a single
+   value turns a list into one nonsense value (Number("0;1;2") is NaN, and
+   no spell's classLists contains the literal "cleric;druid;wizard"), so
+   the pool comes back empty and the picker renders a header with nothing
+   under it.
+
+   Keys this does not know are ignored rather than treated as
+   unsatisfiable — the pool comes back too broad instead of empty, which
+   is the safer way to be wrong for a picker. `school=` is the one in the
+   packs today, and it only appears on class/subclass records, which
+   nothing calls this with yet. */
 function spellsMatchingFilter(spells, filter) {
   const want = {};
   for (const part of String(filter || "").split("|")) {
     const [k, v] = part.split("=");
-    if (k === "level") want.level = Number(v);
-    if (k === "class") want.classSlug = v.toLowerCase();
+    if (!v) continue;
+    if (k === "level") want.levels = new Set(v.split(";").map(Number));
+    if (k === "class") want.classSlugs = new Set(v.split(";").map((c) => c.trim().toLowerCase()));
   }
   return spells.filter((sp) =>
-    (want.level == null || sp.level === want.level) &&
-    (!want.classSlug || sp.classLists.includes(want.classSlug)));
+    (!want.levels || want.levels.has(sp.level)) &&
+    (!want.classSlugs || sp.classLists.some((c) => want.classSlugs.has(c))));
 }
 
 export default function CharacterCreator() {
@@ -3987,6 +4001,9 @@ export default function CharacterCreator() {
                   {ancestrySpellChoiceGroups.map((g) => (
                     <div className="byo-panel" key={g.key}>
                       <h3>Bonus spell <span className="byo-count">{(ancestrySpellPicks[g.key] || []).length}/{g.count}</span></h3>
+                      {!g.pool.length && (
+                        <p className="byo-note">No spell in this ruleset matches what this grant asks for.</p>
+                      )}
                       <div className="byo-skills">
                         {g.pool.map((sp) => {
                           const on = (ancestrySpellPicks[g.key] || []).includes(sp.id);
