@@ -839,7 +839,7 @@ const choiceNote = (feature) => {
            single count the options block states. */
         const budget = c.countByLevel ? c.countByLevel[level - 1] : c.count;
         if (!budget) return;
-        groups.push({ key: `${f.id}-${ci}`, label: f.name, budget, note: choiceNote(f),
+        groups.push({ key: `${f.id}-${ci}`, label: f.name, budget, note: choiceNote(f), level: f.level,
           pool: pool.map((o) => ({ id: o.id, name: o.name, text: o.text, blocks: o.blocks })) });
       });
     }
@@ -884,8 +884,9 @@ const choiceNote = (feature) => {
       /* The bridged group is built from a progression table rather than
          from a feature, so its caption comes from the class feature of
          the same name where the class has one. */
+      const owner = activeClassFeatures.find((f) => f.name.toLowerCase() === label);
       groups.push({ key: `growing-${keyword}`, label: entry.name, budget, pool,
-        note: choiceNote(activeClassFeatures.find((f) => f.name.toLowerCase() === label)) });
+        note: choiceNote(owner), level: owner?.level ?? 1 });
     }
     return groups;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2465,6 +2466,44 @@ const choiceNote = (feature) => {
      caller drops it straight inside that level's own panel, alongside
      Ability Score Improvement, the same way a feature entry sits inside
      the level box rather than getting a box of its own. */
+  /* One option-choice picker — Fighting Style, Metamagic, a subclass's
+     maneuver list. Rendered from inside the level loop below rather than
+     in a block of its own above it: the choice belongs to the level whose
+     feature grants it, and a level 3 subclass's list sitting above the
+     Level 1 panel read as though it were a level 1 decision. */
+  const renderOptionGroup = (g) => (
+    <Section key={g.key} title={g.label}
+             count={`${(optionPicks[g.key] || []).length}/${g.budget}`}
+             flag={(optionPicks[g.key] || []).length < g.budget}>
+      {g.note && <p className="byo-note" style={{ marginBottom: 10 }}>{g.note}</p>}
+      <div className={`byo-skills${(optionPicks[g.key] || []).length < g.budget ? " byo-live" : ""}`}>
+        {g.pool.map((o) => {
+          const on = (optionPicks[g.key] || []).includes(o.id);
+          const full = !on && g.budget !== 1 && (optionPicks[g.key] || []).length >= g.budget;
+          return (
+            <button key={o.id} className={`byo-skill ${on ? "is-sel" : ""}`}
+                    onClick={() => toggleOptionPick(g.key, o.id, g.budget)} disabled={full}
+                    aria-pressed={on}>{o.name}</button>
+          );
+        })}
+      </div>
+      {/* What each pick actually grants — shown for whichever
+          option(s) are currently selected, not the whole pool,
+          so this stays short even for a big list like Fighting
+          Style. */}
+      {(optionPicks[g.key] || []).map((id) => {
+        const o = g.pool.find((x) => x.id === id);
+        if (!o?.text) return null;
+        return (
+          <div key={id} style={{ marginTop: 10 }}>
+            <p className="byo-note byo-feat-n" style={{ marginBottom: 4 }}><b>{o.name}.</b></p>
+            <FeatureBlocks blocks={o.blocks} />
+          </div>
+        );
+      })}
+    </Section>
+  );
+
   const renderMasteryBumpContent = (bump) => (
     /* byo-ct-picker, same class the picker below (and every merged-in
        subsection on this step) uses for its own divider — not a bare
@@ -3385,39 +3424,6 @@ const choiceNote = (feature) => {
                     )}
                   </CoreTraits>
 
-                  {optionChoiceGroups.map((g) => (
-                    <Section key={g.key} title={g.label}
-                             count={`${(optionPicks[g.key] || []).length}/${g.budget}`}
-                             flag={(optionPicks[g.key] || []).length < g.budget}>
-                      {g.note && <p className="byo-note" style={{ marginBottom: 10 }}>{g.note}</p>}
-                      <div className={`byo-skills${(optionPicks[g.key] || []).length < g.budget ? " byo-live" : ""}`}>
-                        {g.pool.map((o) => {
-                          const on = (optionPicks[g.key] || []).includes(o.id);
-                          const full = !on && g.budget !== 1 && (optionPicks[g.key] || []).length >= g.budget;
-                          return (
-                            <button key={o.id} className={`byo-skill ${on ? "is-sel" : ""}`}
-                                    onClick={() => toggleOptionPick(g.key, o.id, g.budget)} disabled={full}
-                                    aria-pressed={on}>{o.name}</button>
-                          );
-                        })}
-                      </div>
-                      {/* What each pick actually grants — shown for whichever
-                          option(s) are currently selected, not the whole pool,
-                          so this stays short even for a big list like Fighting
-                          Style. */}
-                      {(optionPicks[g.key] || []).map((id) => {
-                        const o = g.pool.find((x) => x.id === id);
-                        if (!o?.text) return null;
-                        return (
-                          <div key={id} style={{ marginTop: 10 }}>
-                            <p className="byo-note byo-feat-n" style={{ marginBottom: 4 }}><b>{o.name}.</b></p>
-                            <FeatureBlocks blocks={o.blocks} />
-                          </div>
-                        );
-                      })}
-                    </Section>
-                  ))}
-
                     </>
                   )}
 
@@ -3526,6 +3532,9 @@ const choiceNote = (feature) => {
                           <React.Fragment key={`mastery-${b.level}`}>{renderMasteryBumpContent(b)}</React.Fragment>
                         ))}
                       </Section>
+                      {/* The pickers this level's own features hand you,
+                          directly under the panel that granted them. */}
+                      {optionChoiceGroups.filter((g) => g.level === atLevel).map(renderOptionGroup)}
                       </React.Fragment>
                     );
                   }))}
@@ -3536,6 +3545,10 @@ const choiceNote = (feature) => {
                   {classTab === 0 && klass.subclassLevel != null
                     && subclassAnchor == null && levelsShown.length > 0
                     && renderSubclassPanel()}
+                  {/* A group whose granting level isn't in the list at all
+                      would otherwise vanish along with its pick. */}
+                  {classTab === 0 && optionChoiceGroups
+                    .filter((g) => !levelsShown.includes(g.level)).map(renderOptionGroup)}
                 </>
               )}
             </>
