@@ -25,8 +25,29 @@ const REF_KINDS = Object.keys(REF_PARSERS);
 
 function collectChoices(blocks, reg, from, optionIdOf) {
   const choices = [];
+  /* A feature can hold its pick list at one remove: 5etools files a
+     subclass as a short wrapper whose entries are refClassFeature /
+     refSubclassFeature nodes pointing at the real sub-features, and the
+     `options` block lives inside one of THOSE. Battle Master is the
+     clearest case — the subclass record lists only "Battle Master", which
+     refs Combat Superiority, Student of War and Maneuver Options, and the
+     maneuver list is inside the last of them. Walking only the wrapper's
+     own blocks found no choice at all, so the subclass rendered its prose
+     with no picker. Follow those two ref kinds into the record they name
+     and keep walking. `seen` is per call and keyed on the raw ref string:
+     the same sub-feature can be referenced twice, and a cycle would
+     otherwise not terminate. */
+  const seen = new Set();
   const walk = (bs) => {
     for (const b of bs || []) {
+      if (b.type === "ref" && (b.refKind === "classFeature" || b.refKind === "subclassFeature")) {
+        if (!seen.has(b.ref)) {
+          seen.add(b.ref);
+          const rec = reg.resolveRef(b.refKind, b.ref, from);
+          if (rec) walk(flatten(rec.entries || []).blocks);
+        }
+        continue;
+      }
       if (b.type === "options") {
         const refs = [];
         const gather = (inner) => {
