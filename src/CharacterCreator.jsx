@@ -2739,14 +2739,13 @@ const choiceNote = (feature) => {
           <Section key={atLevel} style={{ marginBottom: 12 }} title={`Level ${atLevel}`}
                    count={isAsi ? (complete ? "done" : "to pick") : null}
                    flag={(isAsi && !complete) || bumpLeft > 0}>
-            <ShowMore label={`level ${atLevel} features`}>
+            <ShowMore label={`level ${atLevel}`}>
               {levelFeats.map((f) => (
                 <div key={f.id} style={{ marginBottom: 10 }}>
                   <p className="byo-note byo-feat-n" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
                   <FeatureBlocks blocks={f.blocks} />
                 </div>
               ))}
-            </ShowMore>
             {isAsi && (
             <>
             <div className={`byo-skills${complete ? "" : " byo-live"}`}>
@@ -2811,6 +2810,7 @@ const choiceNote = (feature) => {
                              onAdd={(id) => addMcMastery(e.classId, id, bump.to)}
                              onRemove={(id) => removeMcMastery(e.classId, id)} />
             )}
+            </ShowMore>
           </Section>
         );
       })}
@@ -3535,19 +3535,23 @@ const choiceNote = (feature) => {
                                flag={(isAsi && !asiComplete(atLevel)) || masteryBumpLeftAt(atLevel) > 0
                                      || (atLevel === subclassAnchor && subclassOn && !subclassId)
                                      || groupsAt(atLevel).some((g) => (optionPicks[g.key] || []).length < g.budget)}>
-                        {/* The features are the long part of a level — a
-                            single one can print a whole table. Clamped so a
-                            level you've read doesn't push the next one off
-                            the screen; the toggle only appears when there is
-                            something actually hidden. */}
-                        <ShowMore label={`level ${atLevel} features`}>
+                        {/* A level is the long part of this step — a single
+                            feature can print a whole table. Clamped so a level
+                            you've read doesn't push the next one off the
+                            screen; the toggle only appears when there is
+                            something actually hidden. It wraps the WHOLE
+                            panel body, pickers included: its Show More sits
+                            at the foot of what it controls, and once the
+                            pickers moved inside the panel a wrapper around
+                            the features alone left that button stranded in
+                            the middle of the section. */}
+                        <ShowMore label={`level ${atLevel}`}>
                           {feats.map((f) => (
                             <div key={f.id} style={{ marginBottom: 10 }}>
                               <p className="byo-note byo-feat-n" style={{ marginBottom: f.blocks?.length ? 4 : 0 }}><b>{f.name}.</b></p>
                               <FeatureBlocks blocks={f.blocks} />
                             </div>
                           ))}
-                        </ShowMore>
                         {/* The subclass choice belongs to one specific level,
                             so it renders inside that level's own panel rather
                             than in a box beside it or at the top of the step.
@@ -3610,6 +3614,7 @@ const choiceNote = (feature) => {
                         {/* The pickers this level's own features hand you,
                             inside the panel that granted them. */}
                         {groupsAt(atLevel).map(renderOptionGroupContent)}
+                        </ShowMore>
                       </Section>
                       </React.Fragment>
                     );
