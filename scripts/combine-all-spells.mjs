@@ -11,6 +11,16 @@ const outPath = "5etools-src/data/spells/all-spells.json";
 
 const sources = JSON.parse(readFileSync(join(dir, "sources.json"), "utf8"));
 
+// Friendly labels for source codes that have a 2024-revision counterpart.
+// Verified against every source code actually present in the spell data
+// below (17 codes total) — XPHB/PHB is the only revision pair among them.
+// XGE ("Xanathar's Guide to Everything") is NOT a revision of anything and
+// is deliberately left unmapped.
+const SOURCE_LABELS = {
+  XPHB: "PHB'24",
+  PHB: "PHB'14",
+};
+
 const files = readdirSync(dir)
   .filter((f) => /^spells-.*\.json$/.test(f))
   .sort();
@@ -24,7 +34,8 @@ const spell = files.flatMap((f) => {
   // optional/variant rule (e.g. XGE's expanded spell lists) — both count.
   const names = [...(entry?.class ?? []), ...(entry?.classVariant ?? [])].map((c) => c.name);
   const classes = [...new Set(names)];
-  return { ...sp, classes };
+  const { source, ...rest } = sp;
+  return { ...rest, sourceCode: source, source: SOURCE_LABELS[source] ?? source, classes };
 });
 
 writeFileSync(outPath, JSON.stringify({ spell }));
