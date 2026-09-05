@@ -2469,7 +2469,14 @@ const choiceNote = (feature) => {
       level={level}
       subclassOn={subclassOn}
       note={`${klass.name}s choose at level ${klass.subclassLevel}. You're level ${level}, so nothing to decide yet.`}
-      onPick={(id) => { setSubclassId(id); setOptionPicks({}); }} />
+      /* Only the outgoing subclass's picks go, and they go on their own:
+         a subclass feature's option-group key is namespaced by the
+         subclass id (idPrefix in content/classes.js), so swapping
+         subclasses retires those keys and the prune effect above drops
+         them. Clearing the whole map here took the class's own picks
+         down with them — a Fighter lost their Fighting Style for
+         choosing a subclass three levels later. */
+      onPick={setSubclassId} />
   );
 
   /* One of masteryExtraBumps — a level where the class's Weapon Mastery
