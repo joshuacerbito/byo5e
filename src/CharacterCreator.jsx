@@ -1175,6 +1175,34 @@ const choiceNote = (feature) => {
      4-coin editor. Independent of class/background/ancestry: a picked-up
      magic sword doesn't unpick itself when you change class.
   ------------------------------------------------------------------- */
+  /* A save can name content this ruleset no longer has: a pack rebuild
+     drops items (9ed5ae9 removed the variant-dressed duplicates), and
+     switching ruleset swaps the whole catalogue. An unresolvable row is
+     already invisible in the inventory — every consumer filters on
+     `resolved` — but it still sits in the save and still burns an
+     attunement slot, so drop it instead of carrying a ghost.
+
+     Only the truly unknown goes: a skill or spell is pruned when the pack
+     has no such record at all, never merely because the current class
+     can't take it. Picks deliberately survive a class change.
+
+     Same first-render hazard as the mastery prune above — content is null
+     until the pack lands, and without the guard this would clear every
+     restored pick and the save effect would write the emptied arrays
+     straight back to storage. */
+  useEffect(() => {
+    if (!content) return;
+    const dropMissing = (set) => (prev) => {
+      const kept = prev.filter((v) => set(v));
+      return kept.length === prev.length ? prev : kept;
+    };
+    setCustomItems(dropMissing((ci) => !!content.byId(KIND_COLLECTION[ci.kind], ci.itemId)));
+    const skillNames = new Set(content.skills.map((s) => s.name));
+    setSkillPicks(dropMissing((s) => skillNames.has(s)));
+    const spellIds = new Set(content.spells.map((sp) => sp.id));
+    setPickedSpellIds(dropMissing((id) => spellIds.has(id)));
+  }, [content]);
+
   const customResolved = useMemo(() => customItems.map((ci) => ({
     ...ci,
     resolved: content?.byId(KIND_COLLECTION[ci.kind], ci.itemId) ?? null,
