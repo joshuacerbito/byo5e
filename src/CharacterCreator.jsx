@@ -74,7 +74,7 @@ const DEFAULTS = {
   classId: null, level: 1, subclassId: null,
   skillPicks: [], optionPicks: {}, asiPicks: {}, masteryPicks: [],
   multiclasses: [], mcSkillPicks: {}, mcAsiPicks: {}, mcMasteryPicks: {},
-  bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [],
+  bgId: null, bgSkillPicks: [], bgAbilityAlt: 0, bgAbilityPicks: [], originLangs: [],
   armorId: null, hasShield: false, classEquipPicks: {}, bgEquipPicks: {}, equipTypePicks: {},
   pickedSpellIds: [],
   customItems: [], containerOf: {}, bagGiven: false, currency: { cp: 0, sp: 0, gp: 0, pp: 0 },
@@ -413,6 +413,7 @@ export default function CharacterCreator() {
   const [bgSkillPicks, setBgSkillPicks] = useState(saved?.bgSkillPicks ?? DEFAULTS.bgSkillPicks);
   const [bgAbilityAlt, setBgAbilityAlt] = useState(saved?.bgAbilityAlt ?? DEFAULTS.bgAbilityAlt);
   const [bgAbilityPicks, setBgAbilityPicks] = useState(saved?.bgAbilityPicks ?? DEFAULTS.bgAbilityPicks);
+  const [originLangs, setOriginLangs] = useState(saved?.originLangs ?? DEFAULTS.originLangs);
   const [armorId, setArmorId] = useState(saved?.armorId ?? DEFAULTS.armorId);
   const [hasShield, setHasShield] = useState(saved?.hasShield ?? DEFAULTS.hasShield);
   const [classEquipPicks, setClassEquipPicks] = useState(saved?.classEquipPicks ?? DEFAULTS.classEquipPicks);
@@ -467,6 +468,7 @@ export default function CharacterCreator() {
     setMasteryPicks(DEFAULTS.masteryPicks);
     setBgId(DEFAULTS.bgId); setBgSkillPicks(DEFAULTS.bgSkillPicks);
     setBgAbilityAlt(DEFAULTS.bgAbilityAlt); setBgAbilityPicks(DEFAULTS.bgAbilityPicks);
+    setOriginLangs(DEFAULTS.originLangs);
     setArmorId(DEFAULTS.armorId); setHasShield(DEFAULTS.hasShield);
     setClassEquipPicks(DEFAULTS.classEquipPicks); setBgEquipPicks(DEFAULTS.bgEquipPicks);
     setEquipTypePicks(DEFAULTS.equipTypePicks);
@@ -600,6 +602,35 @@ export default function CharacterCreator() {
     }
     return [...new Set(out)];
   }, [ancestry, ancestryChoiceGroups, ancestryPicks]);
+
+  /* 2024 languages are not a species feature. XPHB p.37 grants them at
+     Step 2 (Determine Origin): "Common plus two languages you roll or
+     choose from the Standard Languages table" — the same three for
+     every character, whatever species and background they took, which is
+     why no XPHB species record carries a languageProficiencies block at
+     all. The picker lives on the Background step (the origin step) and
+     is deliberately independent of which background is chosen. 2014
+     keeps its per-species grant and never sees this. */
+  const originLangsNeeded = content?.edition === "2024" ? 2 : 0;
+  const originLangPool = useMemo(() => {
+    if (!originLangsNeeded) return [];
+    const known = new Set(["Common", ...(ancestry?.languages.fixed || [])]);
+    return (content?.languages || [])
+      .filter((l) => l.type === "standard" && !known.has(l.name))
+      .map((l) => l.name);
+  }, [originLangsNeeded, content, ancestry]);
+
+  const toggleOriginLang = (v) =>
+    setOriginLangs((prev) => swapPick(prev, v, originLangsNeeded));
+
+  /* What the sheet and every export read: Common, the species' own
+     grant (2014) and the origin picks (2024). */
+  const languagesGranted = useMemo(() => [
+    ...(originLangsNeeded ? ["Common"] : []),
+    ...ancestryLanguagesGranted,
+    ...originLangs.filter((l) => originLangPool.includes(l)),
+  ].filter((v, i, a) => a.indexOf(v) === i),
+  [originLangsNeeded, ancestryLanguagesGranted, originLangs, originLangPool]);
 
   const ancestryToolsGranted = useMemo(() => {
     const out = [...(ancestry?.tools.fixed || [])];
@@ -2153,6 +2184,7 @@ const choiceNote = (feature) => {
       if (!background) return false;
       if (bgSkillChoice && bgSkillPicks.length !== bgSkillChoice.count && bgSkillPool.length >= bgSkillChoice.count) return false;
       if (background.abilityChoices && !bgAbilitySlots.auto && bgAbilityPicks.length !== bgAbilitySlots.count) return false;
+      if (originLangs.filter((l) => originLangPool.includes(l)).length < originLangsNeeded) return false;
       return true;
     }
     return true;
@@ -2194,12 +2226,12 @@ const choiceNote = (feature) => {
     edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
-    bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
+    bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, originLangs, armorId, hasShield,
     classEquipPicks, bgEquipPicks, equipTypePicks, pickedSpellIds, customItems, containerOf, bagGiven, currency,
   }), [edition, step, maxStep, ancestryId, ancestryPicks, ancestrySpellPicks, mode, scores, arrayAssign,
     name, backstory, classId, level, subclassId, skillPicks, optionPicks, asiPicks, masteryPicks,
     multiclasses, mcSkillPicks, mcAsiPicks, mcMasteryPicks,
-    bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, armorId, hasShield,
+    bgId, bgSkillPicks, bgAbilityAlt, bgAbilityPicks, originLangs, armorId, hasShield,
     classEquipPicks, bgEquipPicks, equipTypePicks, pickedSpellIds, customItems, containerOf, bagGiven, currency]);
 
   useEffect(() => { saveSnapshot(snapshot); }, [snapshot]);
@@ -2247,7 +2279,7 @@ const choiceNote = (feature) => {
   const resolved = ancestry ? {
     size: ancestry.size, darkvision: ancestry.darkvision || 0, blindsight: 0,
     speed: ancestry.speed.walk || 0,
-    languages: ancestryLanguagesGranted,
+    languages: languagesGranted,
     traits: ancestry.traits,
     droppedTraits: [],
     asi: allBonuses,
@@ -3677,6 +3709,34 @@ const choiceNote = (feature) => {
                 })}
                 </div>
               </div>
+
+              {originLangsNeeded > 0 && (
+                <>
+                  <Rule />
+                  {/* Origin languages, not species or background ones —
+                      XPHB p.37 gives every 2024 character Common plus two
+                      of the standard languages regardless of either, so
+                      this panel shows before a background is picked and
+                      survives changing one. */}
+                  <div className="byo-panel">
+                    <h3>Languages <span className="byo-count">
+                      {originLangs.filter((l) => originLangPool.includes(l)).length}/{originLangsNeeded} chosen
+                    </span></h3>
+                    <p className="byo-note">You know Common, plus two languages of your choice.</p>
+                    <div className="byo-skills">
+                      {originLangPool.map((v) => {
+                        const on = originLangs.includes(v);
+                        const full = !on && originLangs.length >= originLangsNeeded;
+                        return (
+                          <button key={v} className={`byo-skill ${on ? "is-sel" : ""}`}
+                                  onClick={() => toggleOriginLang(v)} disabled={full}
+                                  aria-pressed={on}>{v}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {background && (
                 <>
