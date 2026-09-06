@@ -455,6 +455,7 @@ export default function CharacterCreator() {
      Transient like the class one — a reopened grid isn't worth saving. */
   const [speciesGridOpen, setSpeciesGridOpen] = useState(false);
   const [bgGridOpen, setBgGridOpen] = useState(false);
+  const [langSheetOpen, setLangSheetOpen] = useState(false);
 
   const pickEdition = (ed) => {
     setEdition(ed);
@@ -620,6 +621,12 @@ export default function CharacterCreator() {
       .map((l) => l.name);
   }, [originLangsNeeded, content, ancestry]);
 
+  /* The picks that still exist in the pool — a saved character whose
+     ruleset changed can carry a language the new pack has never heard of. */
+  const chosenOriginLangs = useMemo(
+    () => originLangs.filter((l) => originLangPool.includes(l)),
+    [originLangs, originLangPool]);
+
   const toggleOriginLang = (v) =>
     setOriginLangs((prev) => swapPick(prev, v, originLangsNeeded));
 
@@ -628,9 +635,9 @@ export default function CharacterCreator() {
   const languagesGranted = useMemo(() => [
     ...(originLangsNeeded ? ["Common"] : []),
     ...ancestryLanguagesGranted,
-    ...originLangs.filter((l) => originLangPool.includes(l)),
+    ...chosenOriginLangs,
   ].filter((v, i, a) => a.indexOf(v) === i),
-  [originLangsNeeded, ancestryLanguagesGranted, originLangs, originLangPool]);
+  [originLangsNeeded, ancestryLanguagesGranted, chosenOriginLangs]);
 
   const ancestryToolsGranted = useMemo(() => {
     const out = [...(ancestry?.tools.fixed || [])];
@@ -2184,7 +2191,7 @@ const choiceNote = (feature) => {
       if (!background) return false;
       if (bgSkillChoice && bgSkillPicks.length !== bgSkillChoice.count && bgSkillPool.length >= bgSkillChoice.count) return false;
       if (background.abilityChoices && !bgAbilitySlots.auto && bgAbilityPicks.length !== bgAbilitySlots.count) return false;
-      if (originLangs.filter((l) => originLangPool.includes(l)).length < originLangsNeeded) return false;
+      if (chosenOriginLangs.length < originLangsNeeded) return false;
       return true;
     }
     return true;
@@ -3720,35 +3727,24 @@ const choiceNote = (feature) => {
                       survives changing one. */}
                   <div className="byo-panel">
                     <h3>Languages <span className="byo-count">
-                      {originLangs.filter((l) => originLangPool.includes(l)).length}/{originLangsNeeded} chosen
+                      {chosenOriginLangs.length}/{originLangsNeeded} chosen
                     </span></h3>
                     <p className="byo-note">You know Common, plus two languages of your choice.</p>
-                    {/* Chip/tag style: what you picked moves up into a row
-                        of removable pills and leaves the list below, so the
-                        two picks are readable at a glance instead of being
-                        two highlighted buttons somewhere in a row of nine.
-                        Clicking a chip (or its x) puts the language back. */}
-                    {originLangs.some((v) => originLangPool.includes(v)) && (
-                      <div className="byo-pick-tags">
-                        {originLangPool.filter((v) => originLangs.includes(v)).map((v) => (
-                          <button key={v} type="button" className="byo-pick-tag"
-                                  onClick={() => toggleOriginLang(v)}
-                                  aria-label={`Remove ${v}`}>
-                            {v}<span className="byo-pick-tag-x" aria-hidden="true">x</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <div className="byo-skills">
-                      {originLangPool.filter((v) => !originLangs.includes(v)).map((v) => {
-                        const full = originLangs.length >= originLangsNeeded;
-                        return (
-                          <button key={v} className="byo-skill"
-                                  onClick={() => toggleOriginLang(v)} disabled={full}
-                                  aria-pressed={false}>{v}</button>
-                        );
-                      })}
-                    </div>
+                    {/* Bottom sheet rather than a row of buttons: on a phone
+                        the panel is one tappable summary line, and the picking
+                        happens in a sheet pinned to the bottom of the viewport
+                        with 48px rows under the thumb. Purely presentational —
+                        the same toggleOriginLang runs behind each row. */}
+                    <button type="button" className="byo-lsheet-sum"
+                            onClick={() => setLangSheetOpen(true)}
+                            aria-haspopup="dialog" aria-expanded={langSheetOpen}>
+                      {chosenOriginLangs.length
+                        ? <span>{chosenOriginLangs.join(", ")}</span>
+                        : <span className="byo-lsheet-sum-e">Choose {originLangsNeeded} languages</span>}
+                      <span className="byo-lsheet-sum-c">
+                        {chosenOriginLangs.length === originLangsNeeded ? "change" : "choose"}
+                      </span>
+                    </button>
                   </div>
                 </>
               )}
@@ -4413,6 +4409,36 @@ const choiceNote = (feature) => {
           )}
         </ErrorBoundary>
       </div>
+
+      {langSheetOpen && (
+        <div className="byo-lsheet-bg" role="dialog" aria-modal="true" aria-label="Choose languages"
+             onClick={(ev) => { if (ev.target === ev.currentTarget) setLangSheetOpen(false); }}>
+          <div className="byo-lsheet">
+            <div className="byo-lsheet-h">
+              <h3 className="byo-lsheet-t">Languages</h3>
+              <span className="byo-count">{chosenOriginLangs.length}/{originLangsNeeded} chosen</span>
+            </div>
+            <div className="byo-lsheet-l">
+              {originLangPool.map((v) => {
+                const on = originLangs.includes(v);
+                return (
+                  <button key={v} type="button" role="checkbox" aria-checked={on}
+                          className={`byo-lsheet-r ${on ? "is-sel" : ""}`}
+                          disabled={!on && chosenOriginLangs.length >= originLangsNeeded}
+                          onClick={() => toggleOriginLang(v)}>
+                    <span className="byo-lsheet-b" aria-hidden="true">{on ? "\u2713" : ""}</span>
+                    {v}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="byo-lsheet-f">
+              <button type="button" className="byo-btn byo-btn-go" style={{ width: "100%" }}
+                      onClick={() => setLangSheetOpen(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddMcModal && (
         <div className="byo-modal-bg" role="dialog" aria-modal="true" aria-label="Add new Multiclass"

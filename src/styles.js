@@ -508,18 +508,39 @@ export const STYLES = `
 .byo-skill:disabled{opacity:.3;cursor:not-allowed;}
 .byo-skill:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 
-/* Chip/tag multi-select — the picked values as removable pills above
-   the remaining choices (origin languages). Same gold "on" colour as a
-   selected .byo-skill so the two read as one control, plus the x and a
-   red hover that says the click removes rather than re-picks. */
-.byo-pick-tags{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;}
-.byo-pick-tag{display:inline-flex;align-items:center;gap:7px;font-family:'Vollkorn',serif;
-  font-size:14px;font-weight:700;background:var(--gold);color:var(--abyss);
-  border:1px solid var(--gold);padding:7px 11px;border-radius:2px;cursor:pointer;
-  transition:background .12s,border-color .12s,color .12s;}
-.byo-pick-tag:hover{background:#9C3A3A;border-color:#9C3A3A;color:var(--bone);}
-.byo-pick-tag:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
-.byo-pick-tag-x{font-family:'Space Mono',monospace;font-size:12px;line-height:1;}
+/* Bottom-sheet multi-select (origin languages). The summary line is
+   the only thing on the page until tapped; the sheet itself is pinned to
+   the bottom of the viewport with 48px rows, which is a thumb target on
+   a phone and still fine with a mouse. Own prefix: styles.js already has
+   a .byo-sheet (the character sheet page) and a .byo-tag. */
+.byo-lsheet-sum{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;min-height:48px;padding:10px 13px;background:transparent;cursor:pointer;
+  border:1px solid var(--line);border-radius:2px;text-align:left;
+  font-family:'Vollkorn',serif;font-size:15px;color:var(--bone);}
+.byo-lsheet-sum:hover{border-color:var(--gold-dim);}
+.byo-lsheet-sum:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+.byo-lsheet-sum-e{color:var(--bone-dim);}
+.byo-lsheet-sum-c{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--gold);white-space:nowrap;}
+.byo-lsheet-bg{position:fixed;inset:0;background:rgba(43,29,14,.55);z-index:60;
+  display:flex;align-items:flex-end;justify-content:center;}
+.byo-lsheet{width:100%;max-width:560px;max-height:78vh;display:flex;flex-direction:column;
+  background:var(--rock);border:1px solid var(--line-bright);border-bottom:none;
+  border-radius:3px 3px 0 0;padding-bottom:env(safe-area-inset-bottom);}
+.byo-lsheet-h{display:flex;align-items:baseline;gap:10px;padding:16px 18px 10px;
+  border-bottom:1px solid var(--line);}
+.byo-lsheet-t{font-family:'Vollkorn',serif;font-size:19px;color:var(--bone);margin:0;flex:1;}
+.byo-lsheet-l{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;}
+.byo-lsheet-r{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;
+  padding:12px 18px;background:transparent;border:none;border-bottom:1px solid var(--line);
+  cursor:pointer;text-align:left;font-family:'Vollkorn',serif;font-size:16px;color:var(--bone);}
+.byo-lsheet-r:hover:not(:disabled){background:var(--rock-2);}
+.byo-lsheet-r:disabled{opacity:.35;cursor:not-allowed;}
+.byo-lsheet-r:focus-visible{outline:2px solid var(--jade);outline-offset:-2px;}
+.byo-lsheet-b{flex:0 0 20px;height:20px;border:1px solid var(--line-bright);border-radius:2px;
+  display:flex;align-items:center;justify-content:center;font-size:13px;line-height:1;color:var(--abyss);}
+.byo-lsheet-r.is-sel .byo-lsheet-b{background:var(--gold);border-color:var(--gold);}
+.byo-lsheet-f{padding:14px 18px;border-top:1px solid var(--line);}
 
 .byo-skill.is-given{border-color:var(--jade);color:var(--jade);cursor:default;}
 .byo-skill.is-dupe{border-color:var(--coral);color:var(--coral);
