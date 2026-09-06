@@ -250,6 +250,18 @@ function one(race, sub, reg, mint) {
   const skills = bothProf(sub, race, "skillProficiencies", normSkills);
   const tools = bothProf(sub, race, "toolProficiencies", normTools);
   const languages = bothProf(sub, race, "languageProficiencies", normLanguages);
+  /* 2024 species carry no languageProficiencies at all: XPHB grants
+     Common plus two languages of your choice to every character at
+     origin (p.37), so there is nothing per-species for the data to
+     hold. Synthesised here rather than in the UI, so the species step's
+     existing language picker, the sheet and the export all get it the
+     same way they get a 2014 species' own grant. Rare languages need
+     the DM's say-so, hence "standard". A species that DOES carry a
+     block (Custom Lineage) keeps its own. */
+  if (reg.edition === "2024" && !languages.fixed.length && !languages.choices.length) {
+    languages.fixed.push("Common");
+    languages.choices.push({ count: 2, from: null, any: "standard" });
+  }
 
   const traits = [...traitsOf(race, reg, name), ...traitsOf(sub, reg, name)];
   const flat = flatten([...(race.entries || []), ...(sub?.entries || [])]);
