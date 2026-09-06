@@ -3723,14 +3723,29 @@ const choiceNote = (feature) => {
                       {originLangs.filter((l) => originLangPool.includes(l)).length}/{originLangsNeeded} chosen
                     </span></h3>
                     <p className="byo-note">You know Common, plus two languages of your choice.</p>
+                    {/* Chip/tag style: what you picked moves up into a row
+                        of removable pills and leaves the list below, so the
+                        two picks are readable at a glance instead of being
+                        two highlighted buttons somewhere in a row of nine.
+                        Clicking a chip (or its x) puts the language back. */}
+                    {originLangs.some((v) => originLangPool.includes(v)) && (
+                      <div className="byo-pick-tags">
+                        {originLangPool.filter((v) => originLangs.includes(v)).map((v) => (
+                          <button key={v} type="button" className="byo-pick-tag"
+                                  onClick={() => toggleOriginLang(v)}
+                                  aria-label={`Remove ${v}`}>
+                            {v}<span className="byo-pick-tag-x" aria-hidden="true">x</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="byo-skills">
-                      {originLangPool.map((v) => {
-                        const on = originLangs.includes(v);
-                        const full = !on && originLangs.length >= originLangsNeeded;
+                      {originLangPool.filter((v) => !originLangs.includes(v)).map((v) => {
+                        const full = originLangs.length >= originLangsNeeded;
                         return (
-                          <button key={v} className={`byo-skill ${on ? "is-sel" : ""}`}
+                          <button key={v} className="byo-skill"
                                   onClick={() => toggleOriginLang(v)} disabled={full}
-                                  aria-pressed={on}>{v}</button>
+                                  aria-pressed={false}>{v}</button>
                         );
                       })}
                     </div>

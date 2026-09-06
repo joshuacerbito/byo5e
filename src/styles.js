@@ -508,6 +508,19 @@ export const STYLES = `
 .byo-skill:disabled{opacity:.3;cursor:not-allowed;}
 .byo-skill:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
 
+/* Chip/tag multi-select — the picked values as removable pills above
+   the remaining choices (origin languages). Same gold "on" colour as a
+   selected .byo-skill so the two read as one control, plus the x and a
+   red hover that says the click removes rather than re-picks. */
+.byo-pick-tags{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;}
+.byo-pick-tag{display:inline-flex;align-items:center;gap:7px;font-family:'Vollkorn',serif;
+  font-size:14px;font-weight:700;background:var(--gold);color:var(--abyss);
+  border:1px solid var(--gold);padding:7px 11px;border-radius:2px;cursor:pointer;
+  transition:background .12s,border-color .12s,color .12s;}
+.byo-pick-tag:hover{background:#9C3A3A;border-color:#9C3A3A;color:var(--bone);}
+.byo-pick-tag:focus-visible{outline:2px solid var(--jade);outline-offset:2px;}
+.byo-pick-tag-x{font-family:'Space Mono',monospace;font-size:12px;line-height:1;}
+
 .byo-skill.is-given{border-color:var(--jade);color:var(--jade);cursor:default;}
 .byo-skill.is-dupe{border-color:var(--coral);color:var(--coral);
   text-decoration:line-through;text-decoration-color:rgba(179,58,21,.6);}
